@@ -1,7 +1,18 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Menu, X, Plus, List, Brain } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { 
+  Menu, 
+  X, 
+  BookOpen, 
+  Plus, 
+  Activity, 
+  Shield, 
+  BarChart3, 
+  Brain,
+  Home,
+  Settings
+} from "lucide-react";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -9,105 +20,103 @@ const Navigation = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Brain className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">AssessmentPro</h1>
-            </Link>
-          </div>
-          
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              <Link 
-                to="/assessments" 
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${isActive('/assessments') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
-              >
-                <List className="w-4 h-4 mr-2" />
-                Assessments
-              </Link>
-              <Link 
-                to="/assessments/create"
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${isActive('/assessments/create') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create
-              </Link>
-              <Link 
-                to="/monitoring"
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${isActive('/monitoring') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
-              >
-                Monitor
-              </Link>
-              <Link 
-                to="/proctoring"
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${isActive('/proctoring') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
-              >
-                Proctoring
-              </Link>
-              <Link 
-                to="/advanced-analytics"
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${isActive('/advanced-analytics') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
-              >
-                Analytics
-              </Link>
-              <Button variant="outline" size="sm">
-                Sign In
-              </Button>
-              <Button size="sm">
-                Get Started
-              </Button>
-            </div>
-          </div>
+  const navLinks = [
+    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Assessments", href: "/assessments", icon: BookOpen },
+    { name: "Create", href: "/assessments/create", icon: Plus },
+    { name: "Monitor", href: "/monitoring", icon: Activity },
+    { name: "Proctoring", href: "/proctoring", icon: Shield },
+    { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+    { name: "Admin", href: "/admin", icon: Settings },
+  ];
 
-          <div className="md:hidden">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto px-4">
+        <div className="flex h-14 items-center justify-between">
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-2">
+            <Brain className="h-6 w-6 text-primary" />
+            <span className="font-bold text-lg">AssessAI</span>
+          </Link>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-6">
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className={`flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary ${
+                    isActive(link.href)
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {link.name}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Desktop Actions */}
+          <div className="hidden md:flex items-center space-x-2">
+            <Button variant="ghost" size="sm">
+              Sign In
+            </Button>
+            <Button size="sm">
+              Get Started
             </Button>
           </div>
-        </div>
-      </div>
 
-      {isMenuOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
-            <Link 
-              to="/assessments" 
-              className={`flex items-center px-3 py-2 rounded-md text-base font-medium ${isActive('/assessments') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <List className="w-4 h-4 mr-2" />
-              Assessments
-            </Link>
-            <Link 
-              to="/assessments/create" 
-              className={`flex items-center px-3 py-2 rounded-md text-base font-medium ${isActive('/assessments/create') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Assessment
-            </Link>
-            <div className="pt-2 space-y-2">
-              <Button variant="outline" size="sm" className="w-full">
+          {/* Mobile Menu Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="md:hidden"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
+
+        {/* Mobile Menu */}
+        {isMenuOpen && (
+          <div className="md:hidden border-t py-4">
+            <nav className="flex flex-col space-y-2">
+              {navLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    className={`flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-md transition-colors hover:bg-accent ${
+                      isActive(link.href)
+                        ? "text-primary bg-accent"
+                        : "text-muted-foreground"
+                    }`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {link.name}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
+              <Button variant="ghost" size="sm" className="justify-start">
                 Sign In
               </Button>
-              <Button size="sm" className="w-full">
+              <Button size="sm" className="justify-start">
                 Get Started
               </Button>
             </div>
           </div>
-        </div>
-      )}
-    </nav>
+        )}
+      </div>
+    </header>
   );
 };
 
