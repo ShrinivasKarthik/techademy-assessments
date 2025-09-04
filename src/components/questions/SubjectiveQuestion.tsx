@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
+import TTSButton from '@/components/TTSButton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -69,6 +70,13 @@ const SubjectiveQuestion: React.FC<SubjectiveQuestionProps> = ({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Write your answer in the text area below:
+        </div>
+        <TTSButton text={question.question_text} />
+      </div>
+      
       {/* Writing Area */}
       <div>
         <Textarea

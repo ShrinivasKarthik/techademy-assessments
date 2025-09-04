@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import TTSButton from '@/components/TTSButton';
 import { Play, CheckCircle, XCircle } from 'lucide-react';
 
 interface CodingQuestionProps {
@@ -102,8 +103,13 @@ const CodingQuestion: React.FC<CodingQuestionProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Language Selection */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Coding Challenge</h3>
+          <TTSButton text={question.question_text + '. ' + (question.title || '')} showLabel />
+        </div>
+        
+        {/* Language Selection */}
       <div className="flex items-center gap-4">
         <label className="text-sm font-medium">Language:</label>
         <Select value={language} onValueChange={handleLanguageChange} disabled={disabled}>

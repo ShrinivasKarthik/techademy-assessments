@@ -22,7 +22,10 @@ import QuestionBankPage from "./pages/QuestionBankPage";
 import QuestionQualityPage from "./pages/QuestionQualityPage";
 import SkillAnalyticsPage from "./pages/SkillAnalyticsPage";
 import AIInsightsPage from "./pages/AIInsightsPage";
-import UserOnboarding from "./components/UserOnboarding";
+import RealTimeMonitoringPage from "./pages/RealTimeMonitoringPage";
+import AdvancedReportsPage from "./pages/AdvancedReportsPage";
+import OnboardingPage from "./pages/OnboardingPage";
+import QuestionAnalyticsPage from "./pages/QuestionAnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,7 +41,7 @@ const App = () => (
           <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/onboarding" element={<UserOnboarding />} />
+            <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/" element={<Index />} />
             <Route path="/assessments/create" element={
               <ProtectedRoute>
@@ -80,6 +83,16 @@ const App = () => (
                 <MonitoringPage />
               </ProtectedRoute>
             } />
+            <Route path="/monitoring/real-time" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <RealTimeMonitoringPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <AdvancedReportsPage />
+              </ProtectedRoute>
+            } />
             <Route path="/proctoring" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                 <ProctoringPage />
@@ -88,6 +101,11 @@ const App = () => (
             <Route path="/advanced-analytics" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                 <AdvancedAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/question-analytics" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <QuestionAnalyticsPage />
               </ProtectedRoute>
             } />
             <Route path="/question-quality" element={

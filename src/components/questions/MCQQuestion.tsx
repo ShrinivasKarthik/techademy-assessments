@@ -3,6 +3,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import TTSButton from '@/components/TTSButton';
 
 interface MCQQuestionProps {
   question: {
@@ -59,8 +60,11 @@ const MCQQuestion: React.FC<MCQQuestionProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="text-sm text-muted-foreground">
-        {allowMultiple ? 'Select all that apply:' : 'Select one option:'}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {allowMultiple ? 'Select all that apply:' : 'Select one option:'}
+        </div>
+        <TTSButton text={question.question_text} />
       </div>
 
       {allowMultiple ? (

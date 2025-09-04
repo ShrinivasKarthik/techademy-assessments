@@ -53,6 +53,8 @@ const Navigation = () => {
         roleSpecificLinks.push(
           { name: "Create", href: "/assessments/create", icon: Plus },
           { name: "Monitor", href: "/monitoring", icon: Activity },
+          { name: "Real-Time", href: "/monitoring/real-time", icon: Activity },
+          { name: "Reports", href: "/reports", icon: BarChart3 },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
           { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
           { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
@@ -65,6 +67,8 @@ const Navigation = () => {
         roleSpecificLinks.push(
           { name: "Create", href: "/assessments/create", icon: Plus },
           { name: "Monitor", href: "/monitoring", icon: Activity },
+          { name: "Real-Time", href: "/monitoring/real-time", icon: Activity },
+          { name: "Reports", href: "/reports", icon: BarChart3 },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
           { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
           { name: "Question Quality", href: "/question-quality", icon: CheckCircle },

@@ -22,6 +22,8 @@ import CodingQuestion from "./questions/CodingQuestion";
 import SubjectiveQuestion from "./questions/SubjectiveQuestion";
 import FileUploadQuestion from "./questions/FileUploadQuestion";
 import AudioQuestion from "./questions/AudioQuestion";
+import VersionControl from './VersionControl';
+import TTSButton from './TTSButton';
 
 interface QuestionPreviewProps {
   question: Question;
@@ -102,7 +104,10 @@ export default function QuestionPreview({ question, isOpen, onClose }: QuestionP
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <DialogTitle className="text-xl mb-2">{question.title}</DialogTitle>
+              <div className="flex items-center justify-between mb-2">
+                <DialogTitle className="text-xl">{question.title}</DialogTitle>
+                <TTSButton text={question.title + '. ' + (question.question_text || '')} showLabel />
+              </div>
               <div className="flex flex-wrap gap-2 mb-4">
                 <Badge variant="outline" className={getDifficultyColor(question.difficulty)}>
                   {question.difficulty}
@@ -192,6 +197,24 @@ export default function QuestionPreview({ question, isOpen, onClose }: QuestionP
               </pre>
             </div>
           )}
+
+          {/* Version Control */}
+          <VersionControl 
+            questionId={question.id}
+            currentQuestion={{
+              id: question.id,
+              title: question.title,
+              description: question.question_text,
+              config: question.config || {},
+              tags: question.tags || [],
+              difficulty: question.difficulty,
+              points: question.points,
+              version: 1, // Default version
+              is_active: true, // Default to active
+              change_summary: null
+            }}
+            onQuestionUpdated={() => {}}
+          />
         </div>
       </DialogContent>
     </Dialog>

@@ -35,10 +35,10 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import LiveProctoringSystem from './LiveProctoringSystem';
-import CollaborationSystem from './CollaborationSystem';
 import AccessibilityControls from './AccessibilityControls';
 import ManualUserCreation from './ManualUserCreation';
 import UserCredentialsManager from './UserCredentialsManager';
+import UserManagement from './UserManagement';
 
 interface AdminStats {
   totalUsers: number;
@@ -350,13 +350,12 @@ const AdminDashboard: React.FC = () => {
 
       {/* Detailed Management */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
           <TabsTrigger value="proctoring">Proctoring</TabsTrigger>
-          <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
           <TabsTrigger value="accessibility">Accessibility</TabsTrigger>
         </TabsList>
 
@@ -388,91 +387,7 @@ const AdminDashboard: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>User Management</CardTitle>
-                <div className="flex gap-2">
-                  <ManualUserCreation onUserCreated={loadDashboardData} />
-                  <Button variant="outline">
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Invite User (Email)
-                  </Button>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                  <Input
-                    placeholder="Search users..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Button variant="outline" size="sm">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filter
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <Users className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline">{user.role}</Badge>
-                          <div className="flex items-center gap-1">
-                            {getStatusIcon(user.status)}
-                            <span className="text-xs">{user.status}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right text-sm">
-                        <p>Last active: {new Date(user.lastActive).toLocaleDateString()}</p>
-                        {user.assessmentsCreated && <p>Created: {user.assessmentsCreated} assessments</p>}
-                        {user.assessmentsTaken && <p>Completed: {user.assessmentsTaken} assessments</p>}
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem>
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit User
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Shield className="w-4 h-4 mr-2" />
-                            Manage Permissions
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Suspend User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <UserManagement />
         </TabsContent>
 
         <TabsContent value="credentials" className="space-y-4">
@@ -585,10 +500,6 @@ const AdminDashboard: React.FC = () => {
             onSecurityEvent={(event) => console.log('Admin Security Event:', event)}
             onStatusChange={(status) => console.log('Admin Status Change:', status)}
           />
-        </TabsContent>
-
-        <TabsContent value="collaboration">
-          <CollaborationSystem />
         </TabsContent>
 
         <TabsContent value="accessibility">
