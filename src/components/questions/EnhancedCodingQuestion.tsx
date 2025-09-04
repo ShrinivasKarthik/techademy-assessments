@@ -17,10 +17,12 @@ import {
   Code,
   Save,
   FolderOpen,
-  Monitor
+  Monitor,
+  Brain
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import CodeIntelligencePanel from '@/components/CodeIntelligencePanel';
 
 interface CodeFile {
   id: string;
@@ -127,8 +129,9 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
   const [language, setLanguage] = useState(answer?.language || question.config.language || 'javascript');
   const [isRunning, setIsRunning] = useState(false);
   const [testResults, setTestResults] = useState(answer?.testResults || []);
-  const [newFileName, setNewFileName] = useState('');
   const [showNewFileInput, setShowNewFileInput] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [showIntelligencePanel, setShowIntelligencePanel] = useState(false);
 
   const supportedLanguages = question.config.supportedLanguages || ['javascript', 'typescript', 'python'];
   const availableLanguages = languages.filter(lang => supportedLanguages.includes(lang.value));
