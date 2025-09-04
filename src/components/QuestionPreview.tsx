@@ -192,9 +192,33 @@ export default function QuestionPreview({ question, isOpen, onClose }: QuestionP
           {question.config && Object.keys(question.config).length > 0 && (
             <div>
               <h4 className="text-sm font-medium mb-2">Configuration:</h4>
-              <pre className="text-xs bg-muted p-3 rounded-lg overflow-x-auto">
-                {JSON.stringify(question.config, null, 2)}
-              </pre>
+              <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+                {question.question_type === 'mcq' && question.config.options ? (
+                  <div>
+                    <div className="text-sm font-medium mb-2">Options:</div>
+                    <div className="space-y-2">
+                      {question.config.options.map((option: any, index: number) => (
+                        <div key={index} className="flex items-start gap-2 p-2 bg-background rounded border">
+                          <span className="text-xs text-muted-foreground mt-1">{index + 1}.</span>
+                          <span className="flex-1">{option.text}</span>
+                          {option.isCorrect && (
+                            <Badge variant="secondary" className="text-xs">Correct</Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {question.config.allowMultiple !== undefined && (
+                      <div className="text-sm text-muted-foreground mt-2">
+                        Allow multiple selections: {question.config.allowMultiple ? 'Yes' : 'No'}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(question.config, null, 2)}
+                  </pre>
+                )}
+              </div>
             </div>
           )}
 

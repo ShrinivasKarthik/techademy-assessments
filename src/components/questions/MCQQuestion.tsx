@@ -60,11 +60,14 @@ const MCQQuestion: React.FC<MCQQuestionProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          {allowMultiple ? 'Select all that apply:' : 'Select one option:'}
+      {question.question_text && (
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-base leading-relaxed flex-1">{question.question_text}</p>
+          <TTSButton text={question.question_text} />
         </div>
-        <TTSButton text={question.question_text} />
+      )}
+      <div className="text-sm text-muted-foreground">
+        {allowMultiple ? 'Select all that apply:' : 'Select one option:'}
       </div>
 
       {allowMultiple ? (
