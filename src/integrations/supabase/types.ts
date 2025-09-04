@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_auto_build: {
+        Row: {
+          ai_criteria: string | null
+          assessment_id: string
+          build_status: string | null
+          created_at: string
+          created_by: string
+          difficulty_distribution: Json
+          id: string
+          question_types: Json
+          selected_questions: Json | null
+          target_skills: Json
+          time_limit_minutes: number | null
+          total_points: number | null
+          updated_at: string
+        }
+        Insert: {
+          ai_criteria?: string | null
+          assessment_id: string
+          build_status?: string | null
+          created_at?: string
+          created_by: string
+          difficulty_distribution?: Json
+          id?: string
+          question_types?: Json
+          selected_questions?: Json | null
+          target_skills?: Json
+          time_limit_minutes?: number | null
+          total_points?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ai_criteria?: string | null
+          assessment_id?: string
+          build_status?: string | null
+          created_at?: string
+          created_by?: string
+          difficulty_distribution?: Json
+          id?: string
+          question_types?: Json
+          selected_questions?: Json | null
+          target_skills?: Json
+          time_limit_minutes?: number | null
+          total_points?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_auto_build_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_auto_build_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       assessment_instances: {
         Row: {
           assessment_id: string
@@ -313,27 +376,42 @@ export type Database = {
       }
       question_collections: {
         Row: {
+          collection_type: string | null
+          color: string | null
           created_at: string
           creator_id: string
           description: string | null
           id: string
+          is_favorite: boolean | null
           name: string
+          parent_collection_id: string | null
+          sort_order: number | null
           updated_at: string
         }
         Insert: {
+          collection_type?: string | null
+          color?: string | null
           created_at?: string
           creator_id: string
           description?: string | null
           id?: string
+          is_favorite?: boolean | null
           name: string
+          parent_collection_id?: string | null
+          sort_order?: number | null
           updated_at?: string
         }
         Update: {
+          collection_type?: string | null
+          color?: string | null
           created_at?: string
           creator_id?: string
           description?: string | null
           id?: string
+          is_favorite?: boolean | null
           name?: string
+          parent_collection_id?: string | null
+          sort_order?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -343,6 +421,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "question_collections_parent_collection_id_fkey"
+            columns: ["parent_collection_id"]
+            isOneToOne: false
+            referencedRelation: "question_collections"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -390,9 +475,121 @@ export type Database = {
           },
         ]
       }
+      question_templates: {
+        Row: {
+          category: string
+          created_at: string
+          creator_id: string
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          question_type: Database["public"]["Enums"]["question_type"]
+          template_config: Json
+          updated_at: string
+          usage_count: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          creator_id: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          question_type: Database["public"]["Enums"]["question_type"]
+          template_config?: Json
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          creator_id?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          question_type?: Database["public"]["Enums"]["question_type"]
+          template_config?: Json
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_templates_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      question_versions: {
+        Row: {
+          change_summary: string | null
+          config: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty: Database["public"]["Enums"]["difficulty_level"] | null
+          id: string
+          points: number | null
+          question_id: string
+          tags: string[] | null
+          title: string
+          version_number: number
+        }
+        Insert: {
+          change_summary?: string | null
+          config?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: Database["public"]["Enums"]["difficulty_level"] | null
+          id?: string
+          points?: number | null
+          question_id: string
+          tags?: string[] | null
+          title: string
+          version_number: number
+        }
+        Update: {
+          change_summary?: string | null
+          config?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: Database["public"]["Enums"]["difficulty_level"] | null
+          id?: string
+          points?: number | null
+          question_id?: string
+          tags?: string[] | null
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "question_versions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
+          archived_at: string | null
           assessment_id: string
+          change_summary: string | null
           config: Json | null
           created_at: string
           created_by: string | null
@@ -400,9 +597,11 @@ export type Database = {
           difficulty: Database["public"]["Enums"]["difficulty_level"] | null
           difficulty_score: number | null
           id: string
+          is_active: boolean | null
           is_template: boolean | null
           last_used_at: string | null
           order_index: number
+          parent_question_id: string | null
           points: number
           quality_rating: number | null
           question_type: Database["public"]["Enums"]["question_type"]
@@ -410,9 +609,12 @@ export type Database = {
           title: string
           updated_at: string
           usage_count: number | null
+          version: number | null
         }
         Insert: {
+          archived_at?: string | null
           assessment_id: string
+          change_summary?: string | null
           config?: Json | null
           created_at?: string
           created_by?: string | null
@@ -420,9 +622,11 @@ export type Database = {
           difficulty?: Database["public"]["Enums"]["difficulty_level"] | null
           difficulty_score?: number | null
           id?: string
+          is_active?: boolean | null
           is_template?: boolean | null
           last_used_at?: string | null
           order_index: number
+          parent_question_id?: string | null
           points?: number
           quality_rating?: number | null
           question_type: Database["public"]["Enums"]["question_type"]
@@ -430,9 +634,12 @@ export type Database = {
           title: string
           updated_at?: string
           usage_count?: number | null
+          version?: number | null
         }
         Update: {
+          archived_at?: string | null
           assessment_id?: string
+          change_summary?: string | null
           config?: Json | null
           created_at?: string
           created_by?: string | null
@@ -440,9 +647,11 @@ export type Database = {
           difficulty?: Database["public"]["Enums"]["difficulty_level"] | null
           difficulty_score?: number | null
           id?: string
+          is_active?: boolean | null
           is_template?: boolean | null
           last_used_at?: string | null
           order_index?: number
+          parent_question_id?: string | null
           points?: number
           quality_rating?: number | null
           question_type?: Database["public"]["Enums"]["question_type"]
@@ -450,6 +659,7 @@ export type Database = {
           title?: string
           updated_at?: string
           usage_count?: number | null
+          version?: number | null
         }
         Relationships: [
           {
@@ -472,6 +682,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "questions_parent_question_id_fkey"
+            columns: ["parent_question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -516,6 +733,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      skill_analytics: {
+        Row: {
+          analytics_data: Json | null
+          avg_difficulty_score: number | null
+          created_at: string
+          id: string
+          last_analyzed_at: string | null
+          performance_score: number | null
+          skill_name: string
+          total_questions: number | null
+          updated_at: string
+          usage_frequency: number | null
+        }
+        Insert: {
+          analytics_data?: Json | null
+          avg_difficulty_score?: number | null
+          created_at?: string
+          id?: string
+          last_analyzed_at?: string | null
+          performance_score?: number | null
+          skill_name: string
+          total_questions?: number | null
+          updated_at?: string
+          usage_frequency?: number | null
+        }
+        Update: {
+          analytics_data?: Json | null
+          avg_difficulty_score?: number | null
+          created_at?: string
+          id?: string
+          last_analyzed_at?: string | null
+          performance_score?: number | null
+          skill_name?: string
+          total_questions?: number | null
+          updated_at?: string
+          usage_frequency?: number | null
+        }
+        Relationships: []
       }
       skills: {
         Row: {

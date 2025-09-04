@@ -24,6 +24,9 @@ verify_jwt = false
 [functions.enhanced-ai-generator]
 verify_jwt = false
 
+[functions.smart-assembly]
+verify_jwt = false
+
 [functions.ai-assessment-insights]
 verify_jwt = false
 
