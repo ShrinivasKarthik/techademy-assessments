@@ -8,12 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Plus, X, Save, Eye, Sparkles, Shield, Camera, Mic, Monitor } from 'lucide-react';
+import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monitor, X } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
 import AIContentGenerator from './AIContentGenerator';
 import AssessmentQualityAssurance from './AssessmentQualityAssurance';
+import QuestionBrowser from "./QuestionBrowser";
+import { Question as QuestionBankQuestion } from "@/hooks/useQuestionBank";
 
 type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -103,6 +105,7 @@ const CreateAssessment = () => {
 
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [showQuestionBrowser, setShowQuestionBrowser] = useState(false);
 
   const questionTypes = [
     { value: 'coding', label: 'Coding Challenge' },
@@ -162,6 +165,29 @@ const CreateAssessment = () => {
     }));
     setShowAIGenerator(false);
     setShowQuestionForm(true);
+  };
+
+  const addQuestionsFromBank = (bankQuestions: QuestionBankQuestion[]) => {
+    const newQuestions: Question[] = bankQuestions.map((bankQ, index) => ({
+      id: crypto.randomUUID(),
+      title: bankQ.title,
+      description: bankQ.description || '',
+      question_type: bankQ.question_type,
+      difficulty: bankQ.difficulty,
+      points: bankQ.points,
+      order_index: assessment.questions.length + index,
+      config: bankQ.config || {},
+    }));
+
+    setAssessment(prev => ({
+      ...prev,
+      questions: [...prev.questions, ...newQuestions]
+    }));
+
+    toast({
+      title: "Questions Added",
+      description: `${newQuestions.length} question(s) have been added to your assessment`,
+    });
   };
 
   const removeQuestion = (index: number) => {
@@ -527,6 +553,14 @@ const CreateAssessment = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Questions ({assessment.questions.length})</CardTitle>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowQuestionBrowser(true)}
+                size="sm"
+              >
+                <Library className="w-4 h-4 mr-2" />
+                Add from Bank
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setShowAIGenerator(true)} 
@@ -573,6 +607,15 @@ const CreateAssessment = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Question Browser Modal */}
+      {showQuestionBrowser && (
+        <QuestionBrowser
+          isOpen={showQuestionBrowser}
+          onClose={() => setShowQuestionBrowser(false)}
+          onSelectQuestions={addQuestionsFromBank}
+        />
+      )}
 
       {/* AI Content Generator */}
       {showAIGenerator && (
