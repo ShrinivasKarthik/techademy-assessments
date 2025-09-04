@@ -51,6 +51,7 @@ export default function EnhancedAIGenerator({
   const [count, setCount] = useState(3);
   const [context, setContext] = useState("");
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [questionType, setQuestionType] = useState("mixed");
   const { toast } = useToast();
 
   const addSkill = () => {
@@ -81,7 +82,8 @@ export default function EnhancedAIGenerator({
         skills,
         difficulty,
         context,
-        assessmentContext
+        assessmentContext,
+        questionType: questionType === "mixed" ? null : questionType
       };
 
       if (type === 'bulk_generate') {
@@ -201,7 +203,7 @@ export default function EnhancedAIGenerator({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Difficulty Level</Label>
                   <Select value={difficulty} onValueChange={setDifficulty}>
@@ -212,6 +214,23 @@ export default function EnhancedAIGenerator({
                       <SelectItem value="beginner">Beginner</SelectItem>
                       <SelectItem value="intermediate">Intermediate</SelectItem>
                       <SelectItem value="advanced">Advanced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Question Type</Label>
+                  <Select value={questionType} onValueChange={setQuestionType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mixed">Mixed Types</SelectItem>
+                      <SelectItem value="mcq">Multiple Choice</SelectItem>
+                      <SelectItem value="coding">Coding</SelectItem>
+                      <SelectItem value="subjective">Subjective</SelectItem>
+                      <SelectItem value="file_upload">File Upload</SelectItem>
+                      <SelectItem value="audio">Audio</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

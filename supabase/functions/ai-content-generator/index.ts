@@ -29,19 +29,18 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
           {
             role: 'system',
-            content: 'You are an expert assessment designer who creates high-quality educational questions. Always respond with valid JSON containing the question details.'
+            content: 'You are an expert assessment designer who creates high-quality educational questions. Always respond with valid JSON containing the question details without markdown formatting.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.7,
-        max_tokens: 2000
+        max_completion_tokens: 2000
       }),
     });
 
@@ -50,7 +49,14 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const generatedContent = JSON.parse(data.choices[0].message.content);
+    
+    if (!data.choices?.[0]?.message?.content) {
+      throw new Error('Invalid response from AI service');
+    }
+
+    const content = data.choices[0].message.content;
+    const cleanedContent = extractJsonFromMarkdown(content);
+    const generatedContent = JSON.parse(cleanedContent);
 
     console.log('Generated content:', generatedContent);
 
@@ -123,24 +129,26 @@ Create a coding question with the following JSON structure:
     case 'mcq':
       return `${basePrompt} ${contextInfo} ${assessmentInfo}
 
-Create a multiple choice question with the following JSON structure:
+Create a realistic multiple choice question with the following JSON structure:
 {
-  "title": "Question title",
-  "description": "Clear question with any necessary context",
+  "title": "Clear, specific question title about ${topic}",
+  "description": "Well-formatted question text with context and clear instructions. Make it realistic and practical.",
   "difficulty": "${difficulty}",
-  "points": (appropriate points based on difficulty),
+  "points": (appropriate points: beginner=5, intermediate=10, advanced=15),
   "config": {
     "options": [
-      {"id": "1", "text": "Correct answer", "isCorrect": true},
-      {"id": "2", "text": "Incorrect option 1", "isCorrect": false},
-      {"id": "3", "text": "Incorrect option 2", "isCorrect": false},
-      {"id": "4", "text": "Incorrect option 3", "isCorrect": false}
+      {"id": "1", "text": "Realistic correct answer with specific content", "isCorrect": true},
+      {"id": "2", "text": "Plausible but incorrect option", "isCorrect": false},
+      {"id": "3", "text": "Another realistic incorrect option", "isCorrect": false},
+      {"id": "4", "text": "Third incorrect but believable option", "isCorrect": false}
     ],
     "allowMultiple": false,
     "shuffleOptions": true,
-    "explanation": "Explanation of why the correct answer is right"
+    "explanation": "Clear explanation of why the correct answer is right and why others are wrong"
   }
-}`;
+}
+
+IMPORTANT: Make the question text and options specific and realistic. Avoid placeholders like "Correct answer" or "Option 1".`;
 
     case 'subjective':
       return `${basePrompt} ${contextInfo} ${assessmentInfo}
@@ -163,9 +171,26 @@ Create a subjective question with the following JSON structure:
   }
 }`;
 
-    default:
-      return `${basePrompt} ${contextInfo} ${assessmentInfo}
+      default:
+        return `${basePrompt} ${contextInfo} ${assessmentInfo}
 
 Create a ${questionType} question with appropriate configuration.`;
+    }
   }
-}
+
+  // Extract JSON from markdown code blocks if present
+  function extractJsonFromMarkdown(content: string): string {
+    const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (jsonMatch) {
+      return jsonMatch[1];
+    }
+    
+    // If no markdown, try to find JSON object
+    const jsonStart = content.indexOf('{');
+    const jsonEnd = content.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      return content.slice(jsonStart, jsonEnd + 1);
+    }
+    
+    return content.trim();
+  }

@@ -126,19 +126,20 @@ const AIContentGenerator: React.FC<AIContentGeneratorProps> = ({
       case 'mcq':
         return [
           {
-            title: `${topic} Knowledge Check`,
-            description: `Multiple choice question about ${topic.toLowerCase()}. ${context ? `Context: ${context}` : ''}`,
+            title: `Understanding ${topic}: Core Concepts`,
+            description: `Which of the following best describes a key characteristic or principle of ${topic}?`,
             difficulty: difficulty || 'easy',
             points: basePoints,
             config: {
               options: [
-                { id: '1', text: `Correct answer about ${topic}`, isCorrect: true },
-                { id: '2', text: `Incorrect option 1`, isCorrect: false },
-                { id: '3', text: `Incorrect option 2`, isCorrect: false },
-                { id: '4', text: `Incorrect option 3`, isCorrect: false }
+                { id: '1', text: `${topic} enables efficient data processing and organization`, isCorrect: true },
+                { id: '2', text: `${topic} is primarily used for styling and visual presentation`, isCorrect: false },
+                { id: '3', text: `${topic} only works in server-side environments`, isCorrect: false },
+                { id: '4', text: `${topic} requires special hardware to function properly`, isCorrect: false }
               ],
               allowMultiple: false,
-              shuffleOptions: true
+              shuffleOptions: true,
+              explanation: `${topic} is fundamentally about efficient data processing and organization, making it a powerful tool for various applications.`
             }
           }
         ];

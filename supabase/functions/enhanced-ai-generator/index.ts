@@ -24,10 +24,11 @@ serve(async (req) => {
       difficulty = 'intermediate', 
       count = 1, 
       context = '',
-      assessmentContext = null 
+      assessmentContext = null,
+      questionType = null
     } = await req.json();
 
-    console.log('Enhanced AI Generator Request:', { type, skills, difficulty, count, context });
+    console.log('Enhanced AI Generator Request:', { type, skills, difficulty, count, context, questionType });
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -44,10 +45,10 @@ serve(async (req) => {
 
     if (type === 'bulk_generate') {
       // Generate multiple questions based on skills and context
-      results = await generateBulkQuestions(skills, difficulty, count, context, assessmentContext, supabase, userId);
+      results = await generateBulkQuestions(skills, difficulty, count, context, assessmentContext, supabase, userId, questionType);
     } else if (type === 'skill_targeted') {
       // Generate questions targeted to specific skills
-      results = await generateSkillTargetedQuestion(skills, difficulty, context, supabase, userId);
+      results = await generateSkillTargetedQuestion(skills, difficulty, context, supabase, userId, questionType);
     } else if (type === 'auto_tag') {
       // Auto-tag existing questions with skills
       const { questionData } = await req.json();
@@ -78,7 +79,7 @@ serve(async (req) => {
   }
 });
 
-async function generateBulkQuestions(skills: string[], difficulty: string, count: number, context: string, assessmentContext: any, supabase: any, userId: string) {
+async function generateBulkQuestions(skills: string[], difficulty: string, count: number, context: string, assessmentContext: any, supabase: any, userId: string, questionType: string | null) {
   const skillsText = skills.length > 0 ? skills.join(', ') : 'general programming';
   
   const prompt = `Generate ${count} diverse assessment questions focused on these skills: ${skillsText}.
@@ -88,10 +89,11 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
   Assessment Context: ${JSON.stringify(assessmentContext || {})}
   
   Requirements:
-  - Mix different question types (coding, MCQ, subjective)
+  ${questionType ? `- Generate ONLY ${questionType} questions` : '- Mix different question types (coding, MCQ, subjective)'}
   - Each question should test specific skills mentioned
   - Provide variety in complexity and approach
   - Include proper configuration for each question type
+  - For MCQ questions: Create realistic, specific options with clear correct answers
   
   Return a JSON array of questions with this exact structure:
   [
@@ -229,7 +231,7 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
   }
 }
 
-async function generateSkillTargetedQuestion(skills: string[], difficulty: string, context: string, supabase: any, userId: string) {
+async function generateSkillTargetedQuestion(skills: string[], difficulty: string, context: string, supabase: any, userId: string, questionType: string | null) {
   const skillsText = skills.join(', ');
   
   const prompt = `Create a focused assessment question specifically designed to test these skills: ${skillsText}.
@@ -242,14 +244,15 @@ async function generateSkillTargetedQuestion(skills: string[], difficulty: strin
   - Be appropriately challenging for the difficulty level  
   - Include realistic scenarios or examples
   - Have clear success criteria
+  ${questionType ? `- Must be of type: ${questionType}` : ''}
   
   Return a single question object with this structure:
   {
     "title": "Question title",
     "description": "Detailed description with clear instructions",
-    "question_type": "coding|mcq|subjective|file_upload|audio", 
+    "question_type": "${questionType || 'coding|mcq|subjective|file_upload|audio'}", 
     "difficulty": "${difficulty}",
-    "points": 10,
+    "points": ${difficulty === 'beginner' ? 5 : difficulty === 'intermediate' ? 10 : 15},
     "skills": ${JSON.stringify(skills)},
     "tags": ["relevant", "tags"],
     "config": {
