@@ -51,7 +51,10 @@ interface RecentAssessment {
 const MainDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, profile } = useAuth();
+  // TESTING MODE: Skip auth context
+  const user = { id: 'test-user' };
+  const profile = null;
+  // const { user, profile } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalAssessments: 0,
     activeAssessments: 0,
@@ -74,7 +77,14 @@ const MainDashboard = () => {
     try {
       setLoading(true);
       
-      // Use fetch API to bypass complex Supabase types temporarily
+      // Simplified data loading for testing
+      const mockAssessments = [
+        { id: '1', title: 'Sample Assessment 1', status: 'published', created_at: new Date().toISOString() },
+        { id: '2', title: 'Sample Assessment 2', status: 'draft', created_at: new Date().toISOString() },
+        { id: '3', title: 'Sample Assessment 3', status: 'published', created_at: new Date().toISOString() }
+      ];
+      
+      /* ORIGINAL SUPABASE CALL - DISABLED FOR TESTING
       const response = await fetch(
         `https://axdwgxtukqqzupboojmx.supabase.co/rest/v1/assessments?select=id,title,status,created_at&user_id=eq.${user.id}&order=created_at.desc`,
         {
@@ -85,11 +95,10 @@ const MainDashboard = () => {
           }
         }
       );
+      */
       
-      const assessments = response.ok ? await response.json() : [];
-      const error = response.ok ? null : new Error('Failed to fetch');
-
-      if (error) throw error;
+      const assessments = mockAssessments;
+      const error = null;
 
       const totalAssessments = assessments?.length || 0;
       const activeAssessments = assessments?.filter(a => a.status === 'published').length || 0;

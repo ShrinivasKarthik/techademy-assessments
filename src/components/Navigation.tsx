@@ -27,12 +27,19 @@ const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  // TESTING MODE: Skip auth context to avoid errors
+  const user = null;
+  const profile = null;
+  const signOut = () => {};
+
+  /*
   const { user, profile, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
   };
+  */
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -61,11 +68,11 @@ const Navigation = () => {
             {navLinks.map((link) => {
               const Icon = link.icon;
               
-              // Filter admin-only routes based on user role
-              if ((link.href === '/admin' || link.href === '/monitoring' || link.href === '/proctoring' || link.href === '/advanced-analytics') 
-                  && profile?.role !== 'admin' && profile?.role !== 'instructor') {
-                return null;
-              }
+              // Show all links during testing
+              // if ((link.href === '/admin' || link.href === '/monitoring' || link.href === '/proctoring' || link.href === '/advanced-analytics') 
+              //     && profile?.role !== 'admin' && profile?.role !== 'instructor') {
+              //   return null;
+              // }
               
               return (
                 <Link
@@ -131,9 +138,9 @@ const Navigation = () => {
                       Settings
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut}>
+                    <DropdownMenuItem onClick={() => {}}>
                       <LogOut className="mr-2 h-4 w-4" />
-                      Sign out
+                      Sign out (disabled for testing)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
