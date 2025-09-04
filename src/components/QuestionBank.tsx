@@ -424,11 +424,10 @@ export default function QuestionBank() {
       </div>
         </TabsContent>
 
-        <TabsContent value="ai-generator" className="space-y-6">
+        <TabsContent value="ai-generator">
           <EnhancedAIGenerator
-            onQuestionsGenerated={async (generatedQuestions) => {
-              console.log('Generated questions received:', generatedQuestions.length, 'questions');
-              // Questions are already saved by the edge function, just refresh the list
+            onQuestionsGenerated={async () => {
+              console.log('AI questions generated, refreshing list...');
               await fetchQuestions();
             }}
             assessmentContext={{

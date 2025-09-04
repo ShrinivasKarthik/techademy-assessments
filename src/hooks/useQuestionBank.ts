@@ -57,7 +57,7 @@ export const useQuestionBank = () => {
         .from('questions')
         .select(`
           *,
-          question_skills(
+          question_skills!question_skills_question_id_fkey(
             skills(name)
           )
         `)
