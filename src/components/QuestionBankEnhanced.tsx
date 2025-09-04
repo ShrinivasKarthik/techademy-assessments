@@ -79,7 +79,7 @@ const QuestionBankEnhanced = () => {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="questions" className="flex items-center gap-2">
             <Search className="w-4 h-4" />
-            Questions ({filteredQuestions.length})
+            Questions ({questions.length})
           </TabsTrigger>
           <TabsTrigger value="batch" className="flex items-center gap-2">
             <Package className="w-4 h-4" />
