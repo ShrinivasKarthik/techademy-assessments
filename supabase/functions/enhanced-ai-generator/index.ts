@@ -33,24 +33,33 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Create Supabase client and get user from request
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    // Extract user ID from authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new Error('Authorization header required');
+    }
+
+    // Create supabase client for database operations (service role)
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Create anon client to verify user authentication
+    const anonSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: {
         headers: {
-          authorization: req.headers.get('authorization')!,
+          authorization: authHeader,
         },
       },
     });
 
-    // Get the authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await anonSupabase.auth.getUser();
     
     if (authError || !user) {
-      throw new Error('Authentication required');
+      console.error('Authentication failed:', authError);
+      throw new Error('Authentication required - please sign in');
     }
 
     const userId = user.id;
-    console.log('User ID extracted:', userId);
+    console.log('User authenticated successfully:', userId);
 
     let results = [];
 
