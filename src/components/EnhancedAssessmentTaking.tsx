@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import AccessibilityControls from './AccessibilityControls';
 import TTSButton from './TTSButton';
@@ -80,7 +80,9 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   const [showEvaluationPanel, setShowEvaluationPanel] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [showAccessibilityControls, setShowAccessibilityControls] = useState(false);
-
+  
+  // Use ref to track pending saves to prevent race conditions
+  const pendingSavesRef = useRef(new Set<string>());
   // Mock participant ID for now
   const mockParticipantId = '00000000-0000-0000-0000-000000000002';
 
@@ -266,6 +268,14 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   const saveAnswer = useCallback(async (questionId: string, answer: any) => {
     if (!instance) return;
 
+    // Prevent multiple rapid saves for the same question
+    const saveKey = `${instance.id}-${questionId}`;
+    if (pendingSavesRef.current.has(saveKey)) {
+      return;
+    }
+
+    pendingSavesRef.current.add(saveKey);
+
     try {
       const { error } = await supabase
         .from('submissions')
@@ -273,6 +283,8 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
           instance_id: instance.id,
           question_id: questionId,
           answer
+        }, {
+          onConflict: 'instance_id,question_id'
         });
 
       if (error) throw error;
@@ -290,6 +302,11 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
         description: "Your answer may not have been saved.",
         variant: "destructive"
       });
+    } finally {
+      // Remove from pending saves after a short delay
+      setTimeout(() => {
+        pendingSavesRef.current.delete(saveKey);
+      }, 1000);
     }
   }, [instance, assessment, toast]);
 

@@ -24,6 +24,19 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import CodeIntelligencePanel from '@/components/CodeIntelligencePanel';
 
+// Utility function for debouncing
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
 interface CodeFile {
   id: string;
   name: string;
@@ -166,18 +179,21 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
     }
   }, [question.id, answer?.files?.length]);
 
-  // Notify parent of changes
-  const notifyChange = useCallback(() => {
-    onAnswerChange({
-      files,
-      language,
-      testResults
-    });
-  }, [files, language, testResults, onAnswerChange]);
+  // Debounced notify change to prevent rapid saves
+  const debouncedNotifyChange = useCallback(
+    debounce(() => {
+      onAnswerChange({
+        files,
+        language,
+        testResults
+      });
+    }, 500),
+    [files, language, testResults, onAnswerChange]
+  );
 
   useEffect(() => {
-    notifyChange();
-  }, [notifyChange]);
+    debouncedNotifyChange();
+  }, [debouncedNotifyChange]);
 
   // File management
   const createNewFile = () => {
@@ -338,16 +354,6 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
 
       setTestResults(processedResults);
 
-      // Update answer with comprehensive results
-      onAnswerChange({
-        files,
-        language,
-        testResults: processedResults,
-        analysis,
-        simulation,
-        uiPreview
-      });
-
       const passedCount = processedResults.filter((r: any) => r.passed).length;
       const totalCount = processedResults.length;
       
@@ -376,11 +382,7 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
       })) || [];
       
       setTestResults(fallbackResults);
-      onAnswerChange({
-        files,
-        language,
-        testResults: fallbackResults
-      });
+      // The debounced notifyChange will handle saving
     } finally {
       setIsRunning(false);
     }
