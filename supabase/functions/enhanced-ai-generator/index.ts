@@ -111,16 +111,15 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-2025-04-14',
       messages: [
         { 
           role: 'system', 
-          content: 'You are an expert assessment designer. Generate diverse, high-quality questions that test specific skills effectively.' 
+          content: 'You are an expert assessment designer. Generate diverse, high-quality questions that test specific skills effectively. Always return valid JSON without markdown formatting.' 
         },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 3000,
-      temperature: 0.7,
+      max_completion_tokens: 3000,
     }),
   });
 
@@ -176,16 +175,15 @@ async function generateSkillTargetedQuestion(skills: string[], difficulty: strin
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-2025-04-14',
       messages: [
         { 
           role: 'system', 
-          content: 'You are an expert at creating targeted assessment questions that effectively test specific skills.' 
+          content: 'You are an expert at creating targeted assessment questions that effectively test specific skills. Always return valid JSON without markdown formatting.' 
         },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 2000,
-      temperature: 0.6,
+      max_completion_tokens: 2000,
     }),
   });
 
@@ -232,16 +230,15 @@ async function autoTagQuestion(questionData: any) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-2025-04-14',
       messages: [
         { 
           role: 'system', 
-          content: 'You are an expert at analyzing educational content and identifying the skills and concepts being tested.' 
+          content: 'You are an expert at analyzing educational content and identifying the skills and concepts being tested. Always return valid JSON without markdown formatting.' 
         },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 1000,
-      temperature: 0.3,
+      max_completion_tokens: 1000,
     }),
   });
 
@@ -311,16 +308,15 @@ async function recommendQuestions(assessmentContext: any, supabase: any) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-2025-04-14',
       messages: [
         { 
           role: 'system', 
-          content: 'You are an expert at matching questions to assessment objectives and recommending the best questions for specific learning outcomes.' 
+          content: 'You are an expert at matching questions to assessment objectives and recommending the best questions for specific learning outcomes. Always return valid JSON without markdown formatting.' 
         },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 2000,
-      temperature: 0.4,
+      max_completion_tokens: 2000,
     }),
   });
 
