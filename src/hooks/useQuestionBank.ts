@@ -51,8 +51,6 @@ export const useQuestionBank = () => {
   const { toast } = useToast();
 
   const fetchQuestions = async (filters?: Partial<QuestionFilters>) => {
-    if (!user) return;
-
     try {
       setLoading(true);
       let query = supabase
@@ -64,6 +62,14 @@ export const useQuestionBank = () => {
           )
         `)
         .is('assessment_id', null); // Only fetch standalone questions
+
+      // If user is authenticated, fetch both AI-generated and user's own questions
+      // If user is not authenticated, fetch only AI-generated questions
+      if (user) {
+        query = query.or(`created_by.eq.${user.id},created_by.is.null`);
+      } else {
+        query = query.is('created_by', null);
+      }
 
       // Apply filters
       if (filters?.search) {
@@ -337,8 +343,11 @@ export const useQuestionBank = () => {
   };
 
   useEffect(() => {
+    // Always fetch questions (AI-generated ones are visible to all users)
+    fetchQuestions();
+    
+    // Only fetch collections if user is authenticated
     if (user) {
-      fetchQuestions();
       fetchCollections();
     }
   }, [user]);
