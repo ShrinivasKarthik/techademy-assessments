@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Code, FileText, Upload, Mic, HelpCircle } from 'lucide-react';
+import { Plus, X, Code, FileText, Upload, Mic, HelpCircle, Sparkles } from 'lucide-react';
 import AdvancedCodingQuestionBuilder from './questions/AdvancedCodingQuestionBuilder';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
 
@@ -69,6 +71,8 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   questionDescription = '',
   difficulty = 'intermediate'
 }) => {
+  const { toast } = useToast();
+  const [isGeneratingRubric, setIsGeneratingRubric] = useState(false);
   const renderCodingBuilder = () => {
     const codingConfig = config || {
       language: 'javascript',
@@ -233,6 +237,49 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
       });
     };
 
+    const generateAIRubric = async () => {
+      if (!questionDescription.trim()) {
+        toast({
+          title: "Question Description Required",
+          description: "Please provide a question description to generate an AI rubric",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setIsGeneratingRubric(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-rubric', {
+          body: {
+            questionType: 'subjective',
+            questionDescription,
+            difficulty,
+            skills: [] // Could be extracted from context
+          }
+        });
+
+        if (error) throw error;
+
+        const rubric = data.rubric;
+        if (rubric && rubric.criteria) {
+          updateConfig({ rubric: rubric.criteria });
+          toast({
+            title: "AI Rubric Generated",
+            description: `Generated ${rubric.criteria.length} evaluation criteria`,
+          });
+        }
+      } catch (error) {
+        console.error('Error generating rubric:', error);
+        toast({
+          title: "Rubric Generation Failed",
+          description: "Unable to generate AI rubric. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsGeneratingRubric(false);
+      }
+    };
+
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -268,10 +315,21 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <Label className="text-base">Evaluation Rubric</Label>
-            <Button onClick={addRubricCriteria} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Criteria
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={generateAIRubric} 
+                size="sm"
+                disabled={isGeneratingRubric || !questionDescription.trim()}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {isGeneratingRubric ? 'Generating...' : 'AI Generate'}
+              </Button>
+              <Button onClick={addRubricCriteria} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Criteria
+              </Button>
+            </div>
           </div>
 
           {(subjectiveConfig.rubric || []).map((criteria, index) => (

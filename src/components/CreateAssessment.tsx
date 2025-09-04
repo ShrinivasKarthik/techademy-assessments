@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monitor, X, Mic } from "lucide-react";
+import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monitor, X, Mic, CheckCircle } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
@@ -106,6 +106,7 @@ const CreateAssessment = () => {
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [showQuestionBrowser, setShowQuestionBrowser] = useState(false);
+  const [showQualityAssurance, setShowQualityAssurance] = useState(false);
 
   const questionTypes = [
     { value: 'coding', label: 'Coding Challenge' },
@@ -607,6 +608,41 @@ const CreateAssessment = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Assessment Quality Assurance */}
+      {assessment.questions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                <CardTitle>Assessment Quality Analysis</CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowQualityAssurance(!showQualityAssurance)}
+                size="sm"
+              >
+                {showQualityAssurance ? 'Hide Analysis' : 'Analyze Quality'}
+              </Button>
+            </div>
+          </CardHeader>
+          {showQualityAssurance && (
+            <CardContent>
+              <AssessmentQualityAssurance
+                assessmentId="preview"
+                questions={assessment.questions}
+                onQualityImproved={() => {
+                  toast({
+                    title: "Quality Improvements Applied",
+                    description: "Assessment quality has been enhanced based on AI recommendations.",
+                  });
+                }}
+              />
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Question Browser Modal */}
       {showQuestionBrowser && (

@@ -19,7 +19,9 @@ import {
   Settings,
   Accessibility,
   LogOut,
-  User
+  User,
+  CheckCircle,
+  TrendingUp
 } from "lucide-react";
 import AccessibilityControls from "./AccessibilityControls";
 
@@ -53,6 +55,8 @@ const Navigation = () => {
           { name: "Monitor", href: "/monitoring", icon: Activity },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
           { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+          { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
+          { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp },
           { name: "Admin", href: "/admin", icon: Settings }
         );
         break;
@@ -62,7 +66,9 @@ const Navigation = () => {
           { name: "Create", href: "/assessments/create", icon: Plus },
           { name: "Monitor", href: "/monitoring", icon: Activity },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
-          { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 }
+          { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+          { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
+          { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
         );
         break;
 
@@ -77,6 +83,8 @@ const Navigation = () => {
           { name: "Monitor", href: "/monitoring", icon: Activity },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
           { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+          { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
+          { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp },
           { name: "Admin", href: "/admin", icon: Settings }
         );
     }

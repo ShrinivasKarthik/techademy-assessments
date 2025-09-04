@@ -18,7 +18,9 @@ import {
   Save,
   FolderOpen,
   Monitor,
-  Brain
+  Brain,
+  Shield,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -145,6 +147,10 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
   const [showNewFileInput, setShowNewFileInput] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [showIntelligencePanel, setShowIntelligencePanel] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [isPlagiarismChecking, setIsPlagiarismChecking] = useState(false);
+  const [simulationResults, setSimulationResults] = useState<any>(null);
+  const [plagiarismResults, setPlagiarismResults] = useState<any>(null);
 
   const supportedLanguages = question.config.supportedLanguages || ['javascript', 'typescript', 'python'];
   const availableLanguages = languages.filter(lang => supportedLanguages.includes(lang.value));
@@ -267,6 +273,75 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
       }
       return file;
     }));
+  };
+
+  // Additional AI-powered analysis functions
+  const runCodeSimulation = async () => {
+    if (!activeFile?.content.trim()) return;
+
+    setIsSimulating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('simulate-execution', {
+        body: {
+          code: activeFile.content,
+          language: activeFile.language || language,
+          testCases: question.config.testCases || [],
+          questionContext: question.question_text
+        }
+      });
+
+      if (error) throw error;
+
+      setSimulationResults(data.simulation);
+      toast({
+        title: "Code Simulation Complete",
+        description: `Executed ${data.simulation?.executionResults?.length || 0} test cases with AI simulation`,
+      });
+    } catch (error) {
+      console.error('Error running simulation:', error);
+      toast({
+        title: "Simulation Failed",
+        description: "Unable to simulate code execution",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const checkPlagiarism = async () => {
+    if (!activeFile?.content.trim()) return;
+
+    setIsPlagiarismChecking(true);
+    try {
+      const codeFiles = files.map(f => f.content);
+      
+      const { data, error } = await supabase.functions.invoke('detect-plagiarism', {
+        body: {
+          code: activeFile.content,
+          language: activeFile.language || language,
+          codeFiles: codeFiles
+        }
+      });
+
+      if (error) throw error;
+
+      setPlagiarismResults(data.analysis);
+      toast({
+        title: "Plagiarism Check Complete",
+        description: `Risk Level: ${data.analysis?.riskLevel || 'Unknown'}`,
+        variant: data.analysis?.riskLevel === 'high' ? 'destructive' : 'default'
+      });
+    } catch (error) {
+      console.error('Error checking plagiarism:', error);
+      toast({
+        title: "Plagiarism Check Failed",
+        description: "Unable to analyze code for plagiarism",
+        variant: "destructive"
+      });
+    } finally {
+      setIsPlagiarismChecking(false);
+    }
   };
 
   // AI-powered code execution and evaluation
@@ -420,10 +495,40 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
             <Play className="w-4 h-4" />
             {isRunning ? 'Running...' : 'Run & Test'}
           </Button>
+
+          <Button
+            variant="outline"
+            onClick={runCodeSimulation}
+            disabled={disabled || isSimulating || !activeFile?.content.trim()}
+            className="flex items-center gap-2"
+          >
+            <Monitor className="w-4 h-4" />
+            {isSimulating ? 'Simulating...' : 'Simulate'}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={checkPlagiarism}
+            disabled={disabled || isPlagiarismChecking || !activeFile?.content.trim()}
+            className="flex items-center gap-2"
+          >
+            <Shield className="w-4 h-4" />
+            {isPlagiarismChecking ? 'Checking...' : 'Check Plagiarism'}
+          </Button>
           
           {testResults.length > 0 && (
             <Badge variant={testResults.every(r => r.passed) ? "default" : "destructive"}>
               {testResults.filter(r => r.passed).length} / {testResults.length} passed
+            </Badge>
+          )}
+
+          {plagiarismResults && (
+            <Badge 
+              variant={plagiarismResults.riskLevel === 'high' ? 'destructive' : 
+                     plagiarismResults.riskLevel === 'medium' ? 'secondary' : 'default'}
+            >
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              {plagiarismResults.riskLevel} risk
             </Badge>
           )}
         </div>

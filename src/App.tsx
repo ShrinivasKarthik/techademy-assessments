@@ -19,6 +19,9 @@ import MonitoringPage from "./pages/MonitoringPage";
 import ProctoringPage from "./pages/ProctoringPage";
 import AdvancedAnalyticsPage from "./pages/AdvancedAnalyticsPage";
 import QuestionBankPage from "./pages/QuestionBankPage";
+import QuestionQualityPage from "./pages/QuestionQualityPage";
+import SkillAnalyticsPage from "./pages/SkillAnalyticsPage";
+import AIInsightsPage from "./pages/AIInsightsPage";
 import UserOnboarding from "./components/UserOnboarding";
 import NotFound from "./pages/NotFound";
 
@@ -85,6 +88,21 @@ const App = () => (
             <Route path="/advanced-analytics" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                 <AdvancedAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/question-quality" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <QuestionQualityPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/skills-analytics" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <SkillAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments/:id/insights" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <AIInsightsPage />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
