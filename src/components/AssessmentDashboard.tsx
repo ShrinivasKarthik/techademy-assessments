@@ -1,7 +1,10 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Code, 
   FileText, 
@@ -18,6 +21,47 @@ import {
 } from "lucide-react";
 
 const AssessmentDashboard = () => {
+  const navigate = useNavigate();
+  const [recentAssessments, setRecentAssessments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRecentAssessments();
+  }, []);
+
+  const fetchRecentAssessments = async () => {
+    try {
+      const { data: assessments, error } = await supabase
+        .from('assessments')
+        .select(`
+          *,
+          questions (count),
+          assessment_instances (count)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      const processedAssessments = assessments?.map(assessment => ({
+        id: assessment.id,
+        title: assessment.title,
+        type: 'Mixed',
+        status: assessment.status,
+        participants: assessment.assessment_instances?.[0]?.count || 0,
+        completion: assessment.status === 'published' ? 100 : 0,
+        timeLeft: assessment.status === 'draft' ? 'Draft' : assessment.status === 'published' ? 'Active' : 'Completed',
+        questionCount: assessment.questions?.[0]?.count || 0
+      })) || [];
+
+      setRecentAssessments(processedAssessments);
+    } catch (error) {
+      console.error('Error fetching assessments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const assessmentTypes = [
     {
       id: 'coding',
@@ -61,35 +105,6 @@ const AssessmentDashboard = () => {
     }
   ];
 
-  const recentAssessments = [
-    {
-      id: 1,
-      title: 'JavaScript React Components',
-      type: 'Coding',
-      status: 'active',
-      participants: 45,
-      completion: 78,
-      timeLeft: '2d 14h'
-    },
-    {
-      id: 2,
-      title: 'Data Structures & Algorithms',
-      type: 'MCQ',
-      status: 'completed',
-      participants: 123,
-      completion: 100,
-      timeLeft: 'Completed'
-    },
-    {
-      id: 3,
-      title: 'System Design Analysis',
-      type: 'Subjective',
-      status: 'draft',
-      participants: 0,
-      completion: 0,
-      timeLeft: 'Draft'
-    }
-  ];
 
   const getColorClasses = (color: string) => {
     const colors = {
@@ -148,7 +163,12 @@ const AssessmentDashboard = () => {
                     <span>{assessment.stats.completed} Completed</span>
                   </div>
                   
-                  <Button size="sm" variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                    onClick={() => navigate('/assessments/create')}
+                  >
                     Create Assessment
                   </Button>
                 </CardContent>
@@ -166,8 +186,24 @@ const AssessmentDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentAssessments.map((assessment) => (
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-16 bg-muted rounded-lg"></div>
+                  </div>
+                ))}
+              </div>
+            ) : recentAssessments.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">No assessments found</p>
+                <Button onClick={() => navigate('/assessments/create')}>
+                  Create Your First Assessment
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recentAssessments.map((assessment) => (
                 <div key={assessment.id} className="flex items-center justify-between p-4 border border-border/50 rounded-lg hover:bg-background-secondary/50 transition-colors">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -195,16 +231,27 @@ const AssessmentDashboard = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => navigate(`/assessments/${assessment.id}/preview`)}
+                      title="View Assessment"
+                    >
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => navigate('/assessments')}
+                      title="Analyze Results"
+                    >
                       <Brain className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

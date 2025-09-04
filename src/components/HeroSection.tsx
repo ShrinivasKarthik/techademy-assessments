@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
 import { 
   Brain, 
   Code, 
@@ -13,6 +14,8 @@ import {
 } from "lucide-react";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-background to-background-secondary">
       {/* Background Pattern */}
@@ -47,6 +50,7 @@ const HeroSection = () => {
             <Button 
               size="lg" 
               className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-medium hover:shadow-strong transition-all"
+              onClick={() => navigate('/assessments')}
             >
               <Play className="w-5 h-5 mr-2" />
               Start Assessment
@@ -55,6 +59,7 @@ const HeroSection = () => {
               variant="outline" 
               size="lg"
               className="border-primary/30 hover:bg-primary/10 hover:border-primary transition-all"
+              onClick={() => navigate('/assessments/create')}
             >
               View Demo
               <ArrowRight className="w-5 h-5 ml-2" />
