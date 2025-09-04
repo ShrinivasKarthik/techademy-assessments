@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import AccessibilityControls from './AccessibilityControls';
+import TTSButton from './TTSButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +18,8 @@ import {
   Flag,
   BookOpen,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -76,6 +79,7 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEvaluationPanel, setShowEvaluationPanel] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [showAccessibilityControls, setShowAccessibilityControls] = useState(false);
 
   // Mock participant ID for now
   const mockParticipantId = '00000000-0000-0000-0000-000000000002';
@@ -436,11 +440,14 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
       <div className="border-b bg-card sticky top-0 z-10">
         <div className="max-w-7xl mx-auto p-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold">{assessment.title}</h1>
-              <p className="text-sm text-muted-foreground">
-                Question {currentQuestionIndex + 1} of {assessment.questions.length}
-              </p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-xl font-semibold">{assessment.title}</h1>
+                <p className="text-sm text-muted-foreground">
+                  Question {currentQuestionIndex + 1} of {assessment.questions.length}
+                </p>
+              </div>
+              <TTSButton text={assessment.title} />
             </div>
             
             <div className="flex items-center gap-4">
@@ -474,6 +481,14 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
 
               {/* Action buttons */}
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAccessibilityControls(!showAccessibilityControls)}
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+
                 <Button
                   variant="ghost"
                   size="sm"
@@ -524,6 +539,16 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
+        {/* Accessibility Controls */}
+        {showAccessibilityControls && (
+          <div className="mb-6">
+            <AccessibilityControls 
+              isOpen={showAccessibilityControls}
+              onToggle={() => setShowAccessibilityControls(!showAccessibilityControls)}
+            />
+          </div>
+        )}
+
         <div className={`grid gap-6 ${isCodingQuestion && showEvaluationPanel ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
           {/* Question Area */}
           <div className="space-y-6">
@@ -543,9 +568,13 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
                       <Badge variant="outline">{currentQuestion.points} pts</Badge>
                     </div>
                   </div>
+                  <TTSButton text={currentQuestion.title} />
                 </div>
                 {currentQuestion.description && (
-                  <p className="text-muted-foreground mt-2">{currentQuestion.description}</p>
+                  <div className="flex items-start justify-between mt-2">
+                    <p className="text-muted-foreground">{currentQuestion.description}</p>
+                    <TTSButton text={currentQuestion.description} />
+                  </div>
                 )}
               </CardHeader>
               <CardContent>

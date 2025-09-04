@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Save, Eye } from 'lucide-react';
+import { Plus, X, Save, Eye, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
+import AIContentGenerator from './AIContentGenerator';
 
 type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -68,6 +69,7 @@ const CreateAssessment = () => {
   });
 
   const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
 
   const questionTypes = [
     { value: 'coding', label: 'Coding Challenge' },
@@ -114,6 +116,19 @@ const CreateAssessment = () => {
       }
     });
     setShowQuestionForm(false);
+  };
+
+  const handleAIContentGenerated = (content: any) => {
+    setCurrentQuestion(prev => ({
+      ...prev,
+      title: content.title,
+      description: content.description,
+      difficulty: content.difficulty,
+      points: content.points,
+      config: content.config
+    }));
+    setShowAIGenerator(false);
+    setShowQuestionForm(true);
   };
 
   const removeQuestion = (index: number) => {
@@ -284,10 +299,20 @@ const CreateAssessment = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Questions ({assessment.questions.length})</CardTitle>
-            <Button onClick={() => setShowQuestionForm(true)} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Question
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAIGenerator(true)} 
+                size="sm"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Generate
+              </Button>
+              <Button onClick={() => setShowQuestionForm(true)} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Question
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -321,6 +346,26 @@ const CreateAssessment = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* AI Content Generator */}
+      {showAIGenerator && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>AI Content Generator</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowAIGenerator(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <AIContentGenerator
+              questionType={currentQuestion.question_type}
+              onContentGenerated={handleAIContentGenerated}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add Question Form */}
       {showQuestionForm && (
