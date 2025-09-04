@@ -33,25 +33,24 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Extract user ID from authorization header
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      throw new Error('Authorization header required');
+    // Create Supabase client and get user from request
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: {
+        headers: {
+          authorization: req.headers.get('authorization')!,
+        },
+      },
+    });
+
+    // Get the authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      throw new Error('Authentication required');
     }
 
-    // Parse JWT token to get user ID
-    const token = authHeader.replace('Bearer ', '');
-    const [, payload] = token.split('.');
-    const decodedPayload = JSON.parse(atob(payload));
-    const userId = decodedPayload.sub;
-
-    if (!userId) {
-      throw new Error('Invalid authorization token');
-    }
-
+    const userId = user.id;
     console.log('User ID extracted:', userId);
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     let results = [];
 
