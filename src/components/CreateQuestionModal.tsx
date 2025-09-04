@@ -137,7 +137,7 @@ export default function CreateQuestionModal({
         ? formData.question_text.substring(0, 50).trim() + '...'
         : formData.question_text.trim();
       
-      await onSave({ ...formData, title });
+      await onSave({ ...formData, title, points: 1 });
     } finally {
       setLoading(false);
     }
@@ -232,18 +232,7 @@ export default function CreateQuestionModal({
           )}
 
           {/* Basic Settings */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
-            <div className="space-y-2">
-              <Label htmlFor="points">Points</Label>
-              <Input
-                id="points"
-                type="number"
-                min="1"
-                value={formData.points}
-                onChange={(e) => setFormData(prev => ({ ...prev, points: parseInt(e.target.value) || 10 }))}
-              />
-            </div>
-
+          <div className="grid grid-cols-1 gap-4 p-4 bg-muted/30 rounded-lg">
             <div className="space-y-2">
               <Label>Difficulty</Label>
               <Select 

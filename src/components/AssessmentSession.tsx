@@ -384,7 +384,7 @@ const AssessmentSession: React.FC<AssessmentSessionProps> = ({
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <User className="w-4 h-4" />
-                  {assessment.questions.length} questions
+                  {assessment.questions.length} questions • {Math.round(100 / assessment.questions.length)}% each
                 </div>
               </div>
             </div>

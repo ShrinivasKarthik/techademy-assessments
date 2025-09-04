@@ -44,10 +44,10 @@ interface SmartAssemblyProps {
 
 interface AssemblyMetrics {
   totalQuestions: number;
-  totalPoints: number;
   skillsCovered: string[];
   difficultyBreakdown: { [key: string]: number };
   estimatedTime: number;
+  questionPercentage: number;
 }
 
 export default function SmartAssembly({ 
@@ -61,7 +61,7 @@ export default function SmartAssembly({
   const [metrics, setMetrics] = useState<AssemblyMetrics | null>(null);
   
   const [assemblyConfig, setAssemblyConfig] = useState({
-    totalPoints: 100,
+    targetQuestions: 10,
     timeLimitMinutes: 60,
     difficultyDistribution: {
       beginner: 20,
@@ -129,7 +129,7 @@ export default function SmartAssembly({
           targetSkills,
           difficultyDistribution: assemblyConfig.difficultyDistribution,
           questionTypes: assemblyConfig.questionTypes,
-          totalPoints: assemblyConfig.totalPoints,
+          targetQuestions: assemblyConfig.targetQuestions,
           timeLimitMinutes: assemblyConfig.timeLimitMinutes,
           aiCriteria: assemblyConfig.aiCriteria,
           preferences: {
@@ -224,13 +224,15 @@ export default function SmartAssembly({
             {/* Assessment Parameters */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Total Points Target</Label>
+                <Label>Number of Questions</Label>
                 <Input
                   type="number"
-                  value={assemblyConfig.totalPoints}
+                  min="1"
+                  max="50"
+                  value={assemblyConfig.targetQuestions}
                   onChange={(e) => setAssemblyConfig(prev => ({
                     ...prev,
-                    totalPoints: parseInt(e.target.value) || 100
+                    targetQuestions: parseInt(e.target.value) || 10
                   }))}
                 />
               </div>
@@ -399,8 +401,8 @@ export default function SmartAssembly({
                   <Card>
                     <CardContent className="p-4 text-center">
                       <Trophy className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-                      <div className="text-2xl font-bold">{metrics.totalPoints}</div>
-                      <div className="text-sm text-muted-foreground">Total Points</div>
+                      <div className="text-2xl font-bold">{metrics.questionPercentage}%</div>
+                      <div className="text-sm text-muted-foreground">Per Question</div>
                     </CardContent>
                   </Card>
 

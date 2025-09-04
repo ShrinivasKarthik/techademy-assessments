@@ -579,11 +579,13 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
                         <Flag className="w-4 h-4 text-yellow-600" />
                       )}
                     </CardTitle>
-                    <div className="flex gap-2 mt-2">
-                      <Badge variant="secondary">{currentQuestion.question_type}</Badge>
-                      <Badge variant="outline">{currentQuestion.difficulty}</Badge>
-                      <Badge variant="outline">{currentQuestion.points} pts</Badge>
-                    </div>
+                     <div className="flex gap-2 mt-2">
+                       <Badge variant="secondary">{currentQuestion.question_type}</Badge>
+                       <Badge variant="outline">{currentQuestion.difficulty}</Badge>
+                       <Badge variant="outline">
+                         {assessment.questions.length > 0 ? Math.round(100 / assessment.questions.length) : 0}%
+                       </Badge>
+                     </div>
                   </div>
                   <TTSButton text={currentQuestion.title} />
                 </div>

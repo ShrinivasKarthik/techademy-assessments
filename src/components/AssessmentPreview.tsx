@@ -146,7 +146,7 @@ const AssessmentPreview: React.FC<AssessmentPreviewProps> = ({ assessmentId }) =
     );
   }
 
-  const totalPoints = assessment.questions.reduce((sum, q) => sum + q.points, 0);
+  const questionPercentage = assessment.questions.length > 0 ? Math.round(100 / assessment.questions.length) : 0;
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -209,7 +209,7 @@ const AssessmentPreview: React.FC<AssessmentPreviewProps> = ({ assessmentId }) =
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-sm">
-                {totalPoints} total points
+                {questionPercentage}% per question
               </Badge>
             </div>
           </div>
@@ -247,7 +247,7 @@ const AssessmentPreview: React.FC<AssessmentPreviewProps> = ({ assessmentId }) =
                       {question.difficulty}
                     </Badge>
                     <Badge variant="outline">
-                      {question.points} pts
+                      {questionPercentage}%
                     </Badge>
                   </div>
                   <h4 className="font-medium">{question.title}</h4>
