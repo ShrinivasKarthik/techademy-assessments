@@ -71,6 +71,29 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
 }) => {
   const { toast } = useToast();
   
+  // Supported languages - must be defined before functions that use it
+  const languages = [
+    { value: 'javascript', label: 'JavaScript', extension: 'js' },
+    { value: 'typescript', label: 'TypeScript', extension: 'ts' },
+    { value: 'python', label: 'Python', extension: 'py' },
+    { value: 'java', label: 'Java', extension: 'java' },
+    { value: 'cpp', label: 'C++', extension: 'cpp' },
+    { value: 'html', label: 'HTML', extension: 'html' },
+    { value: 'css', label: 'CSS', extension: 'css' },
+    { value: 'json', label: 'JSON', extension: 'json' }
+  ];
+
+  // Helper functions
+  function getDefaultFileName(lang: string): string {
+    const langConfig = languages.find(l => l.value === lang);
+    return `main.${langConfig?.extension || 'js'}`;
+  }
+
+  function getLanguageFromFileName(fileName: string): string {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    const langConfig = languages.find(l => l.extension === extension);
+    return langConfig?.value || 'javascript';
+  }
   // State management
   const [files, setFiles] = useState<CodeFile[]>(() => {
     if (answer?.files?.length) return answer.files;
@@ -92,35 +115,9 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
   const [testResults, setTestResults] = useState(answer?.testResults || []);
   const [newFileName, setNewFileName] = useState('');
   const [showNewFileInput, setShowNewFileInput] = useState(false);
-  
-  // Supported languages
-  const languages = [
-    { value: 'javascript', label: 'JavaScript', extension: 'js' },
-    { value: 'typescript', label: 'TypeScript', extension: 'ts' },
-    { value: 'python', label: 'Python', extension: 'py' },
-    { value: 'java', label: 'Java', extension: 'java' },
-    { value: 'cpp', label: 'C++', extension: 'cpp' },
-    { value: 'html', label: 'HTML', extension: 'html' },
-    { value: 'css', label: 'CSS', extension: 'css' },
-    { value: 'json', label: 'JSON', extension: 'json' }
-  ];
 
   const supportedLanguages = question.config.supportedLanguages || ['javascript', 'typescript', 'python'];
   const availableLanguages = languages.filter(lang => supportedLanguages.includes(lang.value));
-
-  // Helper functions
-  function getDefaultFileName(lang: string): string {
-    const langConfig = languages.find(l => l.value === lang);
-    return `main.${langConfig?.extension || 'js'}`;
-  }
-
-  function getLanguageFromFileName(fileName: string): string {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    const langConfig = languages.find(l => l.extension === extension);
-    return langConfig?.value || 'javascript';
-  }
-
-  // Auto-save functionality
   useEffect(() => {
     const saveTimer = setTimeout(() => {
       const activeFile = files.find(f => f.id === activeFileId);
