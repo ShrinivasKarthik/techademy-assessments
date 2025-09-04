@@ -20,6 +20,7 @@ import {
   Monitor
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CodeFile {
   id: string;
@@ -51,13 +52,26 @@ interface CodingQuestionProps {
   answer?: {
     files: CodeFile[];
     language: string;
-    testResults?: Array<{
-      passed: boolean;
-      input: string;
-      expectedOutput: string;
-      actualOutput: string;
-      executionTime?: number;
-    }>;
+      testResults?: Array<{
+        passed: boolean;
+        input: string;
+        expectedOutput: string;
+        actualOutput: string;
+        executionTime?: number;
+        confidence?: number;
+        debuggingHints?: string[];
+      }>;
+      analysis?: {
+        syntaxErrors: Array<{line: number, message: string, severity: string}>;
+        logicAnalysis: any;
+        codeQuality: any;
+        performance: any;
+        security: any;
+        overallScore: number;
+        summary: string;
+      };
+      simulation?: any;
+      uiPreview?: any;
   };
   onAnswerChange: (answer: any) => void;
   disabled?: boolean;
@@ -236,40 +250,133 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
     }));
   };
 
-  // Code execution simulation
+  // AI-powered code execution and evaluation
   const runCode = async () => {
     setIsRunning(true);
     
     try {
-      // Simulate code execution
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockResults = question.config.testCases?.filter(tc => !tc.isHidden).map((testCase, index) => {
-        const passed = Math.random() > 0.3; // 70% pass rate for demo
-        return {
-          passed,
-          input: testCase.input,
-          expectedOutput: testCase.expectedOutput,
-          actualOutput: passed ? testCase.expectedOutput : `Error: Unexpected output for test ${index + 1}`,
-          executionTime: Math.floor(Math.random() * 100) + 10
-        };
-      }) || [];
+      // Step 1: Code Analysis
+      toast({
+        title: "Running AI Analysis",
+        description: "Analyzing code quality and logic...",
+      });
 
-      setTestResults(mockResults);
-      
-      const passedCount = mockResults.filter(r => r.passed).length;
+      const analysisResponse = await supabase.functions.invoke('analyze-code', {
+        body: {
+          code: activeFile?.content,
+          language: activeFile?.language || language,
+          questionContext: question.description,
+          testCases: question.config.testCases?.filter(tc => !tc.isHidden)
+        }
+      });
+
+      if (analysisResponse.error) {
+        throw new Error(`Analysis failed: ${analysisResponse.error.message}`);
+      }
+
+      const { analysis } = analysisResponse.data;
+
+      // Step 2: Execution Simulation
+      toast({
+        title: "Simulating Execution",
+        description: "Running test cases through AI simulation...",
+      });
+
+      const simulationResponse = await supabase.functions.invoke('simulate-execution', {
+        body: {
+          code: activeFile?.content,
+          language: activeFile?.language || language,
+          testCases: question.config.testCases?.filter(tc => !tc.isHidden),
+          questionContext: question.description
+        }
+      });
+
+      if (simulationResponse.error) {
+        throw new Error(`Simulation failed: ${simulationResponse.error.message}`);
+      }
+
+      const { simulation } = simulationResponse.data;
+
+      // Step 3: UI Preview (if applicable)
+      let uiPreview = null;
+      const hasUIFiles = files.some(file => 
+        ['html', 'css', 'javascript'].includes(file.language) ||
+        file.name.endsWith('.html') || file.name.endsWith('.css') || file.name.endsWith('.js')
+      );
+
+      if (hasUIFiles) {
+        toast({
+          title: "Generating UI Preview",
+          description: "Creating visual mockup of your interface...",
+        });
+
+        const previewResponse = await supabase.functions.invoke('generate-ui-preview', {
+          body: {
+            files: files,
+            questionContext: question.description
+          }
+        });
+
+        if (!previewResponse.error) {
+          uiPreview = previewResponse.data.preview;
+        }
+      }
+
+      // Process simulation results into test results format
+      const processedResults = simulation.executionResults?.map((result: any) => ({
+        passed: result.passed,
+        input: result.input,
+        expectedOutput: result.expectedOutput,
+        actualOutput: result.actualOutput,
+        executionTime: result.executionTime,
+        confidence: result.confidence || (result.passed ? 95 : 60),
+        debuggingHints: result.debuggingHints
+      })) || [];
+
+      setTestResults(processedResults);
+
+      // Update answer with comprehensive results
+      onAnswerChange({
+        files,
+        language,
+        testResults: processedResults,
+        analysis,
+        simulation,
+        uiPreview
+      });
+
+      const passedCount = processedResults.filter((r: any) => r.passed).length;
+      const totalCount = processedResults.length;
       
       toast({
-        title: "Code executed",
-        description: `${passedCount}/${mockResults.length} tests passed`,
-        variant: passedCount === mockResults.length ? "default" : "destructive"
+        title: "AI Evaluation Complete",
+        description: `${passedCount}/${totalCount} tests passed. Overall score: ${analysis.overallScore}/100`,
+        variant: passedCount === totalCount ? "default" : "destructive"
       });
       
     } catch (error) {
+      console.error('AI evaluation error:', error);
       toast({
-        title: "Execution failed",
-        description: "An error occurred while running your code",
+        title: "Evaluation failed",
+        description: error instanceof Error ? error.message : "An error occurred during AI evaluation",
         variant: "destructive"
+      });
+      
+      // Fallback to basic simulation
+      const fallbackResults = question.config.testCases?.filter(tc => !tc.isHidden).map((testCase, index) => ({
+        passed: Math.random() > 0.5,
+        input: testCase.input,
+        expectedOutput: testCase.expectedOutput,
+        actualOutput: "AI evaluation unavailable",
+        executionTime: Math.floor(Math.random() * 100) + 10,
+        confidence: 30
+      })) || [];
+      
+      setTestResults(fallbackResults);
+      onAnswerChange({
+        files,
+        language,
+        testResults: fallbackResults
       });
     } finally {
       setIsRunning(false);

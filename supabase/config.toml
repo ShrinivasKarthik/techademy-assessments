@@ -1,1 +1,10 @@
 project_id = "axdwgxtukqqzupboojmx"
+
+[functions.analyze-code]
+verify_jwt = false
+
+[functions.simulate-execution]
+verify_jwt = false
+
+[functions.generate-ui-preview]
+verify_jwt = false
