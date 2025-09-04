@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, Mail, Lock, User } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, User, Zap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -44,6 +44,25 @@ const AuthPage = () => {
       toast({
         title: "Welcome back!",
         description: "You have been successfully signed in.",
+      });
+      navigate('/');
+    }
+    
+    setLoading(false);
+  };
+
+  const handleDemoLogin = async (demoEmail: string, demoPassword: string, role: string) => {
+    setLoading(true);
+    setError('');
+    
+    const { error } = await signIn(demoEmail, demoPassword);
+    
+    if (error) {
+      setError(error.message);
+    } else {
+      toast({
+        title: `Welcome, ${role}!`,
+        description: "You've been logged in with demo credentials.",
       });
       navigate('/');
     }
@@ -111,6 +130,55 @@ const AuthPage = () => {
               </TabsList>
               
               <TabsContent value="signin" className="space-y-4">
+                {/* Demo Login Section */}
+                <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Zap className="w-4 h-4" />
+                    Quick Demo Login
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDemoLogin('admin@demo.com', 'demo123', 'Admin')}
+                      disabled={loading}
+                      className="text-xs"
+                    >
+                      Login as Admin
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDemoLogin('teacher@demo.com', 'demo123', 'Teacher')}
+                      disabled={loading}
+                      className="text-xs"
+                    >
+                      Login as Teacher
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDemoLogin('student@demo.com', 'demo123', 'Student')}
+                      disabled={loading}
+                      className="text-xs"
+                    >
+                      Login as Student
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or sign in manually</span>
+                  </div>
+                </div>
+
                 <form onSubmit={handleSignIn} className="space-y-4">
                   {error && (
                     <Alert variant="destructive">
