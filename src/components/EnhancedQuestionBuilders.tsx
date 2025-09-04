@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Plus, X, Code, FileText, Upload, Mic, HelpCircle } from 'lucide-react';
+import AdvancedCodingQuestionBuilder from './questions/AdvancedCodingQuestionBuilder';
 
 type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
 
@@ -57,138 +58,37 @@ interface EnhancedQuestionBuildersProps {
   questionType: QuestionType;
   config: any;
   onConfigChange: (config: any) => void;
+  questionDescription?: string;
+  difficulty?: string;
 }
 
 const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   questionType,
   config,
-  onConfigChange
+  onConfigChange,
+  questionDescription = '',
+  difficulty = 'intermediate'
 }) => {
   const renderCodingBuilder = () => {
-    const codingConfig = config as QuestionConfig['coding'] || {
+    const codingConfig = config || {
       language: 'javascript',
+      supportedLanguages: ['javascript'],
       starterCode: '',
-      testCases: []
-    };
-
-    const updateConfig = (updates: Partial<NonNullable<QuestionConfig['coding']>>) => {
-      onConfigChange({ ...codingConfig, ...updates });
-    };
-
-    const addTestCase = () => {
-      const newTestCase = {
-        input: '',
-        expectedOutput: '',
-        description: ''
-      };
-      updateConfig({
-        testCases: [...codingConfig.testCases, newTestCase]
-      });
-    };
-
-    const updateTestCase = (index: number, field: string, value: string) => {
-      const newTestCases = [...codingConfig.testCases];
-      newTestCases[index] = { ...newTestCases[index], [field]: value };
-      updateConfig({ testCases: newTestCases });
-    };
-
-    const removeTestCase = (index: number) => {
-      updateConfig({
-        testCases: codingConfig.testCases.filter((_, i) => i !== index)
-      });
+      testCases: [],
+      allowMultipleFiles: false,
+      hints: [],
+      commonMistakes: [],
+      optimizationTips: [],
+      templates: []
     };
 
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Programming Language</Label>
-            <Select value={codingConfig.language} onValueChange={(value) => updateConfig({ language: value })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="javascript">JavaScript</SelectItem>
-                <SelectItem value="python">Python</SelectItem>
-                <SelectItem value="java">Java</SelectItem>
-                <SelectItem value="cpp">C++</SelectItem>
-                <SelectItem value="typescript">TypeScript</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Starter Code (Optional)</Label>
-          <Textarea
-            value={codingConfig.starterCode}
-            onChange={(e) => updateConfig({ starterCode: e.target.value })}
-            placeholder="Provide starter code for students..."
-            className="font-mono text-sm min-h-[100px]"
-          />
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label className="text-base">Test Cases</Label>
-            <Button onClick={addTestCase} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Test Case
-            </Button>
-          </div>
-
-          {codingConfig.testCases.map((testCase, index) => (
-            <Card key={index}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">Test Case {index + 1}</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeTestCase(index)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Input
-                    value={testCase.description}
-                    onChange={(e) => updateTestCase(index, 'description', e.target.value)}
-                    placeholder="Brief description of this test case"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Input</Label>
-                  <Textarea
-                    value={testCase.input}
-                    onChange={(e) => updateTestCase(index, 'input', e.target.value)}
-                    placeholder="Input data for this test case"
-                    className="font-mono text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Expected Output</Label>
-                  <Textarea
-                    value={testCase.expectedOutput}
-                    onChange={(e) => updateTestCase(index, 'expectedOutput', e.target.value)}
-                    placeholder="Expected output for this test case"
-                    className="font-mono text-sm"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {codingConfig.testCases.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No test cases added yet. Add test cases to validate student solutions.
-            </div>
-          )}
-        </div>
-      </div>
+      <AdvancedCodingQuestionBuilder
+        config={codingConfig}
+        onConfigChange={onConfigChange}
+        questionDescription={questionDescription}
+        difficulty={difficulty}
+      />
     );
   };
 

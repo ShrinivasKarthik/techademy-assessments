@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.generate-ui-preview]
 verify_jwt = false
+
+[functions.generate-test-cases]
+verify_jwt = false
+
+[functions.generate-rubric]
+verify_jwt = false

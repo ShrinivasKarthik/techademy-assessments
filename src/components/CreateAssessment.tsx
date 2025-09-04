@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, X, Save, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
 
 type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -371,6 +372,18 @@ const CreateAssessment = () => {
                   onChange={(e) => setCurrentQuestion(prev => ({ ...prev, points: parseInt(e.target.value) || 10 }))}
                 />
               </div>
+            </div>
+
+            {/* Question Configuration */}
+            <div className="space-y-4">
+              <Label className="text-base font-medium">Question Configuration</Label>
+              <EnhancedQuestionBuilders
+                questionType={currentQuestion.question_type}
+                config={currentQuestion.config}
+                onConfigChange={(config) => setCurrentQuestion(prev => ({ ...prev, config }))}
+                questionDescription={currentQuestion.description}
+                difficulty={currentQuestion.difficulty}
+              />
             </div>
 
             <div className="flex justify-end gap-2">
