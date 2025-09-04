@@ -141,6 +141,42 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          settings: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          settings?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          settings?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       question_skills: {
         Row: {
           question_id: string
@@ -328,6 +364,7 @@ export type Database = {
       difficulty_level: "beginner" | "intermediate" | "advanced"
       question_type: "coding" | "mcq" | "subjective" | "file_upload" | "audio"
       submission_status: "in_progress" | "submitted" | "evaluated"
+      user_role: "admin" | "instructor" | "student" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -459,6 +496,7 @@ export const Constants = {
       difficulty_level: ["beginner", "intermediate", "advanced"],
       question_type: ["coding", "mcq", "subjective", "file_upload", "audio"],
       submission_status: ["in_progress", "submitted", "evaluated"],
+      user_role: ["admin", "instructor", "student", "user"],
     },
   },
 } as const

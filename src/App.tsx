@@ -3,7 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
+import AuthPage from "./pages/AuthPage";
 import CreateAssessmentPage from "./pages/CreateAssessmentPage";
 import AssessmentListPage from "./pages/AssessmentListPage";
 import TakeAssessmentPage from "./pages/TakeAssessmentPage";
@@ -20,24 +23,67 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/assessments/create" element={<CreateAssessmentPage />} />
-          <Route path="/assessments" element={<AssessmentListPage />} />
-          <Route path="/assessments/:id/take" element={<TakeAssessmentPage />} />
-          <Route path="/assessments/:id/preview" element={<AssessmentPreviewPage />} />
-          <Route path="/assessments/:id/analytics" element={<AssessmentAnalyticsPage />} />
-          <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route path="/monitoring" element={<MonitoringPage />} />
-          <Route path="/proctoring" element={<ProctoringPage />} />
-          <Route path="/advanced-analytics" element={<AdvancedAnalyticsPage />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Index />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments/create" element={
+              <ProtectedRoute>
+                <CreateAssessmentPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments" element={
+              <ProtectedRoute>
+                <AssessmentListPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments/:id/take" element={
+              <ProtectedRoute>
+                <TakeAssessmentPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments/:id/preview" element={
+              <ProtectedRoute>
+                <AssessmentPreviewPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments/:id/analytics" element={
+              <ProtectedRoute>
+                <AssessmentAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/monitoring" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <MonitoringPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/proctoring" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <ProctoringPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/advanced-analytics" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <AdvancedAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
