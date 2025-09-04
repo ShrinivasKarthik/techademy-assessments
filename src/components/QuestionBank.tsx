@@ -20,13 +20,16 @@ import {
   SortDesc,
   Grid3X3,
   List,
-  Star
+  Star,
+  Trash2
 } from "lucide-react";
 import { useQuestionBank, Question, QuestionFilters } from "@/hooks/useQuestionBank";
+import { useToast } from "@/hooks/use-toast";
 import QuestionCard from "./QuestionCard";
 import QuestionPreview from "./QuestionPreview";
 import CreateQuestionModal from "./CreateQuestionModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -55,6 +58,8 @@ export default function QuestionBank() {
     createCollection,
   } = useQuestionBank();
 
+  const { toast } = useToast();
+
   const [filters, setFilters] = useState<QuestionFilters>({
     search: '',
     questionType: 'all',
@@ -70,6 +75,7 @@ export default function QuestionBank() {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
 
   const filteredQuestions = useMemo(() => {
     return questions.filter(question => {
@@ -128,6 +134,49 @@ export default function QuestionBank() {
   const handleDelete = async (question: Question) => {
     if (window.confirm(`Are you sure you want to delete "${question.title}"?`)) {
       await deleteQuestion(question.id);
+    }
+  };
+
+  const handleQuestionSelect = (questionId: string, selected: boolean) => {
+    setSelectedQuestions(prev => 
+      selected 
+        ? [...prev, questionId]
+        : prev.filter(id => id !== questionId)
+    );
+  };
+
+  const handleSelectAll = (checked: boolean | string) => {
+    if (checked) {
+      setSelectedQuestions(filteredQuestions.map(q => q.id));
+    } else {
+      setSelectedQuestions([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedQuestions.length === 0) return;
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedQuestions.length} question${selectedQuestions.length > 1 ? 's' : ''}?`;
+    if (window.confirm(confirmMessage)) {
+      try {
+        // Delete questions one by one
+        for (const questionId of selectedQuestions) {
+          await deleteQuestion(questionId);
+        }
+        setSelectedQuestions([]);
+        
+        toast({
+          title: "Questions deleted",
+          description: `Successfully deleted ${selectedQuestions.length} question${selectedQuestions.length > 1 ? 's' : ''}`,
+        });
+      } catch (error) {
+        console.error('Error deleting questions:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete some questions",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -351,6 +400,38 @@ export default function QuestionBank() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Selection Controls */}
+            {(aiGeneratedQuestions.length > 0 || manualQuestions.length > 0) && (
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedQuestions.length === filteredQuestions.length && filteredQuestions.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                    <span className="text-sm">Select All</span>
+                  </div>
+                  {selectedQuestions.length > 0 && (
+                    <Badge variant="secondary">
+                      {selectedQuestions.length} selected
+                    </Badge>
+                  )}
+                </div>
+                {selectedQuestions.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleBulkDelete}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Selected ({selectedQuestions.length})
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* AI Generated Questions */}
             {aiGeneratedQuestions.length > 0 && (
               <div>
@@ -368,6 +449,9 @@ export default function QuestionBank() {
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                         showActions={true}
+                        showCheckbox={true}
+                        isSelected={selectedQuestions.includes(question.id)}
+                        onSelect={handleQuestionSelect}
                       />
                     </div>
                   ))}
@@ -391,6 +475,9 @@ export default function QuestionBank() {
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       showActions={true}
+                      showCheckbox={true}
+                      isSelected={selectedQuestions.includes(question.id)}
+                      onSelect={handleQuestionSelect}
                     />
                   ))}
                 </div>

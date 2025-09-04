@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Eye, 
   Plus, 
@@ -31,6 +32,9 @@ interface QuestionCardProps {
   onDelete?: (question: Question) => void;
   showAddButton?: boolean;
   showActions?: boolean;
+  isSelected?: boolean;
+  onSelect?: (questionId: string, selected: boolean) => void;
+  showCheckbox?: boolean;
 }
 
 const getQuestionTypeIcon = (type: string) => {
@@ -71,12 +75,22 @@ export default function QuestionCard({
   onDelete,
   showAddButton = false,
   showActions = false,
+  isSelected = false,
+  onSelect,
+  showCheckbox = false,
 }: QuestionCardProps) {
   return (
-    <Card className="group hover:shadow-md transition-shadow">
+    <Card className={`group hover:shadow-md transition-all ${isSelected ? 'ring-2 ring-primary shadow-lg' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 flex-1">
+            {showCheckbox && onSelect && (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelect(question.id, checked === true)}
+                className="mt-2"
+              />
+            )}
             <div className="p-2 rounded-lg bg-primary/10 text-primary mt-1">
               {getQuestionTypeIcon(question.question_type)}
             </div>
