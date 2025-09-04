@@ -96,7 +96,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   };
 
   const renderMCQBuilder = () => {
-    const mcqConfig = config as QuestionConfig['mcq'] || {
+    const mcqConfig = (config && config.options) ? config as QuestionConfig['mcq'] : {
       options: [],
       allowMultiple: false,
       shuffleOptions: false
@@ -159,7 +159,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
             </Button>
           </div>
 
-          {mcqConfig.options.map((option, index) => (
+          {(mcqConfig.options || []).map((option, index) => (
             <Card key={option.id}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -188,7 +188,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
             </Card>
           ))}
 
-          {mcqConfig.options.length === 0 && (
+          {(mcqConfig.options || []).length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               No options added yet. Add at least 2 options for a multiple choice question.
             </div>
@@ -199,7 +199,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   };
 
   const renderSubjectiveBuilder = () => {
-    const subjectiveConfig = config as QuestionConfig['subjective'] || {
+    const subjectiveConfig = (config && config.minWords !== undefined) ? config as QuestionConfig['subjective'] : {
       minWords: 0,
       maxWords: 0,
       placeholder: '',
@@ -274,7 +274,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
             </Button>
           </div>
 
-          {subjectiveConfig.rubric.map((criteria, index) => (
+          {(subjectiveConfig.rubric || []).map((criteria, index) => (
             <Card key={index}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -319,7 +319,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   };
 
   const renderFileUploadBuilder = () => {
-    const fileConfig = config as QuestionConfig['file_upload'] || {
+    const fileConfig = (config && config.allowedTypes !== undefined) ? config as QuestionConfig['file_upload'] : {
       allowedTypes: [],
       maxSizeBytes: 10 * 1024 * 1024,
       maxFiles: 1,
@@ -378,7 +378,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   };
 
   const renderAudioBuilder = () => {
-    const audioConfig = config as QuestionConfig['audio'] || {
+    const audioConfig = (config && config.maxDurationSeconds !== undefined) ? config as QuestionConfig['audio'] : {
       maxDurationSeconds: 300,
       allowRerecording: true,
       instructions: ''
