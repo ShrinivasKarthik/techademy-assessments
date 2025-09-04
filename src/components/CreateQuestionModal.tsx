@@ -17,10 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Code, HelpCircle, FileText, Upload, Mic } from "lucide-react";
+import { X, Plus, Code, HelpCircle, FileText, Upload, Mic, Sparkles, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Question } from "@/hooks/useQuestionBank";
 import EnhancedQuestionBuilders from "./EnhancedQuestionBuilders";
+import { useSkills } from "@/hooks/useSkills";
+import { useToast } from "@/hooks/use-toast";
 
 interface CreateQuestionModalProps {
   question?: Question | null;
@@ -75,11 +77,17 @@ export default function CreateQuestionModal({
     points: 10,
     config: {},
     tags: [] as string[],
+    skills: [] as string[],
     is_template: false,
   });
 
   const [newTag, setNewTag] = useState('');
+  const [newSkill, setNewSkill] = useState('');
   const [loading, setLoading] = useState(false);
+  const [suggestingSkills, setSuggestingSkills] = useState(false);
+  
+  const { skills: availableSkills, getOrCreateSkills, suggestSkillsForQuestion } = useSkills();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (question) {
@@ -90,6 +98,7 @@ export default function CreateQuestionModal({
         points: question.points,
         config: question.config || {},
         tags: question.tags || [],
+        skills: question.skills?.map(s => s.name) || [],
         is_template: question.is_template,
       });
     } else {
@@ -101,6 +110,7 @@ export default function CreateQuestionModal({
         points: 10,
         config: {},
         tags: [],
+        skills: [],
         is_template: false,
       });
     }
@@ -123,6 +133,75 @@ export default function CreateQuestionModal({
     }));
   };
 
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        skills: [...prev.skills, newSkill.trim()]
+      }));
+      setNewSkill('');
+    }
+  };
+
+  const handleRemoveSkill = (skillToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      skills: prev.skills.filter(skill => skill !== skillToRemove)
+    }));
+  };
+
+  const handleSuggestSkills = async () => {
+    if (!formData.question_text.trim()) {
+      toast({
+        title: "Question Text Required",
+        description: "Please enter question text before suggesting skills",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSuggestingSkills(true);
+    try {
+      const suggestedSkills = await suggestSkillsForQuestion(
+        formData.question_text,
+        formData.question_type
+      );
+
+      if (suggestedSkills.length > 0) {
+        // Add only new skills that aren't already selected
+        const newSkills = suggestedSkills.filter(skill => !formData.skills.includes(skill));
+        if (newSkills.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            skills: [...prev.skills, ...newSkills]
+          }));
+          toast({
+            title: "Skills Suggested",
+            description: `Added ${newSkills.length} suggested skill(s)`,
+          });
+        } else {
+          toast({
+            title: "No New Skills",
+            description: "All suggested skills are already selected",
+          });
+        }
+      } else {
+        toast({
+          title: "No Suggestions",
+          description: "Could not generate skill suggestions for this question",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Suggestion Failed",
+        description: "Failed to generate skill suggestions",
+        variant: "destructive",
+      });
+    } finally {
+      setSuggestingSkills(false);
+    }
+  };
+
   const handleConfigUpdate = (config: any) => {
     setFormData(prev => ({ ...prev, config }));
   };
@@ -137,7 +216,15 @@ export default function CreateQuestionModal({
         ? formData.question_text.substring(0, 50).trim() + '...'
         : formData.question_text.trim();
       
-      await onSave({ ...formData, title, points: 1 });
+      // Ensure skills exist in database
+      const skillObjects = await getOrCreateSkills(formData.skills);
+      
+      await onSave({ 
+        ...formData, 
+        title, 
+        points: 1,
+        skills: skillObjects.map(s => ({ name: s.name }))
+      });
     } finally {
       setLoading(false);
     }
@@ -253,6 +340,66 @@ export default function CreateQuestionModal({
             </div>
           </div>
 
+          {/* Skills */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Skills *</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSuggestSkills}
+                disabled={suggestingSkills || !formData.question_text.trim()}
+              >
+                {suggestingSkills ? (
+                  <>
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    Suggesting...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-3 w-3" />
+                    AI Suggest
+                  </>
+                )}
+              </Button>
+            </div>
+            <div className="flex gap-2 mb-2">
+              <Input
+                value={newSkill}
+                onChange={(e) => setNewSkill(e.target.value)}
+                placeholder="Add a skill (e.g., JavaScript, Problem Solving)"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddSkill();
+                  }
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={handleAddSkill}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {formData.skills.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {formData.skills.map((skill, index) => (
+                  <Badge key={index} variant="default" className="cursor-pointer">
+                    {skill}
+                    <X
+                      className="ml-1 h-3 w-3"
+                      onClick={() => handleRemoveSkill(skill)}
+                    />
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {formData.skills.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Skills help categorize and filter questions. Use AI Suggest for automatic recommendations.
+              </p>
+            )}
+          </div>
+
           {/* Tags */}
           <div className="space-y-3">
             <Label>Tags (Optional)</Label>
@@ -294,7 +441,7 @@ export default function CreateQuestionModal({
             </Button>
             <Button 
               onClick={handleSubmit} 
-              disabled={loading || !formData.question_text.trim()}
+              disabled={loading || !formData.question_text.trim() || formData.skills.length === 0}
               className="min-w-[120px]"
             >
               {loading ? 'Saving...' : question ? 'Update Question' : 'Create Question'}

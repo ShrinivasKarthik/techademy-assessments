@@ -151,6 +151,22 @@ export default function QuestionCard({
           </div>
         )}
 
+        {question.skills && question.skills.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            <span className="text-xs text-muted-foreground mr-1">Skills:</span>
+            {question.skills.slice(0, 3).map((skill, index) => (
+              <Badge key={index} variant="default" className="text-xs">
+                {skill.name}
+              </Badge>
+            ))}
+            {question.skills.length > 3 && (
+              <Badge variant="default" className="text-xs">
+                +{question.skills.length - 3} more
+              </Badge>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">

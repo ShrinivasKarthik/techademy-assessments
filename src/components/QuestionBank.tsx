@@ -40,6 +40,7 @@ import SmartAssembly from "./SmartAssembly";
 import VersionControl from "./VersionControl";
 import BatchOperations from "./BatchOperations";
 import SkillGapAnalysis from "./SkillGapAnalysis";
+import EnhancedAIGenerator from "./EnhancedAIGenerator";
 
 export default function QuestionBank() {
   const {
@@ -175,8 +176,9 @@ export default function QuestionBank() {
 
       {/* Tabs for different views */}
       <Tabs defaultValue="questions" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="questions">Questions</TabsTrigger>
+          <TabsTrigger value="ai-generator">AI Generator</TabsTrigger>
           <TabsTrigger value="collections">Collections</TabsTrigger>
           <TabsTrigger value="smart-assembly">Smart Assembly</TabsTrigger>
           <TabsTrigger value="batch-ops">Batch Operations</TabsTrigger>
@@ -381,6 +383,24 @@ export default function QuestionBank() {
           </Card>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="ai-generator" className="space-y-6">
+          <EnhancedAIGenerator
+            onQuestionsGenerated={async (generatedQuestions) => {
+              // Create questions from AI generator
+              for (const questionData of generatedQuestions) {
+                await createQuestion(questionData);
+              }
+              // Refresh questions list
+              await fetchQuestions();
+            }}
+            assessmentContext={{
+              title: "Question Bank",
+              description: "AI-generated questions for the question bank",
+              targetSkills: []
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="collections">

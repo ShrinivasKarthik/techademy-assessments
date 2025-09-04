@@ -59,7 +59,7 @@ export const useQuestionBank = () => {
         .from('questions')
         .select(`
           *,
-          question_skills!inner(
+          question_skills(
             skills(name)
           )
         `);
@@ -162,6 +162,48 @@ export const useQuestionBank = () => {
         .single();
 
       if (error) throw error;
+
+      // Handle skills mapping if provided
+      if (questionData.skills && Array.isArray(questionData.skills)) {
+        const skillNames = questionData.skills.map(s => typeof s === 'string' ? s : s.name);
+        
+        // Get or create skills
+        const { data: skillsData, error: skillsError } = await supabase
+          .from('skills')
+          .select('id, name')
+          .in('name', skillNames);
+
+        if (skillsError) console.error('Error fetching skills:', skillsError);
+
+        const existingSkills = skillsData || [];
+        const existingSkillNames = new Set(existingSkills.map(s => s.name));
+        const newSkillNames = skillNames.filter(name => !existingSkillNames.has(name));
+
+        // Create new skills
+        let newSkills = [];
+        if (newSkillNames.length > 0) {
+          const { data: newSkillsData, error: createSkillsError } = await supabase
+            .from('skills')
+            .insert(newSkillNames.map(name => ({ name })))
+            .select('id, name');
+
+          if (createSkillsError) console.error('Error creating skills:', createSkillsError);
+          newSkills = newSkillsData || [];
+        }
+
+        // Map question to skills
+        const allSkills = [...existingSkills, ...newSkills];
+        if (allSkills.length > 0) {
+          const { error: mappingError } = await supabase
+            .from('question_skills')
+            .insert(allSkills.map(skill => ({
+              question_id: data.id,
+              skill_id: skill.id
+            })));
+
+          if (mappingError) console.error('Error mapping question to skills:', mappingError);
+        }
+      }
 
       toast({
         title: "Question created",
