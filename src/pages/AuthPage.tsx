@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Mail, Lock, User, Zap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -30,6 +31,34 @@ const AuthPage = () => {
       navigate('/');
     }
   }, [user, navigate]);
+
+  const createAdminUser = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-admin-user');
+      
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create admin user",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Admin Created!",
+          description: "Admin user created. Email: shrinivas.karthik@techademy.com, Password: admin123",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create admin user",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +186,7 @@ const AuthPage = () => {
                     >
                       Login as Teacher
                     </Button>
-                    <Button
+                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
@@ -166,6 +195,16 @@ const AuthPage = () => {
                       className="text-xs"
                     >
                       Login as Student
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={createAdminUser}
+                      disabled={loading}
+                      className="text-xs mt-2"
+                    >
+                      🔧 Create Admin User (One-time)
                     </Button>
                   </div>
                 </div>
