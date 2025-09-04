@@ -105,6 +105,10 @@ export default function QuestionBank() {
     });
   }, [questions, filters]);
 
+  // Separate AI-generated and manual questions for display
+  const aiGeneratedQuestions = filteredQuestions.filter(q => q.created_by === null);
+  const manualQuestions = filteredQuestions.filter(q => q.created_by !== null);
+
   const handleFilterChange = (key: keyof QuestionFilters, value: any) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
@@ -346,17 +350,52 @@ export default function QuestionBank() {
             ))}
           </div>
         ) : (
-          <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
-            {filteredQuestions.map((question) => (
-              <QuestionCard
-                key={question.id}
-                question={question}
-                onPreview={handlePreview}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                showActions={true}
-              />
-            ))}
+          <div className="space-y-6">
+            {/* AI Generated Questions */}
+            {aiGeneratedQuestions.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-2 w-2 rounded-full bg-primary"></div>
+                  <h3 className="text-lg font-semibold">AI Generated Questions ({aiGeneratedQuestions.length})</h3>
+                </div>
+                <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                  {aiGeneratedQuestions.map((question) => (
+                    <div key={question.id} className="relative">
+                      <Badge className="absolute -top-2 -right-2 z-10 bg-primary text-primary-foreground">AI</Badge>
+                      <QuestionCard
+                        question={question}
+                        onPreview={handlePreview}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        showActions={true}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Manual Questions */}
+            {manualQuestions.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-2 w-2 rounded-full bg-secondary"></div>
+                  <h3 className="text-lg font-semibold">My Questions ({manualQuestions.length})</h3>
+                </div>
+                <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                  {manualQuestions.map((question) => (
+                    <QuestionCard
+                      key={question.id}
+                      question={question}
+                      onPreview={handlePreview}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      showActions={true}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
