@@ -64,14 +64,10 @@ const MainDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      loadDashboardData();
-    }
-  }, [user, profile]);
+    loadDashboardData();
+  }, []);
 
-  const loadDashboardData = async () => {
-    if (!user) return;
-    
+  const loadDashboardData = async () => {    
     try {
       setLoading(true);
       
