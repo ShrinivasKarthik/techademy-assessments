@@ -63,7 +63,7 @@ export const useQuestionBank = () => {
             skills(name)
           )
         `)
-        .eq('assessment_id', '00000000-0000-0000-0000-000000000000'); // Only fetch standalone questions
+        .is('assessment_id', null); // Only fetch standalone questions
 
       // Apply filters
       if (filters?.search) {
@@ -139,7 +139,7 @@ export const useQuestionBank = () => {
       const { data: maxOrder } = await supabase
         .from('questions')
         .select('order_index')
-        .eq('assessment_id', '00000000-0000-0000-0000-000000000000')
+        .is('assessment_id', null)
         .order('order_index', { ascending: false })
         .limit(1);
 
@@ -157,7 +157,8 @@ export const useQuestionBank = () => {
           tags: questionData.tags || [],
           is_template: questionData.is_template || false,
           order_index: nextOrderIndex,
-          assessment_id: '00000000-0000-0000-0000-000000000000' // Placeholder for question bank
+          created_by: user.id,
+          assessment_id: null // Standalone question for question bank
         })
         .select()
         .single();

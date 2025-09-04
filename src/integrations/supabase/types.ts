@@ -588,7 +588,7 @@ export type Database = {
       questions: {
         Row: {
           archived_at: string | null
-          assessment_id: string
+          assessment_id: string | null
           change_summary: string | null
           config: Json | null
           created_at: string
@@ -613,7 +613,7 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
-          assessment_id: string
+          assessment_id?: string | null
           change_summary?: string | null
           config?: Json | null
           created_at?: string
@@ -638,7 +638,7 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
-          assessment_id?: string
+          assessment_id?: string | null
           change_summary?: string | null
           config?: Json | null
           created_at?: string
