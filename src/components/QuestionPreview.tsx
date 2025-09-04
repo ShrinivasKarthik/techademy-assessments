@@ -194,27 +194,50 @@ export default function QuestionPreview({ question, isOpen, onClose }: QuestionP
               <h4 className="text-sm font-medium mb-2">Configuration:</h4>
               <div className="bg-muted/50 p-4 rounded-lg space-y-3">
                 {question.question_type === 'mcq' && question.config.options ? (
-                  <div>
-                    <div className="text-sm font-medium mb-2">Options:</div>
-                    <div className="space-y-2">
-                      {question.config.options.map((option: any, index: number) => (
-                        <div key={index} className="flex items-start gap-2 p-2 bg-background rounded border">
-                          <span className="text-xs text-muted-foreground mt-1">{index + 1}.</span>
-                          <span className="flex-1">{option.text}</span>
-                          {option.isCorrect && (
-                            <Badge variant="secondary" className="text-xs">Correct</Badge>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {question.config.allowMultiple !== undefined && (
-                      <div className="text-sm text-muted-foreground mt-2">
-                        Allow multiple selections: {question.config.allowMultiple ? 'Yes' : 'No'}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-sm font-medium mb-2">Options:</div>
+                      <div className="space-y-2">
+                        {question.config.options.map((option: any, index: number) => (
+                          <div key={index} className="flex items-start gap-2 p-3 bg-background rounded border">
+                            <span className="text-xs text-muted-foreground mt-1 font-medium">{index + 1}.</span>
+                            <span className="flex-1">{option.text}</span>
+                            {option.isCorrect && (
+                              <Badge variant="default" className="text-xs bg-success/20 text-success border-success/30">
+                                ✓ Correct
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Multiple Selection:</span>
+                        <span className="ml-2 text-muted-foreground">
+                          {question.config.allowMultiple ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      {question.config.shuffleOptions !== undefined && (
+                        <div>
+                          <span className="font-medium">Shuffle Options:</span>
+                          <span className="ml-2 text-muted-foreground">
+                            {question.config.shuffleOptions ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-sm">
+                      <span className="font-medium">Correct Answers:</span>
+                      <span className="ml-2 text-muted-foreground">
+                        {question.config.options.filter((opt: any) => opt.isCorrect).length} out of {question.config.options.length} options
+                      </span>
+                    </div>
                   </div>
                 ) : (
-                  <pre className="text-xs overflow-x-auto">
+                  <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(question.config, null, 2)}
                   </pre>
                 )}
