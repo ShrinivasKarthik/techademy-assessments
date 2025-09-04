@@ -74,12 +74,20 @@ const MainDashboard = () => {
     try {
       setLoading(true);
       
-      // Simple query without complex joins to avoid TypeScript issues
-      const { data: assessments, error } = await supabase
-        .from('assessments')
-        .select('id, title, status, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Use fetch API to bypass complex Supabase types temporarily
+      const response = await fetch(
+        `https://axdwgxtukqqzupboojmx.supabase.co/rest/v1/assessments?select=id,title,status,created_at&user_id=eq.${user.id}&order=created_at.desc`,
+        {
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4ZHdneHR1a3FxenVwYm9vam14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NDc4MDksImV4cCI6MjA3MjUyMzgwOX0.jqTQyfetH-utIZUeSVH34ctBY70bIig65C8NZo3tMIM',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const assessments = response.ok ? await response.json() : [];
+      const error = response.ok ? null : new Error('Failed to fetch');
 
       if (error) throw error;
 
