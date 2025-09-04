@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
 import AIContentGenerator from './AIContentGenerator';
+import AssessmentQualityAssurance from './AssessmentQualityAssurance';
 
 type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';

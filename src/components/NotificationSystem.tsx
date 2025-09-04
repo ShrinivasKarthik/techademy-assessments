@@ -1,189 +1,210 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { Bell, X, Info, AlertTriangle, CheckCircle, Clock, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import {
-  Bell,
-  X,
-  Check,
-  AlertTriangle,
-  Info,
-  CheckCircle,
-  Users,
-  FileText,
-  Settings,
-  MessageSquare
-} from 'lucide-react';
-import { useRealtime } from '@/hooks/useRealtime';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
+import { useRealtimeV2 } from '@/hooks/useRealtime';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+// Enhanced notification types
+export type NotificationType = 
+  | 'assessment_published' 
+  | 'assessment_submitted' 
+  | 'evaluation_complete'
+  | 'security_violation'
+  | 'session_timeout'
+  | 'system_alert'
+  | 'assignment_due'
+  | 'new_participant'
+  | 'assessment_started'
+  | 'proctoring_alert';
+
+export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface Notification {
   id: string;
-  type: 'info' | 'warning' | 'error' | 'success';
+  type: NotificationType;
+  priority: NotificationPriority;
   title: string;
   message: string;
-  timestamp: number;
+  data?: any;
   read: boolean;
-  actionRequired?: boolean;
-  relatedUserId?: string;
-  relatedAssessmentId?: string;
+  timestamp: string;
+  userId: string;
+  actionUrl?: string;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
+  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read' | 'userId'>) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   removeNotification: (id: string) => void;
+  clearAll: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
-  if (!context) {
-    throw new Error('useNotifications must be used within NotificationProvider');
+  if (context === undefined) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
   }
   return context;
 };
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const { isConnected, subscribe, unsubscribe } = useRealtime();
-  const { user } = useAuth();
 
-  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+  // Real-time subscriptions for different notification sources
+  const assessmentRealtime = useRealtimeV2({
+    table: 'assessments',
+    onUpdate: (payload) => {
+      if (payload.new.status === 'published' && payload.old.status !== 'published') {
+        addNotification({
+          type: 'assessment_published',
+          priority: 'medium',
+          title: 'Assessment Published',
+          message: `"${payload.new.title}" is now available for participants`,
+          data: { assessmentId: payload.new.id },
+          actionUrl: `/assessments/${payload.new.id}/preview`
+        });
+      }
+    }
+  });
+
+  const instanceRealtime = useRealtimeV2({
+    table: 'assessment_instances',
+    onInsert: (payload) => {
+      // Notify instructors when someone starts their assessment
+      if (profile?.role === 'instructor' || profile?.role === 'admin') {
+        addNotification({
+          type: 'new_participant',
+          priority: 'low',
+          title: 'New Assessment Started',
+          message: 'A participant has begun taking an assessment',
+          data: { instanceId: payload.new.id, assessmentId: payload.new.assessment_id }
+        });
+      }
+    },
+    onUpdate: (payload) => {
+      // Handle submission notifications
+      if (payload.new.status === 'submitted' && payload.old.status !== 'submitted') {
+        if (profile?.role === 'instructor' || profile?.role === 'admin') {
+          addNotification({
+            type: 'assessment_submitted',
+            priority: 'medium',
+            title: 'Assessment Submitted',
+            message: 'A participant has submitted their assessment for review',
+            data: { instanceId: payload.new.id },
+            actionUrl: `/monitoring?instance=${payload.new.id}`
+          });
+        }
+      }
+
+      // Handle security violations
+      if (payload.new.proctoring_violations && 
+          JSON.stringify(payload.new.proctoring_violations) !== JSON.stringify(payload.old.proctoring_violations)) {
+        const violations = Array.isArray(payload.new.proctoring_violations) ? payload.new.proctoring_violations : [];
+        const newViolations = violations.filter(v => 
+          !Array.isArray(payload.old.proctoring_violations) || 
+          !payload.old.proctoring_violations.find(ov => ov.timestamp === v.timestamp)
+        );
+
+        newViolations.forEach(violation => {
+          addNotification({
+            type: 'security_violation',
+            priority: violation.severity === 'critical' ? 'critical' : 'high',
+            title: 'Security Alert',
+            message: violation.description || 'Security violation detected during assessment',
+            data: { instanceId: payload.new.id, violation },
+            actionUrl: `/proctoring?instance=${payload.new.id}`
+          });
+        });
+      }
+    }
+  });
+
+  const evaluationRealtime = useRealtimeV2({
+    table: 'evaluations',
+    onInsert: (payload) => {
+      // Notify when evaluation is complete
+      addNotification({
+        type: 'evaluation_complete',
+        priority: 'medium',
+        title: 'Evaluation Complete',
+        message: `Assessment has been evaluated with score: ${payload.new.score}/${payload.new.max_score}`,
+        data: { evaluationId: payload.new.id, submissionId: payload.new.submission_id }
+      });
+    }
+  });
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read' | 'userId'>) => {
+    if (!user) return;
+
     const newNotification: Notification = {
       ...notification,
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      read: false
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toISOString(),
+      read: false,
+      userId: user.id
     };
 
     setNotifications(prev => [newNotification, ...prev]);
 
-    // Show toast for important notifications
-    if (notification.type === 'error' || notification.actionRequired) {
+    // Show toast for high priority notifications
+    if (notification.priority === 'high' || notification.priority === 'critical') {
       toast({
         title: notification.title,
         description: notification.message,
-        variant: notification.type === 'error' ? 'destructive' : 'default'
+        variant: notification.priority === 'critical' ? 'destructive' : 'default',
       });
     }
-  };
+  }, [user, toast]);
 
-  const markAsRead = (id: string) => {
+  const markAsRead = useCallback((id: string) => {
     setNotifications(prev => 
       prev.map(notification => 
         notification.id === id ? { ...notification, read: true } : notification
       )
     );
-  };
+  }, []);
 
-  const markAllAsRead = () => {
+  const markAllAsRead = useCallback(() => {
     setNotifications(prev => 
       prev.map(notification => ({ ...notification, read: true }))
     );
-  };
-
-  const removeNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  // Set up real-time subscriptions for notifications
-  useEffect(() => {
-    if (isConnected && user) {
-      // Subscribe to assessment instances for completion notifications
-      const assessmentSubscription = subscribe({
-        channel: 'notifications_assessments',
-        table: 'assessment_instances',
-        callback: (payload) => {
-          if (payload.eventType === 'UPDATE' && payload.new.status === 'submitted') {
-            addNotification({
-              type: 'success',
-              title: 'Assessment Completed',
-              message: `A participant has completed an assessment`,
-              relatedAssessmentId: payload.new.assessment_id
-            });
-          }
-        }
-      });
-
-      // Subscribe to evaluations for grading notifications
-      const evaluationSubscription = subscribe({
-        channel: 'notifications_evaluations',
-        table: 'evaluations',
-        callback: (payload) => {
-          if (payload.eventType === 'INSERT') {
-            addNotification({
-              type: 'info',
-              title: 'New Evaluation',
-              message: `An assessment has been graded`,
-              relatedAssessmentId: payload.new.submission_id
-            });
-          }
-        }
-      });
-
-      return () => {
-        if (assessmentSubscription) unsubscribe(assessmentSubscription);
-        if (evaluationSubscription) unsubscribe(evaluationSubscription);
-      };
-    }
-  }, [isConnected, user, subscribe, unsubscribe, addNotification]);
-
-  // Add some sample notifications for demonstration
-  useEffect(() => {
-    const sampleNotifications: Notification[] = [
-      {
-        id: '1',
-        type: 'warning',
-        title: 'Suspicious Activity Detected',
-        message: 'Multiple tab switches detected during assessment',
-        timestamp: Date.now() - 300000,
-        read: false,
-        actionRequired: true,
-        relatedUserId: 'user123'
-      },
-      {
-        id: '2',
-        type: 'success',
-        title: 'Assessment Completed',
-        message: 'John Doe has successfully completed the React Assessment',
-        timestamp: Date.now() - 600000,
-        read: false,
-        relatedAssessmentId: 'assessment456'
-      },
-      {
-        id: '3',
-        type: 'info',
-        title: 'New User Registration',
-        message: 'Jane Smith has joined the platform',
-        timestamp: Date.now() - 900000,
-        read: true,
-        relatedUserId: 'user789'
-      }
-    ];
-
-    setNotifications(sampleNotifications);
   }, []);
 
+  const removeNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setNotifications([]);
+  }, []);
+
+  const value = {
+    notifications,
+    unreadCount,
+    addNotification,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+    clearAll
+  };
+
   return (
-    <NotificationContext.Provider value={{
-      notifications,
-      unreadCount,
-      addNotification,
-      markAsRead,
-      markAllAsRead,
-      removeNotification
-    }}>
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   );
@@ -194,24 +215,30 @@ const NotificationItem: React.FC<{ notification: Notification }> = ({ notificati
 
   const getIcon = () => {
     switch (notification.type) {
-      case 'success': return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case 'warning': return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
-      case 'error': return <AlertTriangle className="w-5 h-5 text-red-500" />;
-      default: return <Info className="w-5 h-5 text-blue-500" />;
+      case 'assessment_submitted':
+      case 'evaluation_complete': 
+        return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case 'security_violation':
+      case 'proctoring_alert': 
+        return <AlertTriangle className="w-5 h-5 text-red-500" />;
+      case 'session_timeout':
+        return <Clock className="w-5 h-5 text-yellow-500" />;
+      default: 
+        return <Info className="w-5 h-5 text-blue-500" />;
     }
   };
 
-  const getBadgeVariant = () => {
-    switch (notification.type) {
-      case 'success': return 'default';
-      case 'warning': return 'secondary';
-      case 'error': return 'destructive';
-      default: return 'outline';
+  const getPriorityColor = () => {
+    switch (notification.priority) {
+      case 'critical': return 'border-l-red-500 bg-red-50/50';
+      case 'high': return 'border-l-orange-500 bg-orange-50/50';
+      case 'medium': return 'border-l-blue-500 bg-blue-50/50';
+      case 'low': return 'border-l-gray-500 bg-gray-50/50';
     }
   };
 
-  const formatTimestamp = (timestamp: number) => {
-    const diff = Date.now() - timestamp;
+  const formatTimestamp = (timestamp: string) => {
+    const diff = Date.now() - new Date(timestamp).getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
@@ -223,8 +250,8 @@ const NotificationItem: React.FC<{ notification: Notification }> = ({ notificati
   };
 
   return (
-    <div className={`p-4 border-l-4 ${
-      notification.read ? 'border-l-gray-200 bg-gray-50/50' : 'border-l-primary bg-primary/5'
+    <div className={`p-4 border-l-4 ${getPriorityColor()} ${
+      notification.read ? 'opacity-60' : ''
     }`}>
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-3 flex-1">
@@ -234,14 +261,9 @@ const NotificationItem: React.FC<{ notification: Notification }> = ({ notificati
               <p className={`text-sm font-medium ${notification.read ? 'text-gray-600' : 'text-gray-900'}`}>
                 {notification.title}
               </p>
-              <Badge variant={getBadgeVariant()} className="text-xs">
-                {notification.type}
+              <Badge variant="outline" className="text-xs capitalize">
+                {notification.priority}
               </Badge>
-              {notification.actionRequired && (
-                <Badge variant="outline" className="text-xs">
-                  Action Required
-                </Badge>
-              )}
             </div>
             <p className={`text-sm ${notification.read ? 'text-gray-500' : 'text-gray-700'}`}>
               {notification.message}
@@ -276,17 +298,26 @@ const NotificationItem: React.FC<{ notification: Notification }> = ({ notificati
   );
 };
 
-export const NotificationPanel: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
-  isOpen, 
-  onClose 
-}) => {
-  const { notifications, markAllAsRead, unreadCount } = useNotifications();
-
-  if (!isOpen) return null;
+export const NotificationBell: React.FC = () => {
+  const { notifications, unreadCount, markAllAsRead, clearAll } = useNotifications();
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <Card className="absolute top-12 right-0 w-96 max-h-96 shadow-lg z-50">
-      <CardContent className="p-0">
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="relative">
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center text-xs p-0"
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-96 p-0" align="end">
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center space-x-2">
             <Bell className="w-5 h-5" />
@@ -299,64 +330,31 @@ export const NotificationPanel: React.FC<{ isOpen: boolean; onClose: () => void 
           </div>
           <div className="flex items-center space-x-2">
             {unreadCount > 0 && (
-              <Button size="sm" variant="ghost" onClick={markAllAsRead} className="text-xs">
+              <Button size="sm" variant="ghost" onClick={markAllAsRead}>
                 Mark all read
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={onClose} className="h-6 w-6 p-0">
-              <X className="w-4 h-4" />
+            <Button size="sm" variant="ghost" onClick={clearAll}>
+              Clear all
             </Button>
           </div>
         </div>
         
-        <ScrollArea className="max-h-80">
-          {notifications.length > 0 ? (
-            <div className="space-y-0">
-              {notifications.map((notification, index) => (
-                <div key={notification.id}>
-                  <NotificationItem notification={notification} />
-                  {index < notifications.length - 1 && <Separator />}
-                </div>
-              ))}
+        <ScrollArea className="max-h-96">
+          {notifications.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No notifications yet</p>
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-500">
-              <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-              <p>No notifications</p>
+            <div className="divide-y">
+              {notifications.map(notification => (
+                <NotificationItem key={notification.id} notification={notification} />
+              ))}
             </div>
           )}
         </ScrollArea>
-      </CardContent>
-    </Card>
+      </PopoverContent>
+    </Popover>
   );
 };
-
-export const NotificationBell: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const { unreadCount } = useNotifications();
-
-  return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="relative"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <Bell className="w-5 h-5" />
-        {unreadCount > 0 && (
-          <Badge 
-            variant="destructive" 
-            className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center"
-          >
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </Badge>
-        )}
-      </Button>
-      
-      <NotificationPanel isOpen={isOpen} onClose={() => setIsOpen(false)} />
-    </div>
-  );
-};
-
-export default NotificationBell;
