@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Save, Eye, Sparkles } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Plus, X, Save, Eye, Sparkles, Shield, Camera, Mic, Monitor } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
@@ -26,6 +28,20 @@ interface Question {
   config: any;
 }
 
+interface ProctoringConfig {
+  cameraRequired: boolean;
+  microphoneRequired: boolean;
+  screenSharing: boolean;
+  tabSwitchDetection: boolean;
+  fullscreenRequired: boolean;
+  faceDetection: boolean;
+  voiceAnalysis: boolean;
+  environmentCheck: boolean;
+  browserLockdown: boolean;
+  autoStart: boolean;
+  requireProctorApproval: boolean;
+}
+
 interface Assessment {
   title: string;
   description: string;
@@ -33,6 +49,8 @@ interface Assessment {
   duration_minutes: number;
   max_attempts: number;
   status: 'draft' | 'published';
+  proctoring_enabled: boolean;
+  proctoring_config: ProctoringConfig;
   questions: Question[];
 }
 
@@ -45,6 +63,20 @@ const CreateAssessment = () => {
     duration_minutes: 60,
     max_attempts: 1,
     status: 'draft',
+    proctoring_enabled: false,
+    proctoring_config: {
+      cameraRequired: true,
+      microphoneRequired: true,
+      screenSharing: false,
+      tabSwitchDetection: true,
+      fullscreenRequired: true,
+      faceDetection: true,
+      voiceAnalysis: false,
+      environmentCheck: true,
+      browserLockdown: true,
+      autoStart: false,
+      requireProctorApproval: false
+    },
     questions: []
   });
 
@@ -152,6 +184,8 @@ const CreateAssessment = () => {
           duration_minutes: assessment.duration_minutes,
           max_attempts: assessment.max_attempts,
           status: assessment.status,
+          proctoring_enabled: assessment.proctoring_enabled,
+          proctoring_config: assessment.proctoring_config as any,
           creator_id: mockCreatorId
         })
         .select()
@@ -192,6 +226,20 @@ const CreateAssessment = () => {
         duration_minutes: 60,
         max_attempts: 1,
         status: 'draft',
+        proctoring_enabled: false,
+        proctoring_config: {
+          cameraRequired: true,
+          microphoneRequired: true,
+          screenSharing: false,
+          tabSwitchDetection: true,
+          fullscreenRequired: true,
+          faceDetection: true,
+          voiceAnalysis: false,
+          environmentCheck: true,
+          browserLockdown: true,
+          autoStart: false,
+          requireProctorApproval: false
+        },
         questions: []
       });
 
@@ -291,6 +339,184 @@ const CreateAssessment = () => {
               </Select>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Proctoring Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Proctoring & Security
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="proctoring-enabled">Enable Proctoring</Label>
+              <p className="text-sm text-muted-foreground">
+                Activate live monitoring and security controls for this assessment
+              </p>
+            </div>
+            <Switch
+              id="proctoring-enabled"
+              checked={assessment.proctoring_enabled}
+              onCheckedChange={(checked) => setAssessment(prev => ({ ...prev, proctoring_enabled: checked }))}
+            />
+          </div>
+
+          {assessment.proctoring_enabled && (
+            <>
+              <Separator />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Camera className="w-4 h-4" />
+                    Video & Audio
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="camera-required">Camera Required</Label>
+                      <Switch
+                        id="camera-required"
+                        checked={assessment.proctoring_config.cameraRequired}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, cameraRequired: checked }
+                        }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="microphone-required">Microphone Required</Label>
+                      <Switch
+                        id="microphone-required"
+                        checked={assessment.proctoring_config.microphoneRequired}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, microphoneRequired: checked }
+                        }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="face-detection">Face Detection</Label>
+                      <Switch
+                        id="face-detection"
+                        checked={assessment.proctoring_config.faceDetection}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, faceDetection: checked }
+                        }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="voice-analysis">Voice Analysis</Label>
+                      <Switch
+                        id="voice-analysis"
+                        checked={assessment.proctoring_config.voiceAnalysis}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, voiceAnalysis: checked }
+                        }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Monitor className="w-4 h-4" />
+                    Browser & Environment
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="fullscreen-required">Fullscreen Required</Label>
+                      <Switch
+                        id="fullscreen-required"
+                        checked={assessment.proctoring_config.fullscreenRequired}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, fullscreenRequired: checked }
+                        }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="tab-switch-detection">Tab Switch Detection</Label>
+                      <Switch
+                        id="tab-switch-detection"
+                        checked={assessment.proctoring_config.tabSwitchDetection}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, tabSwitchDetection: checked }
+                        }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="browser-lockdown">Browser Lockdown</Label>
+                      <Switch
+                        id="browser-lockdown"
+                        checked={assessment.proctoring_config.browserLockdown}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, browserLockdown: checked }
+                        }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="screen-sharing">Screen Sharing</Label>
+                      <Switch
+                        id="screen-sharing"
+                        checked={assessment.proctoring_config.screenSharing}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, screenSharing: checked }
+                        }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="environment-check">Environment Check</Label>
+                      <Switch
+                        id="environment-check"
+                        checked={assessment.proctoring_config.environmentCheck}
+                        onCheckedChange={(checked) => setAssessment(prev => ({
+                          ...prev,
+                          proctoring_config: { ...prev.proctoring_config, environmentCheck: checked }
+                        }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Advanced Settings</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="auto-start">Auto-start Proctoring</Label>
+                    <Switch
+                      id="auto-start"
+                      checked={assessment.proctoring_config.autoStart}
+                      onCheckedChange={(checked) => setAssessment(prev => ({
+                        ...prev,
+                        proctoring_config: { ...prev.proctoring_config, autoStart: checked }
+                      }))}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="require-proctor-approval">Require Proctor Approval</Label>
+                    <Switch
+                      id="require-proctor-approval"
+                      checked={assessment.proctoring_config.requireProctorApproval}
+                      onCheckedChange={(checked) => setAssessment(prev => ({
+                        ...prev,
+                        proctoring_config: { ...prev.proctoring_config, requireProctorApproval: checked }
+                      }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -1,6 +1,5 @@
 import { useParams } from "react-router-dom";
-import Navigation from "@/components/Navigation";
-import TakeAssessment from "@/components/TakeAssessment";
+import AssessmentSession from "@/components/AssessmentSession";
 
 const TakeAssessmentPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -10,10 +9,7 @@ const TakeAssessmentPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      <TakeAssessment assessmentId={id} />
-    </div>
+    <AssessmentSession assessmentId={id} />
   );
 };
 

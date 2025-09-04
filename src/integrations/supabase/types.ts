@@ -21,6 +21,9 @@ export type Database = {
           id: string
           max_possible_score: number | null
           participant_id: string
+          proctoring_started_at: string | null
+          proctoring_violations: Json | null
+          session_state: string | null
           started_at: string
           status: Database["public"]["Enums"]["submission_status"]
           submitted_at: string | null
@@ -33,6 +36,9 @@ export type Database = {
           id?: string
           max_possible_score?: number | null
           participant_id: string
+          proctoring_started_at?: string | null
+          proctoring_violations?: Json | null
+          session_state?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["submission_status"]
           submitted_at?: string | null
@@ -45,6 +51,9 @@ export type Database = {
           id?: string
           max_possible_score?: number | null
           participant_id?: string
+          proctoring_started_at?: string | null
+          proctoring_violations?: Json | null
+          session_state?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["submission_status"]
           submitted_at?: string | null
@@ -70,6 +79,8 @@ export type Database = {
           id: string
           instructions: string | null
           max_attempts: number | null
+          proctoring_config: Json | null
+          proctoring_enabled: boolean | null
           status: Database["public"]["Enums"]["assessment_status"]
           title: string
           updated_at: string
@@ -82,6 +93,8 @@ export type Database = {
           id?: string
           instructions?: string | null
           max_attempts?: number | null
+          proctoring_config?: Json | null
+          proctoring_enabled?: boolean | null
           status?: Database["public"]["Enums"]["assessment_status"]
           title: string
           updated_at?: string
@@ -94,6 +107,8 @@ export type Database = {
           id?: string
           instructions?: string | null
           max_attempts?: number | null
+          proctoring_config?: Json | null
+          proctoring_enabled?: boolean | null
           status?: Database["public"]["Enums"]["assessment_status"]
           title?: string
           updated_at?: string
@@ -140,6 +155,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      proctoring_sessions: {
+        Row: {
+          assessment_instance_id: string
+          created_at: string | null
+          ended_at: string | null
+          id: string
+          monitoring_data: Json | null
+          participant_id: string
+          permissions: Json | null
+          security_events: Json | null
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assessment_instance_id: string
+          created_at?: string | null
+          ended_at?: string | null
+          id?: string
+          monitoring_data?: Json | null
+          participant_id: string
+          permissions?: Json | null
+          security_events?: Json | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assessment_instance_id?: string
+          created_at?: string | null
+          ended_at?: string | null
+          id?: string
+          monitoring_data?: Json | null
+          participant_id?: string
+          permissions?: Json | null
+          security_events?: Json | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
