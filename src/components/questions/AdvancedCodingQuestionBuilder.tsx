@@ -394,7 +394,7 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
                 <div>
                   <h3 className="text-lg font-medium">Test Cases</h3>
                   <p className="text-sm text-muted-foreground">
-                    Total: {config.testCases.length} cases, {totalPoints} points
+                    Total: {(config.testCases || []).length} cases, {totalPoints} points
                     ({visiblePoints} visible points)
                   </p>
                 </div>
@@ -437,7 +437,7 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
 
               {/* Test Cases List */}
               <div className="space-y-3">
-                {config.testCases.map((testCase, index) => (
+                {(config.testCases || []).map((testCase, index) => (
                   <Card key={index} className="p-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -605,13 +605,13 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
                       <div className="text-sm text-muted-foreground">Passing Score</div>
                     </Card>
                     <Card className="p-4 text-center">
-                      <div className="text-2xl font-bold">{config.rubric.dimensions.length}</div>
+                      <div className="text-2xl font-bold">{(config.rubric?.dimensions || []).length}</div>
                       <div className="text-sm text-muted-foreground">Dimensions</div>
                     </Card>
                   </div>
 
                   <div className="space-y-4">
-                    {config.rubric.dimensions.map((dimension, index) => (
+                    {(config.rubric?.dimensions || []).map((dimension, index) => (
                       <Card key={index} className="p-4">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">

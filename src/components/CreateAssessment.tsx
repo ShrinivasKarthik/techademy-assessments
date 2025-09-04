@@ -54,7 +54,17 @@ const CreateAssessment = () => {
     difficulty: 'intermediate',
     points: 10,
     order_index: 0,
-    config: {}
+    config: {
+      language: 'javascript',
+      supportedLanguages: ['javascript'],
+      starterCode: '',
+      testCases: [],
+      allowMultipleFiles: false,
+      hints: [],
+      commonMistakes: [],
+      optimizationTips: [],
+      templates: []
+    }
   });
 
   const [showQuestionForm, setShowQuestionForm] = useState(false);
@@ -91,7 +101,17 @@ const CreateAssessment = () => {
       difficulty: 'intermediate',
       points: 10,
       order_index: 0,
-      config: {}
+      config: {
+        language: 'javascript',
+        supportedLanguages: ['javascript'],
+        starterCode: '',
+        testCases: [],
+        allowMultipleFiles: false,
+        hints: [],
+        commonMistakes: [],
+        optimizationTips: [],
+        templates: []
+      }
     });
     setShowQuestionForm(false);
   };

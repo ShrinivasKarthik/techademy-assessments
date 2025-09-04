@@ -79,7 +79,10 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
       hints: [],
       commonMistakes: [],
       optimizationTips: [],
-      templates: []
+      templates: [],
+      timeLimit: undefined,
+      memoryLimit: undefined,
+      rubric: undefined
     };
 
     return (
