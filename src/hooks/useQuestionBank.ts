@@ -58,7 +58,7 @@ export const useQuestionBank = () => {
         .select(`
           *,
           question_skills!question_skills_question_id_fkey(
-            skills(name)
+            skills!question_skills_skill_id_fkey(name)
           )
         `)
         .is('assessment_id', null); // Only fetch standalone questions
