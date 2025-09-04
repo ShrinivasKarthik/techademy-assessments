@@ -69,7 +69,6 @@ export default function CreateQuestionModal({
   onSave,
 }: CreateQuestionModalProps) {
   const [formData, setFormData] = useState({
-    title: '',
     question_text: '',
     question_type: 'mcq' as Question['question_type'],
     difficulty: 'intermediate' as Question['difficulty'],
@@ -85,7 +84,6 @@ export default function CreateQuestionModal({
   useEffect(() => {
     if (question) {
       setFormData({
-        title: question.title,
         question_text: question.question_text || '',
         question_type: question.question_type,
         difficulty: question.difficulty,
@@ -97,7 +95,6 @@ export default function CreateQuestionModal({
     } else {
       // Reset form for new question
       setFormData({
-        title: '',
         question_text: '',
         question_type: 'mcq',
         difficulty: 'intermediate',
@@ -131,11 +128,16 @@ export default function CreateQuestionModal({
   };
 
   const handleSubmit = async () => {
-    if (!formData.title.trim() || !formData.question_text.trim()) return;
+    if (!formData.question_text.trim()) return;
 
     setLoading(true);
     try {
-      await onSave(formData);
+      // Generate title from question text (first 50 chars or full text if shorter)
+      const title = formData.question_text.length > 50 
+        ? formData.question_text.substring(0, 50).trim() + '...'
+        : formData.question_text.trim();
+      
+      await onSave({ ...formData, title });
     } finally {
       setLoading(false);
     }
@@ -230,17 +232,7 @@ export default function CreateQuestionModal({
           )}
 
           {/* Basic Settings */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
-            <div className="space-y-2">
-              <Label htmlFor="title">Question Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Brief title for this question"
-              />
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
             <div className="space-y-2">
               <Label htmlFor="points">Points</Label>
               <Input
@@ -313,7 +305,7 @@ export default function CreateQuestionModal({
             </Button>
             <Button 
               onClick={handleSubmit} 
-              disabled={loading || !formData.title.trim() || !formData.question_text.trim()}
+              disabled={loading || !formData.question_text.trim()}
               className="min-w-[120px]"
             >
               {loading ? 'Saving...' : question ? 'Update Question' : 'Create Question'}
