@@ -41,6 +41,7 @@ const Navigation = () => {
     const baseLinks = [
       { name: "Dashboard", href: "/", icon: Home },
       { name: "Assessments", href: "/assessments", icon: BookOpen },
+      { name: "Question Bank", href: "/question-bank", icon: Brain },
     ];
 
     const roleSpecificLinks = [];

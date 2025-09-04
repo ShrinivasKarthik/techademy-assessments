@@ -18,6 +18,7 @@ import AdminDashboardPage from "./pages/AdminDashboardPage";
 import MonitoringPage from "./pages/MonitoringPage";
 import ProctoringPage from "./pages/ProctoringPage";
 import AdvancedAnalyticsPage from "./pages/AdvancedAnalyticsPage";
+import QuestionBankPage from "./pages/QuestionBankPage";
 import UserOnboarding from "./components/UserOnboarding";
 import NotFound from "./pages/NotFound";
 
@@ -59,6 +60,11 @@ const App = () => (
             <Route path="/assessments/:id/analytics" element={
               <ProtectedRoute>
                 <AssessmentAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/question-bank" element={
+              <ProtectedRoute>
+                <QuestionBankPage />
               </ProtectedRoute>
             } />
             <Route path="/admin" element={

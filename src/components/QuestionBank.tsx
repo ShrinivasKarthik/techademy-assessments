@@ -35,6 +35,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import AdvancedCollections from "./AdvancedCollections";
+import QuestionTemplates from "./QuestionTemplates";
+import SmartAssembly from "./SmartAssembly";
+import VersionControl from "./VersionControl";
+import BatchOperations from "./BatchOperations";
+import SkillGapAnalysis from "./SkillGapAnalysis";
 
 export default function QuestionBank() {
   const {
@@ -159,7 +165,7 @@ export default function QuestionBank() {
         <div>
           <h1 className="text-3xl font-bold">Question Bank</h1>
           <p className="text-muted-foreground">
-            Manage your repository of assessment questions
+            Advanced question management and organization
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
@@ -167,6 +173,19 @@ export default function QuestionBank() {
           Create Question
         </Button>
       </div>
+
+      {/* Tabs for different views */}
+      <Tabs defaultValue="questions" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="questions">Questions</TabsTrigger>
+          <TabsTrigger value="collections">Collections</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
+          <TabsTrigger value="smart-assembly">Smart Assembly</TabsTrigger>
+          <TabsTrigger value="batch-ops">Batch Operations</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="questions" className="space-y-6">
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -364,6 +383,34 @@ export default function QuestionBank() {
           </Card>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="collections">
+          <AdvancedCollections />
+        </TabsContent>
+
+        <TabsContent value="templates">
+          <QuestionTemplates />
+        </TabsContent>
+
+        <TabsContent value="smart-assembly">
+          <SmartAssembly 
+            assessmentId=""
+            onQuestionsAssembled={() => {}}
+          />
+        </TabsContent>
+
+        <TabsContent value="batch-ops">
+          <BatchOperations 
+            questions={questions}
+            onQuestionsUpdated={fetchQuestions}
+          />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <SkillGapAnalysis />
+        </TabsContent>
+      </Tabs>
 
       {/* Modals */}
       {showCreateModal && (
