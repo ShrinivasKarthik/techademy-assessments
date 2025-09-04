@@ -164,7 +164,9 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
             points: questionData.points || 10,
             config: questionData.config || {},
             tags: questionData.tags || [],
-            order_index: nextOrderIndex
+            order_index: nextOrderIndex,
+            assessment_id: null, // Standalone question for question bank
+            created_by: userId // Set to actual user ID from auth token
           })
           .select()
           .single();
@@ -307,7 +309,9 @@ async function generateSkillTargetedQuestion(skills: string[], difficulty: strin
           points: questionData.points || 10,
           config: questionData.config || {},
           tags: questionData.tags || [],
-          order_index: nextOrderIndex
+          order_index: nextOrderIndex,
+          assessment_id: null, // Standalone question for question bank
+          created_by: userId // Set to actual user ID from auth token
         })
         .select()
         .single();

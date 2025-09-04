@@ -12,7 +12,10 @@ import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monit
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
+import EnhancedAIGenerator from "./EnhancedAIGenerator";
 import AssessmentQualityAssurance from './AssessmentQualityAssurance';
+import QuestionBrowser from "./QuestionBrowser";
+import { Question as QuestionBankQuestion } from "@/hooks/useQuestionBank";
 
 type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -165,15 +168,14 @@ const CreateAssessment = () => {
     setShowQuestionForm(true);
   };
 
-  const addQuestionsFromBank = (bankQuestions: any[]) => {
-    // Simplified - just add basic questions
+  const addQuestionsFromBank = (bankQuestions: QuestionBankQuestion[]) => {
     const newQuestions: Question[] = bankQuestions.map((bankQ, index) => ({
       id: crypto.randomUUID(),
-      title: bankQ.title || 'Imported Question',
+      title: bankQ.title,
       question_text: bankQ.question_text || '',
-      question_type: bankQ.question_type || 'mcq',
-      difficulty: bankQ.difficulty || 'intermediate',
-      points: bankQ.points || 10,
+      question_type: bankQ.question_type,
+      difficulty: bankQ.difficulty,
+      points: bankQ.points,
       order_index: assessment.questions.length + index,
       config: bankQ.config || {},
     }));
@@ -554,18 +556,16 @@ const CreateAssessment = () => {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={() => toast({ title: "Feature Coming Soon", description: "Question bank browser will be available soon" })}
+                onClick={() => setShowQuestionBrowser(true)}
                 size="sm"
-                disabled
               >
                 <Library className="w-4 h-4 mr-2" />
                 Add from Bank
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => toast({ title: "Feature Coming Soon", description: "AI generation will be available soon" })} 
+                onClick={() => setShowAIGenerator(true)} 
                 size="sm"
-                disabled
               >
                 <Sparkles className="w-4 h-4 mr-2" />
                 AI Generate
@@ -644,7 +644,52 @@ const CreateAssessment = () => {
         </Card>
       )}
 
-      {/* Removed complex modals for now - keeping it simple */}
+      {/* Question Browser Modal */}
+      {showQuestionBrowser && (
+        <QuestionBrowser
+          isOpen={showQuestionBrowser}
+          onClose={() => setShowQuestionBrowser(false)}
+          onSelectQuestions={addQuestionsFromBank}
+        />
+      )}
+
+          {/* AI Content Generator */}
+          {showAIGenerator && (
+            <EnhancedAIGenerator
+              onQuestionsGenerated={(questions) => {
+                questions.forEach(questionData => {
+                  const newQuestion = {
+                    id: crypto.randomUUID(),
+                    title: questionData.title || '',
+                    question_text: questionData.question_text || '',
+                    question_type: questionData.question_type || 'mcq',
+                    difficulty: questionData.difficulty || 'intermediate', 
+                    points: questionData.points || 10,
+                    order_index: assessment.questions.length,
+                    config: questionData.config || {},
+                  };
+                  
+                  setAssessment(prev => ({
+                    ...prev,
+                    questions: [...prev.questions, newQuestion]
+                  }));
+                });
+                
+                setShowAIGenerator(false);
+                toast({
+                  title: "Questions Generated",
+                  description: `${questions.length} question(s) added to your assessment`,
+                });
+              }}
+              assessmentContext={{
+                title: assessment.title,
+                description: assessment.description,
+                duration_minutes: assessment.duration_minutes,
+                existingQuestionsCount: assessment.questions.length,
+                targetSkills: [] // Could extract from existing questions
+              }}
+            />
+          )}
 
       {/* Add Question Form */}
       {showQuestionForm && (
