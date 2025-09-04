@@ -38,6 +38,24 @@ const Navigation = () => {
                 <Plus className="w-4 h-4 mr-2" />
                 Create
               </Link>
+              <Link 
+                to="/monitoring"
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${isActive('/monitoring') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                Monitor
+              </Link>
+              <Link 
+                to="/proctoring"
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${isActive('/proctoring') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                Proctoring
+              </Link>
+              <Link 
+                to="/advanced-analytics"
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${isActive('/advanced-analytics') ? 'text-gray-900 bg-gray-100' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                Analytics
+              </Link>
               <Button variant="outline" size="sm">
                 Sign In
               </Button>

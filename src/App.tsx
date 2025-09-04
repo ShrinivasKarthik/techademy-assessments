@@ -10,6 +10,9 @@ import TakeAssessmentPage from "./pages/TakeAssessmentPage";
 import AssessmentPreviewPage from "./pages/AssessmentPreviewPage";
 import AssessmentAnalyticsPage from "./pages/AssessmentAnalyticsPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
+import RealTimeMonitoring from "./components/RealTimeMonitoring";
+import LiveProctoringSystem from "./components/LiveProctoringSystem";
+import AdvancedAnalyticsDashboard from "./components/AdvancedAnalyticsDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +31,9 @@ const App = () => (
           <Route path="/assessments/:id/preview" element={<AssessmentPreviewPage />} />
           <Route path="/assessments/:id/analytics" element={<AssessmentAnalyticsPage />} />
           <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/monitoring" element={<div className="container mx-auto p-6"><RealTimeMonitoring /></div>} />
+          <Route path="/proctoring" element={<div className="container mx-auto p-6"><LiveProctoringSystem /></div>} />
+          <Route path="/advanced-analytics" element={<div className="container mx-auto p-6"><AdvancedAnalyticsDashboard /></div>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
