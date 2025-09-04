@@ -37,15 +37,53 @@ const Navigation = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const navLinks = [
-    { name: "Dashboard", href: "/", icon: Home },
-    { name: "Assessments", href: "/assessments", icon: BookOpen },
-    { name: "Create", href: "/assessments/create", icon: Plus },
-    { name: "Monitor", href: "/monitoring", icon: Activity },
-    { name: "Proctoring", href: "/proctoring", icon: Shield },
-    { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
-    { name: "Admin", href: "/admin", icon: Settings },
-  ];
+  const getNavLinksForRole = () => {
+    const baseLinks = [
+      { name: "Dashboard", href: "/", icon: Home },
+      { name: "Assessments", href: "/assessments", icon: BookOpen },
+    ];
+
+    const roleSpecificLinks = [];
+
+    switch (profile?.role) {
+      case 'admin':
+        roleSpecificLinks.push(
+          { name: "Create", href: "/assessments/create", icon: Plus },
+          { name: "Monitor", href: "/monitoring", icon: Activity },
+          { name: "Proctoring", href: "/proctoring", icon: Shield },
+          { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+          { name: "Admin", href: "/admin", icon: Settings }
+        );
+        break;
+
+      case 'instructor':
+        roleSpecificLinks.push(
+          { name: "Create", href: "/assessments/create", icon: Plus },
+          { name: "Monitor", href: "/monitoring", icon: Activity },
+          { name: "Proctoring", href: "/proctoring", icon: Shield },
+          { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 }
+        );
+        break;
+
+      case 'student':
+        // Students only see dashboard and assessments
+        break;
+
+      default:
+        // Show all for demo purposes when no specific role
+        roleSpecificLinks.push(
+          { name: "Create", href: "/assessments/create", icon: Plus },
+          { name: "Monitor", href: "/monitoring", icon: Activity },
+          { name: "Proctoring", href: "/proctoring", icon: Shield },
+          { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+          { name: "Admin", href: "/admin", icon: Settings }
+        );
+    }
+
+    return [...baseLinks, ...roleSpecificLinks];
+  };
+
+  const navLinks = getNavLinksForRole();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -61,13 +99,6 @@ const Navigation = () => {
           <nav className="hidden md:flex items-center space-x-6">
             {navLinks.map((link) => {
               const Icon = link.icon;
-              
-              // Show all features for demo/onboarding purposes
-              // In production, you might want to enable this filtering:
-              // if ((link.href === '/admin' || link.href === '/monitoring' || link.href === '/proctoring' || link.href === '/advanced-analytics') 
-              //     && profile?.role !== 'admin' && profile?.role !== 'instructor') {
-              //   return null;
-              // }
               
               return (
                 <Link

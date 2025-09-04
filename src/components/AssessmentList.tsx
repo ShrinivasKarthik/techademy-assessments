@@ -6,6 +6,7 @@ import { Eye, Edit, Trash2, Users, Clock, BookOpen, BarChart3 } from 'lucide-rea
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import AssessmentWorkflow from './AssessmentWorkflow';
 
 interface Assessment {
   id: string;
@@ -157,68 +158,11 @@ const AssessmentList = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {assessments.map((assessment) => (
-            <Card key={assessment.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">{assessment.title}</CardTitle>
-                    <Badge variant={getStatusVariant(assessment.status)}>
-                      {assessment.status}
-                    </Badge>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {assessment.description || 'No description provided'}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <BookOpen className="w-4 h-4 text-muted-foreground" />
-                    <span>{assessment.question_count} questions</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span>{assessment.duration_minutes}m</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                    <span>{assessment.instance_count} taken</span>
-                  </div>
-                </div>
-                
-                <div className="text-xs text-muted-foreground">
-                  Created {new Date(assessment.created_at).toLocaleDateString()}
-                </div>
-
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1" asChild>
-                    <Link to={`/assessments/${assessment.id}/preview`}>
-                      <Eye className="w-4 h-4 mr-1" />
-                      View
-                    </Link>
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1" asChild>
-                    <Link to={`/assessments/${assessment.id}/analytics`}>
-                      <BarChart3 className="w-4 h-4 mr-1" />
-                      Analytics
-                    </Link>
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <Edit className="w-4 h-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteAssessment(assessment.id, assessment.title)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <AssessmentWorkflow
+              key={assessment.id}
+              assessment={assessment}
+              onStatusChange={fetchAssessments}
+            />
           ))}
         </div>
       )}

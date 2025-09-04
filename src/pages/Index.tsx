@@ -1,11 +1,11 @@
 import Navigation from "@/components/Navigation";
-import MainDashboard from "@/components/MainDashboard";
+import RoleBasedDashboard from "@/components/RoleBasedDashboard";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <MainDashboard />
+      <RoleBasedDashboard />
     </div>
   );
 };
