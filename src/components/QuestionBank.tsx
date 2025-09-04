@@ -36,7 +36,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import AdvancedCollections from "./AdvancedCollections";
-import QuestionTemplates from "./QuestionTemplates";
 import SmartAssembly from "./SmartAssembly";
 import VersionControl from "./VersionControl";
 import BatchOperations from "./BatchOperations";
@@ -176,10 +175,9 @@ export default function QuestionBank() {
 
       {/* Tabs for different views */}
       <Tabs defaultValue="questions" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="collections">Collections</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="smart-assembly">Smart Assembly</TabsTrigger>
           <TabsTrigger value="batch-ops">Batch Operations</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -387,10 +385,6 @@ export default function QuestionBank() {
 
         <TabsContent value="collections">
           <AdvancedCollections />
-        </TabsContent>
-
-        <TabsContent value="templates">
-          <QuestionTemplates />
         </TabsContent>
 
         <TabsContent value="smart-assembly">
