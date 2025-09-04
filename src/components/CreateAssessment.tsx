@@ -12,7 +12,7 @@ import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monit
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
-import AIContentGenerator from './AIContentGenerator';
+import EnhancedAIGenerator from "./EnhancedAIGenerator";
 import AssessmentQualityAssurance from './AssessmentQualityAssurance';
 import QuestionBrowser from "./QuestionBrowser";
 import { Question as QuestionBankQuestion } from "@/hooks/useQuestionBank";
@@ -617,25 +617,43 @@ const CreateAssessment = () => {
         />
       )}
 
-      {/* AI Content Generator */}
-      {showAIGenerator && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>AI Content Generator</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setShowAIGenerator(false)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <AIContentGenerator
-              questionType={currentQuestion.question_type}
-              onContentGenerated={handleAIContentGenerated}
+          {/* AI Content Generator */}
+          {showAIGenerator && (
+            <EnhancedAIGenerator
+              onQuestionsGenerated={(questions) => {
+                questions.forEach(questionData => {
+                  const newQuestion = {
+                    id: crypto.randomUUID(),
+                    title: questionData.title || '',
+                    description: questionData.description || '',
+                    question_type: questionData.question_type || 'mcq',
+                    difficulty: questionData.difficulty || 'intermediate', 
+                    points: questionData.points || 10,
+                    order_index: assessment.questions.length,
+                    config: questionData.config || {},
+                  };
+                  
+                  setAssessment(prev => ({
+                    ...prev,
+                    questions: [...prev.questions, newQuestion]
+                  }));
+                });
+                
+                setShowAIGenerator(false);
+                toast({
+                  title: "Questions Generated",
+                  description: `${questions.length} question(s) added to your assessment`,
+                });
+              }}
+              assessmentContext={{
+                title: assessment.title,
+                description: assessment.description,
+                duration_minutes: assessment.duration_minutes,
+                existingQuestionsCount: assessment.questions.length,
+                targetSkills: [] // Could extract from existing questions
+              }}
             />
-          </CardContent>
-        </Card>
-      )}
+          )}
 
       {/* Add Question Form */}
       {showQuestionForm && (
