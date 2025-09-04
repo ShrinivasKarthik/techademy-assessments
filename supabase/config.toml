@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.ai-assessment-insights]
 verify_jwt = false
+
+[functions.send-team-invitation]
+verify_jwt = false
+
+[functions.share-assessment]
+verify_jwt = false

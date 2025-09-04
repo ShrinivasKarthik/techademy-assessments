@@ -34,6 +34,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import LiveProctoringSystem from './LiveProctoringSystem';
+import CollaborationSystem from './CollaborationSystem';
+import AccessibilityControls from './AccessibilityControls';
 
 interface AdminStats {
   totalUsers: number;
@@ -345,10 +348,13 @@ const AdminDashboard: React.FC = () => {
 
       {/* Detailed Management */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="assessments">Assessment Management</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="assessments">Assessments</TabsTrigger>
+          <TabsTrigger value="proctoring">Proctoring</TabsTrigger>
+          <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
+          <TabsTrigger value="accessibility">Accessibility</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -549,6 +555,36 @@ const AdminDashboard: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="proctoring">
+          <LiveProctoringSystem
+            assessmentId="admin-demo"
+            participantId="admin-user"
+            config={{
+              cameraRequired: true,
+              microphoneRequired: true,
+              screenSharing: false,
+              tabSwitchDetection: true,
+              fullscreenRequired: true,
+              faceDetection: true,
+              voiceAnalysis: false,
+              environmentCheck: true,
+              browserLockdown: true
+            }}
+            onSecurityEvent={(event) => console.log('Admin Security Event:', event)}
+            onStatusChange={(status) => console.log('Admin Status Change:', status)}
+          />
+        </TabsContent>
+
+        <TabsContent value="collaboration">
+          <CollaborationSystem />
+        </TabsContent>
+
+        <TabsContent value="accessibility">
+          <div className="max-w-md">
+            <AccessibilityControls />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
