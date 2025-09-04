@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Edit, Trash2, Users, Clock, BookOpen } from 'lucide-react';
+import { Eye, Edit, Trash2, Users, Clock, BookOpen, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -196,6 +196,12 @@ const AssessmentList = () => {
                     <Link to={`/assessments/${assessment.id}/preview`}>
                       <Eye className="w-4 h-4 mr-1" />
                       View
+                    </Link>
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1" asChild>
+                    <Link to={`/assessments/${assessment.id}/analytics`}>
+                      <BarChart3 className="w-4 h-4 mr-1" />
+                      Analytics
                     </Link>
                   </Button>
                   <Button variant="outline" size="sm" className="flex-1">
