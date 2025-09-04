@@ -62,11 +62,12 @@ const Navigation = () => {
             {navLinks.map((link) => {
               const Icon = link.icon;
               
-              // Filter admin-only routes based on user role
-              if ((link.href === '/admin' || link.href === '/monitoring' || link.href === '/proctoring' || link.href === '/advanced-analytics') 
-                  && profile?.role !== 'admin' && profile?.role !== 'instructor') {
-                return null;
-              }
+              // Show all features for demo/onboarding purposes
+              // In production, you might want to enable this filtering:
+              // if ((link.href === '/admin' || link.href === '/monitoring' || link.href === '/proctoring' || link.href === '/advanced-analytics') 
+              //     && profile?.role !== 'admin' && profile?.role !== 'instructor') {
+              //   return null;
+              // }
               
               return (
                 <Link
@@ -197,12 +198,21 @@ const Navigation = () => {
                   <AccessibilityControls />
                 </PopoverContent>
               </Popover>
-              <Button variant="ghost" size="sm" className="justify-start">
-                Sign In
-              </Button>
-              <Button size="sm" className="justify-start">
-                Get Started
-              </Button>
+              {user ? (
+                <Button variant="ghost" size="sm" className="justify-start" onClick={handleSignOut}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" className="justify-start" onClick={() => navigate('/auth')}>
+                    Sign In
+                  </Button>
+                  <Button size="sm" className="justify-start" onClick={() => navigate('/auth')}>
+                    Get Started
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -130,6 +130,13 @@ const MainDashboard = () => {
 
   const quickActions = [
     {
+      title: "Get Started",
+      description: "Interactive platform tour and feature guide",
+      icon: Play,
+      color: "secondary",
+      action: () => navigate('/onboarding')
+    },
+    {
       title: "Create Assessment",
       description: "Design new assessments with AI assistance",
       icon: Plus,
@@ -372,19 +379,26 @@ const MainDashboard = () => {
           </Card>
         )}
 
-        {/* Empty State when no assessments */}
+        {/* Welcome Message for New Users */}
         {recentAssessments.length === 0 && (
-          <Card className="text-center py-12">
-            <CardContent>
-              <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">No assessments yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by creating your first AI-powered assessment
+          <Card className="mb-8 bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
+            <CardContent className="p-8 text-center">
+              <Brain className="w-16 h-16 mx-auto mb-4 text-primary" />
+              <h3 className="text-2xl font-bold mb-2">Welcome to AssessAI!</h3>
+              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+                Experience the future of assessment with our comprehensive AI-powered platform. 
+                Explore all features through our interactive onboarding or jump straight into creating your first assessment.
               </p>
-              <Button onClick={() => navigate('/assessments/create')}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Assessment
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button onClick={() => navigate('/onboarding')} size="lg" className="gap-2">
+                  <Play className="w-5 h-5" />
+                  Start Platform Tour
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/assessments/create')} size="lg" className="gap-2">
+                  <Plus className="w-5 h-5" />
+                  Create First Assessment
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}

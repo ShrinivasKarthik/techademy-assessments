@@ -17,6 +17,7 @@ import AdminDashboardPage from "./pages/AdminDashboardPage";
 import MonitoringPage from "./pages/MonitoringPage";
 import ProctoringPage from "./pages/ProctoringPage";
 import AdvancedAnalyticsPage from "./pages/AdvancedAnalyticsPage";
+import UserOnboarding from "./components/UserOnboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/onboarding" element={<UserOnboarding />} />
             <Route path="/" element={<Index />} />
             <Route path="/assessments/create" element={
               <ProtectedRoute>
