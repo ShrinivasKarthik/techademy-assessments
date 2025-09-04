@@ -30,6 +30,21 @@ export const SecurityGuard: React.FC<SecurityGuardProps> = ({
   const [requestCount, setRequestCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
 
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
+  
+  const logSecurityEvent = (event: SecurityEvent) => {
+    setSecurityEvents(prev => [...prev.slice(-9), event]);
+    
+    if (event.severity === 'critical' || event.severity === 'high') {
+      console.warn('🔒 Security Event:', event);
+      
+      // In production, send to monitoring service
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Security violation detected:', event);
+      }
+    }
+  };
+  
   // Request rate limiting
   useEffect(() => {
     const interval = setInterval(() => {
@@ -40,8 +55,10 @@ export const SecurityGuard: React.FC<SecurityGuardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Monitor for suspicious activity
+  // Monitor for suspicious activity - only in browser environment
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const detectDevTools = () => {
       const startTime = performance.now();
       console.log('Security check');
@@ -76,23 +93,10 @@ export const SecurityGuard: React.FC<SecurityGuardProps> = ({
       clearInterval(securityInterval);
       document.removeEventListener('visibilitychange', detectTabVisibility);
     };
-  }, []);
+  }, [logSecurityEvent]);
 
-  const logSecurityEvent = (event: SecurityEvent) => {
-    setSecurityEvents(prev => [...prev.slice(-9), event]);
-    
-    if (event.severity === 'critical' || event.severity === 'high') {
-      console.warn('🔒 Security Event:', event);
-      
-      // In production, send to monitoring service
-      if (process.env.NODE_ENV === 'production') {
-        // Send to your security monitoring service
-        console.error('Security violation detected:', event);
-      }
-    }
-  };
-
-  const incrementRequestCount = () => {
+  // Increment request count for monitoring
+  useEffect(() => {
     const newCount = requestCount + 1;
     setRequestCount(newCount);
     
@@ -105,7 +109,7 @@ export const SecurityGuard: React.FC<SecurityGuardProps> = ({
         severity: 'high'
       });
     }
-  };
+  }, []); // Empty dependency array to run only once
 
   // Check authentication
   if (loading) {
@@ -191,10 +195,6 @@ export const SecurityGuard: React.FC<SecurityGuardProps> = ({
     );
   }
 
-  // Increment request count for monitoring
-  useEffect(() => {
-    incrementRequestCount();
-  }, []);
 
   return (
     <>
