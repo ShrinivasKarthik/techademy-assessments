@@ -73,8 +73,14 @@ const ManualUserCreation: React.FC<ManualUserCreationProps> = ({ onUserCreated }
     setLoading(true);
 
     try {
-      // For demo purposes, create a mock user entry directly in profiles table
-      // In production, you'd use Supabase admin functions or server-side implementation
+      // Generate a proper UUID for demo purposes
+      const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c == 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
       
       // Check if user already exists
       const { data: existingProfile } = await supabase
@@ -92,8 +98,8 @@ const ManualUserCreation: React.FC<ManualUserCreationProps> = ({ onUserCreated }
         return;
       }
 
-      // Create a mock profile entry (simulate user creation)
-      const mockUserId = `mock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Create a profile entry with proper UUID
+      const mockUserId = generateUUID();
       
       const { error: profileError } = await supabase
         .from('profiles')
