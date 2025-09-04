@@ -37,6 +37,8 @@ import { useToast } from '@/hooks/use-toast';
 import LiveProctoringSystem from './LiveProctoringSystem';
 import CollaborationSystem from './CollaborationSystem';
 import AccessibilityControls from './AccessibilityControls';
+import ManualUserCreation from './ManualUserCreation';
+import UserCredentialsManager from './UserCredentialsManager';
 
 interface AdminStats {
   totalUsers: number;
@@ -348,9 +350,10 @@ const AdminDashboard: React.FC = () => {
 
       {/* Detailed Management */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
           <TabsTrigger value="proctoring">Proctoring</TabsTrigger>
           <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
@@ -389,10 +392,13 @@ const AdminDashboard: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>User Management</CardTitle>
-                <Button>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Invite User
-                </Button>
+                <div className="flex gap-2">
+                  <ManualUserCreation onUserCreated={loadDashboardData} />
+                  <Button variant="outline">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Invite User (Email)
+                  </Button>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -467,6 +473,10 @@ const AdminDashboard: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="credentials" className="space-y-4">
+          <UserCredentialsManager />
         </TabsContent>
 
         <TabsContent value="assessments" className="space-y-4">
