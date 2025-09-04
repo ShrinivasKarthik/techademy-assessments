@@ -1,11 +1,11 @@
 import Navigation from "@/components/Navigation";
-import QuestionBankEnhanced from "@/components/QuestionBankEnhanced";
+import SimpleQuestionBank from "@/components/SimpleQuestionBank";
 
 const QuestionBankPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <QuestionBankEnhanced />
+      <SimpleQuestionBank />
     </div>
   );
 };
