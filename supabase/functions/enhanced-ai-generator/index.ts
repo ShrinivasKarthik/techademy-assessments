@@ -39,10 +39,10 @@ serve(async (req) => {
 
     if (type === 'bulk_generate') {
       // Generate multiple questions based on skills and context
-      results = await generateBulkQuestions(skills, difficulty, count, context, assessmentContext);
+      results = await generateBulkQuestions(skills, difficulty, count, context, assessmentContext, supabase);
     } else if (type === 'skill_targeted') {
       // Generate questions targeted to specific skills
-      results = await generateSkillTargetedQuestion(skills, difficulty, context);
+      results = await generateSkillTargetedQuestion(skills, difficulty, context, supabase);
     } else if (type === 'auto_tag') {
       // Auto-tag existing questions with skills
       const { questionData } = await req.json();
@@ -73,7 +73,7 @@ serve(async (req) => {
   }
 });
 
-async function generateBulkQuestions(skills: string[], difficulty: string, count: number, context: string, assessmentContext: any) {
+async function generateBulkQuestions(skills: string[], difficulty: string, count: number, context: string, assessmentContext: any, supabase: any) {
   const skillsText = skills.length > 0 ? skills.join(', ') : 'general programming';
   
   const prompt = `Generate ${count} diverse assessment questions focused on these skills: ${skillsText}.
@@ -132,15 +132,99 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
   try {
     const content = data.choices[0].message.content;
     const cleanedContent = extractJsonFromMarkdown(content);
-    const generatedQuestions = JSON.parse(cleanedContent);
-    return Array.isArray(generatedQuestions) ? generatedQuestions : [generatedQuestions];
+    let generatedQuestions = JSON.parse(cleanedContent);
+    generatedQuestions = Array.isArray(generatedQuestions) ? generatedQuestions : [generatedQuestions];
+
+    // Save the generated questions to the database
+    const savedQuestions = [];
+    for (const questionData of generatedQuestions) {
+      try {
+        // Get the highest order_index for standalone questions or use 0
+        const { data: maxOrder } = await supabase
+          .from('questions')
+          .select('order_index')
+          .is('assessment_id', null)
+          .order('order_index', { ascending: false })
+          .limit(1);
+
+        const nextOrderIndex = maxOrder && maxOrder.length > 0 ? (maxOrder[0].order_index || 0) + 1 : 0;
+
+        const { data: savedQuestion, error: saveError } = await supabase
+          .from('questions')
+          .insert({
+            title: questionData.title || '',
+            question_text: questionData.description || questionData.question_text || '',
+            question_type: questionData.question_type || 'mcq',
+            difficulty: questionData.difficulty || difficulty,
+            points: questionData.points || 10,
+            config: questionData.config || {},
+            tags: questionData.tags || [],
+            order_index: nextOrderIndex,
+            assessment_id: null, // Standalone question for question bank
+            created_by: null // Will be set by RLS
+          })
+          .select()
+          .single();
+
+        if (saveError) {
+          console.error('Error saving question:', saveError);
+          continue;
+        }
+
+        // Handle skills mapping if provided
+        if (questionData.skills && Array.isArray(questionData.skills)) {
+          // Get or create skills
+          const { data: skillsData, error: skillsError } = await supabase
+            .from('skills')
+            .select('id, name')
+            .in('name', questionData.skills);
+
+          if (!skillsError && skillsData) {
+            const existingSkills = skillsData;
+            const existingSkillNames = new Set(existingSkills.map(s => s.name));
+            const newSkillNames = questionData.skills.filter(name => !existingSkillNames.has(name));
+
+            // Create new skills
+            let newSkills = [];
+            if (newSkillNames.length > 0) {
+              const { data: newSkillsData, error: createSkillsError } = await supabase
+                .from('skills')
+                .insert(newSkillNames.map(name => ({ name })))
+                .select('id, name');
+
+              if (!createSkillsError) {
+                newSkills = newSkillsData || [];
+              }
+            }
+
+            // Map question to skills
+            const allSkills = [...existingSkills, ...newSkills];
+            if (allSkills.length > 0) {
+              await supabase
+                .from('question_skills')
+                .insert(allSkills.map(skill => ({
+                  question_id: savedQuestion.id,
+                  skill_id: skill.id
+                })));
+            }
+          }
+        }
+
+        savedQuestions.push(savedQuestion);
+      } catch (questionError) {
+        console.error('Error processing individual question:', questionError);
+      }
+    }
+
+    console.log(`Successfully saved ${savedQuestions.length} out of ${generatedQuestions.length} questions`);
+    return savedQuestions;
   } catch (parseError) {
     console.error('Failed to parse generated questions:', data.choices[0].message.content);
     throw new Error('Failed to generate valid questions format');
   }
 }
 
-async function generateSkillTargetedQuestion(skills: string[], difficulty: string, context: string) {
+async function generateSkillTargetedQuestion(skills: string[], difficulty: string, context: string, supabase: any) {
   const skillsText = skills.join(', ');
   
   const prompt = `Create a focused assessment question specifically designed to test these skills: ${skillsText}.
@@ -196,7 +280,87 @@ async function generateSkillTargetedQuestion(skills: string[], difficulty: strin
   try {
     const content = data.choices[0].message.content;
     const cleanedContent = extractJsonFromMarkdown(content);
-    return JSON.parse(cleanedContent);
+    const questionData = JSON.parse(cleanedContent);
+
+    // Save the generated question to the database
+    try {
+      // Get the highest order_index for standalone questions or use 0
+      const { data: maxOrder } = await supabase
+        .from('questions')
+        .select('order_index')
+        .is('assessment_id', null)
+        .order('order_index', { ascending: false })
+        .limit(1);
+
+      const nextOrderIndex = maxOrder && maxOrder.length > 0 ? (maxOrder[0].order_index || 0) + 1 : 0;
+
+      const { data: savedQuestion, error: saveError } = await supabase
+        .from('questions')
+        .insert({
+          title: questionData.title || '',
+          question_text: questionData.description || questionData.question_text || '',
+          question_type: questionData.question_type || 'mcq',
+          difficulty: questionData.difficulty || difficulty,
+          points: questionData.points || 10,
+          config: questionData.config || {},
+          tags: questionData.tags || [],
+          order_index: nextOrderIndex,
+          assessment_id: null, // Standalone question for question bank
+          created_by: null // Will be set by RLS
+        })
+        .select()
+        .single();
+
+      if (saveError) {
+        console.error('Error saving skill-targeted question:', saveError);
+        throw saveError;
+      }
+
+      // Handle skills mapping
+      if (questionData.skills && Array.isArray(questionData.skills)) {
+        // Get or create skills
+        const { data: skillsData, error: skillsError } = await supabase
+          .from('skills')
+          .select('id, name')
+          .in('name', questionData.skills);
+
+        if (!skillsError && skillsData) {
+          const existingSkills = skillsData;
+          const existingSkillNames = new Set(existingSkills.map(s => s.name));
+          const newSkillNames = questionData.skills.filter(name => !existingSkillNames.has(name));
+
+          // Create new skills
+          let newSkills = [];
+          if (newSkillNames.length > 0) {
+            const { data: newSkillsData, error: createSkillsError } = await supabase
+              .from('skills')
+              .insert(newSkillNames.map(name => ({ name })))
+              .select('id, name');
+
+            if (!createSkillsError) {
+              newSkills = newSkillsData || [];
+            }
+          }
+
+          // Map question to skills
+          const allSkills = [...existingSkills, ...newSkills];
+          if (allSkills.length > 0) {
+            await supabase
+              .from('question_skills')
+              .insert(allSkills.map(skill => ({
+                question_id: savedQuestion.id,
+                skill_id: skill.id
+              })));
+          }
+        }
+      }
+
+      console.log('Successfully saved skill-targeted question:', savedQuestion.id);
+      return savedQuestion;
+    } catch (questionError) {
+      console.error('Error saving skill-targeted question:', questionError);
+      throw new Error('Failed to save generated question to database');
+    }
   } catch (parseError) {
     console.error('Failed to parse generated question:', data.choices[0].message.content);
     throw new Error('Failed to generate valid question format');

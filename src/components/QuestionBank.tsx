@@ -388,16 +388,9 @@ export default function QuestionBank() {
         <TabsContent value="ai-generator" className="space-y-6">
           <EnhancedAIGenerator
             onQuestionsGenerated={async (generatedQuestions) => {
-              try {
-                // Create questions from AI generator sequentially to avoid race conditions
-                for (const questionData of generatedQuestions) {
-                  await createQuestion(questionData);
-                }
-                // Refresh questions list after all questions are created
-                await fetchQuestions();
-              } catch (error) {
-                console.error('Error saving generated questions:', error);
-              }
+              console.log('Generated questions received:', generatedQuestions.length, 'questions');
+              // Questions are already saved by the edge function, just refresh the list
+              await fetchQuestions();
             }}
             assessmentContext={{
               title: "Question Bank",
