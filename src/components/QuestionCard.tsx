@@ -81,7 +81,7 @@ export default function QuestionCard({
               {getQuestionTypeIcon(question.question_type)}
             </div>
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-base leading-tight mb-2 truncate">
+              <CardTitle className="text-base leading-tight mb-2 line-clamp-2 break-words">
                 {question.title}
               </CardTitle>
               <div className="flex flex-wrap gap-2 mb-2">
@@ -131,7 +131,7 @@ export default function QuestionCard({
 
       <CardContent className="pt-0">
         {question.question_text && (
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+          <p className="text-sm text-muted-foreground mb-3 line-clamp-2 break-words">
             {question.question_text}
           </p>
         )}
