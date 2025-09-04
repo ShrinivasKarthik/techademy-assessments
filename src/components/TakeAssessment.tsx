@@ -7,6 +7,7 @@ import { Clock, ChevronLeft, ChevronRight, Send, AlertCircle } from 'lucide-reac
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CodingQuestion from './questions/CodingQuestion';
+import EnhancedCodingQuestion from './questions/EnhancedCodingQuestion';
 import MCQQuestion from './questions/MCQQuestion';
 import SubjectiveQuestion from './questions/SubjectiveQuestion';
 import FileUploadQuestion from './questions/FileUploadQuestion';
@@ -277,7 +278,7 @@ const TakeAssessment: React.FC<TakeAssessmentProps> = ({ assessmentId }) => {
 
     switch (question.question_type) {
       case 'coding':
-        return <CodingQuestion {...questionProps} />;
+        return <EnhancedCodingQuestion {...questionProps} />;
       case 'mcq':
         return <MCQQuestion {...questionProps} />;
       case 'subjective':
