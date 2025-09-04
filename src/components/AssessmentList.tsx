@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Edit, Trash2, Users, Clock, BookOpen } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -134,9 +135,11 @@ const AssessmentList = () => {
           <h1 className="text-3xl font-bold">Assessments</h1>
           <p className="text-muted-foreground">Manage your assessment library</p>
         </div>
-        <Button>
-          <BookOpen className="w-4 h-4 mr-2" />
-          Create New Assessment
+        <Button asChild>
+          <Link to="/assessments/create">
+            <BookOpen className="w-4 h-4 mr-2" />
+            Create New Assessment
+          </Link>
         </Button>
       </div>
 
@@ -146,7 +149,9 @@ const AssessmentList = () => {
             <BookOpen className="w-12 h-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No assessments yet</h3>
             <p className="text-muted-foreground mb-4">Create your first assessment to get started</p>
-            <Button>Create Assessment</Button>
+            <Button asChild>
+              <Link to="/assessments/create">Create Assessment</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -187,9 +192,11 @@ const AssessmentList = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <Eye className="w-4 h-4 mr-1" />
-                    View
+                  <Button variant="outline" size="sm" className="flex-1" asChild>
+                    <Link to={`/assessments/${assessment.id}/preview`}>
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
+                    </Link>
                   </Button>
                   <Button variant="outline" size="sm" className="flex-1">
                     <Edit className="w-4 h-4 mr-1" />
