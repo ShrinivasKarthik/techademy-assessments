@@ -28,7 +28,7 @@ import {
   Settings,
   Zap
 } from "lucide-react";
-import AccessibilityControls from "./AccessibilityControls";
+
 
 interface DashboardStats {
   totalAssessments: number;
@@ -248,7 +248,6 @@ const MainDashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <AccessibilityControls />
             <Button onClick={() => navigate('/assessments/create')} className="gap-2">
               <Plus className="w-4 h-4" />
               Create Assessment

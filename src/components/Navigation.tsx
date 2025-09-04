@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   Menu, 
   X, 
@@ -11,8 +12,10 @@ import {
   BarChart3, 
   Brain,
   Home,
-  Settings
+  Settings,
+  Accessibility
 } from "lucide-react";
+import AccessibilityControls from "./AccessibilityControls";
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -63,6 +66,16 @@ const Navigation = () => {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Accessibility className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <AccessibilityControls />
+              </PopoverContent>
+            </Popover>
             <Button variant="ghost" size="sm">
               Sign In
             </Button>
@@ -106,6 +119,17 @@ const Navigation = () => {
               })}
             </nav>
             <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="justify-start gap-2">
+                    <Accessibility className="w-4 h-4" />
+                    Accessibility
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0" align="end">
+                  <AccessibilityControls />
+                </PopoverContent>
+              </Popover>
               <Button variant="ghost" size="sm" className="justify-start">
                 Sign In
               </Button>
