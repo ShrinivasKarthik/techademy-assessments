@@ -142,7 +142,7 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
 
   const removeTestCase = (index: number) => {
     updateConfig({
-      testCases: config.testCases.filter((_, i) => i !== index)
+      testCases: (config.testCases || []).filter((_, i) => i !== index)
     });
   };
 
@@ -268,15 +268,15 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
   };
 
   const testCasesByCategory = {
-    basic: config.testCases.filter(tc => tc.category === 'basic'),
-    edge: config.testCases.filter(tc => tc.category === 'edge'),
-    corner: config.testCases.filter(tc => tc.category === 'corner'),
-    performance: config.testCases.filter(tc => tc.category === 'performance'),
-    error: config.testCases.filter(tc => tc.category === 'error')
+    basic: (config.testCases || []).filter(tc => tc.category === 'basic'),
+    edge: (config.testCases || []).filter(tc => tc.category === 'edge'),
+    corner: (config.testCases || []).filter(tc => tc.category === 'corner'),
+    performance: (config.testCases || []).filter(tc => tc.category === 'performance'),
+    error: (config.testCases || []).filter(tc => tc.category === 'error')
   };
 
-  const totalPoints = config.testCases.reduce((sum, tc) => sum + tc.points, 0);
-  const visiblePoints = config.testCases.filter(tc => tc.isVisible).reduce((sum, tc) => sum + tc.points, 0);
+  const totalPoints = (config.testCases || []).reduce((sum, tc) => sum + tc.points, 0);
+  const visiblePoints = (config.testCases || []).filter(tc => tc.isVisible).reduce((sum, tc) => sum + tc.points, 0);
 
   return (
     <div className="space-y-6">
