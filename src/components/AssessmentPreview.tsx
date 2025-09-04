@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 interface Question {
   id: string;
   title: string;
-  description: string;
+  question_text: string;
   question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
   difficulty: string;
   points: number;
@@ -58,7 +58,7 @@ const AssessmentPreview: React.FC<AssessmentPreviewProps> = ({ assessmentId }) =
           questions(
             id,
             title,
-            description,
+            question_text,
             question_type,
             difficulty,
             points,
@@ -251,9 +251,9 @@ const AssessmentPreview: React.FC<AssessmentPreviewProps> = ({ assessmentId }) =
                     </Badge>
                   </div>
                   <h4 className="font-medium">{question.title}</h4>
-                  {question.description && (
+                  {question.question_text && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      {question.description}
+                      {question.question_text}
                     </p>
                   )}
                 </div>

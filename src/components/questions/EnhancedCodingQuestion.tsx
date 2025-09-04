@@ -49,7 +49,7 @@ interface CodingQuestionProps {
   question: {
     id: string;
     title: string;
-    description: string;
+    question_text: string;
     config: {
       language?: string;
       starterCode?: string;
@@ -284,7 +284,7 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
         body: {
           code: activeFile?.content,
           language: activeFile?.language || language,
-          questionContext: question.description,
+          questionContext: question.question_text,
           testCases: question.config.testCases?.filter(tc => !tc.isHidden)
         }
       });
@@ -306,7 +306,7 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
           code: activeFile?.content,
           language: activeFile?.language || language,
           testCases: question.config.testCases?.filter(tc => !tc.isHidden),
-          questionContext: question.description
+          questionContext: question.question_text
         }
       });
 
@@ -332,7 +332,7 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
         const previewResponse = await supabase.functions.invoke('generate-ui-preview', {
           body: {
             files: files,
-            questionContext: question.description
+            questionContext: question.question_text
           }
         });
 

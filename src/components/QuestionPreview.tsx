@@ -63,7 +63,7 @@ const renderQuestionComponent = (question: Question) => {
   const questionObj = {
     id: question.id,
     title: question.title,
-    description: question.description || "",
+    question_text: question.question_text || "",
     config: question.config || {},
   };
 

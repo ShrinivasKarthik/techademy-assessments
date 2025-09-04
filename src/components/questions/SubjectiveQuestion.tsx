@@ -7,7 +7,7 @@ interface SubjectiveQuestionProps {
   question: {
     id: string;
     title: string;
-    description: string;
+    question_text: string;
     config: {
       minWords?: number;
       maxWords?: number;

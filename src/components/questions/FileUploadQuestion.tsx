@@ -8,7 +8,7 @@ interface FileUploadQuestionProps {
   question: {
     id: string;
     title: string;
-    description: string;
+    question_text: string;
     config: {
       allowedTypes?: string[];
       maxSizeBytes?: number;

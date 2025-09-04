@@ -9,7 +9,7 @@ interface AudioQuestionProps {
   question: {
     id: string;
     title: string;
-    description: string;
+    question_text: string;
     config: {
       maxDurationSeconds?: number;
       allowRerecording?: boolean;

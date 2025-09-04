@@ -23,7 +23,7 @@ type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 interface Question {
   id?: string;
   title: string;
-  description: string;
+  question_text: string;
   question_type: QuestionType;
   difficulty: DifficultyLevel;
   points: number;
@@ -85,7 +85,7 @@ const CreateAssessment = () => {
 
   const [currentQuestion, setCurrentQuestion] = useState<Question>({
     title: '',
-    description: '',
+    question_text: '',
     question_type: 'coding',
     difficulty: 'intermediate',
     points: 10,
@@ -134,7 +134,7 @@ const CreateAssessment = () => {
 
     setCurrentQuestion({
       title: '',
-      description: '',
+      question_text: '',
       question_type: 'coding',
       difficulty: 'intermediate',
       points: 10,
@@ -171,7 +171,7 @@ const CreateAssessment = () => {
     const newQuestions: Question[] = bankQuestions.map((bankQ, index) => ({
       id: crypto.randomUUID(),
       title: bankQ.title,
-      description: bankQ.description || '',
+      question_text: bankQ.question_text || '',
       question_type: bankQ.question_type,
       difficulty: bankQ.difficulty,
       points: bankQ.points,
@@ -225,7 +225,7 @@ const CreateAssessment = () => {
         const questionsData = assessment.questions.map(q => ({
           assessment_id: assessmentData.id,
           title: q.title,
-          description: q.description,
+          question_text: q.question_text,
           question_type: q.question_type,
           difficulty: q.difficulty,
           points: q.points,
@@ -582,7 +582,7 @@ const CreateAssessment = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h4 className="font-medium">{question.title}</h4>
-                  <p className="text-sm text-muted-foreground">{question.description}</p>
+                  <p className="text-sm text-muted-foreground">{question.question_text}</p>
                   <div className="flex gap-2 mt-2">
                     <Badge variant="secondary">{questionTypes.find(t => t.value === question.question_type)?.label}</Badge>
                     <Badge variant="outline">{question.difficulty}</Badge>
@@ -625,7 +625,7 @@ const CreateAssessment = () => {
                   const newQuestion = {
                     id: crypto.randomUUID(),
                     title: questionData.title || '',
-                    description: questionData.description || '',
+                    question_text: questionData.question_text || '',
                     question_type: questionData.question_type || 'mcq',
                     difficulty: questionData.difficulty || 'intermediate', 
                     points: questionData.points || 10,
@@ -692,15 +692,15 @@ const CreateAssessment = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="questionDescription">Description</Label>
-              <Textarea
-                id="questionDescription"
-                value={currentQuestion.description}
-                onChange={(e) => setCurrentQuestion(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe what the question is asking"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="questionDescription">Question Text</Label>
+                <Textarea
+                  id="questionDescription"
+                  value={currentQuestion.question_text}
+                  onChange={(e) => setCurrentQuestion(prev => ({ ...prev, question_text: e.target.value }))}
+                  placeholder="What do you want to ask?"
+                />
+              </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -734,7 +734,7 @@ const CreateAssessment = () => {
                 questionType={currentQuestion.question_type}
                 config={currentQuestion.config}
                 onConfigChange={(config) => setCurrentQuestion(prev => ({ ...prev, config }))}
-                questionDescription={currentQuestion.description}
+                questionDescription={currentQuestion.question_text}
                 difficulty={currentQuestion.difficulty}
               />
             </div>

@@ -77,7 +77,7 @@ export default function QuestionBank() {
         const searchLower = filters.search.toLowerCase();
         const matchesSearch = 
           question.title.toLowerCase().includes(searchLower) ||
-          question.description?.toLowerCase().includes(searchLower) ||
+          question.question_text?.toLowerCase().includes(searchLower) ||
           question.tags.some(tag => tag.toLowerCase().includes(searchLower));
         
         if (!matchesSearch) return false;

@@ -164,7 +164,7 @@ export const useAssessmentLifecycle = (): AssessmentLifecycleHook => {
         const duplicatedQuestions = originalQuestions.map(q => ({
           assessment_id: newAssessment.id,
           title: q.title,
-          description: q.description,
+          question_text: q.question_text,
           question_type: q.question_type,
           difficulty: q.difficulty,
           points: q.points,

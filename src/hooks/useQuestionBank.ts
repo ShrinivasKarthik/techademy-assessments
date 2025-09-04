@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 export interface Question {
   id: string;
   title: string;
-  description: string | null;
+  question_text: string | null;
   question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   points: number;
@@ -66,7 +66,7 @@ export const useQuestionBank = () => {
 
       // Apply filters
       if (filters?.search) {
-        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+        query = query.or(`title.ilike.%${filters.search}%,question_text.ilike.%${filters.search}%`);
       }
 
       if (filters?.questionType && filters.questionType !== 'all') {
@@ -148,7 +148,7 @@ export const useQuestionBank = () => {
         .from('questions')
         .insert({
           title: questionData.title || '',
-          description: questionData.description,
+          question_text: questionData.question_text,
           question_type: questionData.question_type || 'mcq',
           difficulty: questionData.difficulty || 'intermediate',
           points: questionData.points || 10,

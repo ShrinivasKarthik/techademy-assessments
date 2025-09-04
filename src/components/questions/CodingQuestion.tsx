@@ -11,7 +11,7 @@ interface CodingQuestionProps {
   question: {
     id: string;
     title: string;
-    description: string;
+    question_text: string;
     config: {
       language?: string;
       starterCode?: string;

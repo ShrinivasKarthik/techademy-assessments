@@ -127,7 +127,7 @@ export default function EnhancedAIGenerator({
     if (recommendation.question) {
       onQuestionsGenerated([{
         title: recommendation.question.title,
-        description: recommendation.question.description,
+        question_text: recommendation.question.question_text,
         question_type: recommendation.question.question_type,
         difficulty: recommendation.question.difficulty,
         points: recommendation.question.points,

@@ -34,7 +34,7 @@ import RealTimeEvaluationPanel from './RealTimeEvaluationPanel';
 interface Question {
   id: string;
   title: string;
-  description: string;
+  question_text: string;
   question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
   difficulty: string;
   points: number;
@@ -168,7 +168,7 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
           questions(
             id,
             title,
-            description,
+            question_text,
             question_type,
             difficulty,
             points,
@@ -587,10 +587,10 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
                   </div>
                   <TTSButton text={currentQuestion.title} />
                 </div>
-                {currentQuestion.description && (
+                {currentQuestion.question_text && (
                   <div className="flex items-start justify-between mt-2">
-                    <p className="text-muted-foreground">{currentQuestion.description}</p>
-                    <TTSButton text={currentQuestion.description} />
+                    <p className="text-muted-foreground">{currentQuestion.question_text}</p>
+                    <TTSButton text={currentQuestion.question_text} />
                   </div>
                 )}
               </CardHeader>

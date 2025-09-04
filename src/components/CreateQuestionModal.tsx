@@ -17,7 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Code, HelpCircle, FileText, Upload, Mic } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Question } from "@/hooks/useQuestionBank";
 import EnhancedQuestionBuilders from "./EnhancedQuestionBuilders";
 
@@ -28,6 +29,39 @@ interface CreateQuestionModalProps {
   onSave: (questionData: Partial<Question>) => Promise<void>;
 }
 
+const questionTypeOptions = [
+  {
+    type: 'mcq' as const,
+    label: 'Multiple Choice',
+    description: 'Questions with predefined answer options',
+    icon: HelpCircle
+  },
+  {
+    type: 'coding' as const,
+    label: 'Coding',
+    description: 'Programming challenges with test cases',
+    icon: Code
+  },
+  {
+    type: 'subjective' as const,
+    label: 'Written Response',
+    description: 'Open-ended text-based answers',
+    icon: FileText
+  },
+  {
+    type: 'file_upload' as const,
+    label: 'File Upload',
+    description: 'Document or file submission',
+    icon: Upload
+  },
+  {
+    type: 'audio' as const,
+    label: 'Audio Response',
+    description: 'Spoken answer recording',
+    icon: Mic
+  }
+];
+
 export default function CreateQuestionModal({
   question,
   isOpen,
@@ -36,7 +70,7 @@ export default function CreateQuestionModal({
 }: CreateQuestionModalProps) {
   const [formData, setFormData] = useState({
     title: '',
-    description: '',
+    question_text: '',
     question_type: 'mcq' as Question['question_type'],
     difficulty: 'intermediate' as Question['difficulty'],
     points: 10,
@@ -52,7 +86,7 @@ export default function CreateQuestionModal({
     if (question) {
       setFormData({
         title: question.title,
-        description: question.description || '',
+        question_text: question.question_text || '',
         question_type: question.question_type,
         difficulty: question.difficulty,
         points: question.points,
@@ -64,7 +98,7 @@ export default function CreateQuestionModal({
       // Reset form for new question
       setFormData({
         title: '',
-        description: '',
+        question_text: '',
         question_type: 'mcq',
         difficulty: 'intermediate',
         points: 10,
@@ -97,7 +131,7 @@ export default function CreateQuestionModal({
   };
 
   const handleSubmit = async () => {
-    if (!formData.title.trim()) return;
+    if (!formData.title.trim() || !formData.question_text.trim()) return;
 
     setLoading(true);
     try {
@@ -107,25 +141,103 @@ export default function CreateQuestionModal({
     }
   };
 
+  const selectedQuestionType = questionTypeOptions.find(opt => opt.type === formData.question_type);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-xl">
             {question ? 'Edit Question' : 'Create New Question'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-8">
+          {/* Question Text - Primary Field */}
+          <div className="space-y-3">
+            <Label htmlFor="question-text" className="text-base font-semibold">
+              Question Text *
+            </Label>
+            <Textarea
+              id="question-text"
+              value={formData.question_text}
+              onChange={(e) => setFormData(prev => ({ ...prev, question_text: e.target.value }))}
+              placeholder="What do you want to ask? Write your question here..."
+              className="min-h-[120px] text-base resize-none"
+              rows={5}
+            />
+          </div>
+
+          {/* Question Type Selection */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Question Type *</Label>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              {questionTypeOptions.map((option) => {
+                const IconComponent = option.icon;
+                const isSelected = formData.question_type === option.type;
+                
+                return (
+                  <Card 
+                    key={option.type}
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      isSelected 
+                        ? 'ring-2 ring-primary bg-primary/5' 
+                        : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => setFormData(prev => ({ 
+                      ...prev, 
+                      question_type: option.type,
+                      config: {} // Reset config when type changes
+                    }))}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <IconComponent className={`w-5 h-5 mt-0.5 ${
+                          isSelected ? 'text-primary' : 'text-muted-foreground'
+                        }`} />
+                        <div className="space-y-1">
+                          <div className={`font-medium ${
+                            isSelected ? 'text-primary' : 'text-foreground'
+                          }`}>
+                            {option.label}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {option.description}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Question Configuration */}
+          {selectedQuestionType && (
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">
+                {selectedQuestionType.label} Configuration
+              </Label>
+              <EnhancedQuestionBuilders
+                questionType={formData.question_type}
+                config={formData.config}
+                onConfigChange={handleConfigUpdate}
+                questionDescription={formData.question_text}
+                difficulty={formData.difficulty}
+              />
+            </div>
+          )}
+
+          {/* Basic Settings */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
             <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
+              <Label htmlFor="title">Question Title *</Label>
               <Input
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter question title"
+                placeholder="Brief title for this question"
               />
             </div>
 
@@ -138,40 +250,6 @@ export default function CreateQuestionModal({
                 value={formData.points}
                 onChange={(e) => setFormData(prev => ({ ...prev, points: parseInt(e.target.value) || 10 }))}
               />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Enter question description or instructions"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Question Type</Label>
-              <Select 
-                value={formData.question_type} 
-                onValueChange={(value: Question['question_type']) => 
-                  setFormData(prev => ({ ...prev, question_type: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
-                  <SelectItem value="coding">Coding</SelectItem>
-                  <SelectItem value="subjective">Subjective</SelectItem>
-                  <SelectItem value="file_upload">File Upload</SelectItem>
-                  <SelectItem value="audio">Audio Response</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">
@@ -195,8 +273,8 @@ export default function CreateQuestionModal({
           </div>
 
           {/* Tags */}
-          <div className="space-y-2">
-            <Label>Tags</Label>
+          <div className="space-y-3">
+            <Label>Tags (Optional)</Label>
             <div className="flex gap-2 mb-2">
               <Input
                 value={newTag}
@@ -209,41 +287,35 @@ export default function CreateQuestionModal({
                   }
                 }}
               />
-              <Button type="button" variant="outline" onClick={handleAddTag}>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddTag}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.tags.map((tag, index) => (
-                <Badge key={index} variant="secondary" className="cursor-pointer">
-                  {tag}
-                  <X
-                    className="ml-1 h-3 w-3"
-                    onClick={() => handleRemoveTag(tag)}
-                  />
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Question Configuration */}
-          <div className="space-y-2">
-            <Label>Question Configuration</Label>
-            <div className="border rounded-lg p-4">
-            <EnhancedQuestionBuilders
-              questionType={formData.question_type}
-              config={formData.config}
-              onConfigChange={handleConfigUpdate}
-            />
-            </div>
+            {formData.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {formData.tags.map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="cursor-pointer">
+                    {tag}
+                    <X
+                      className="ml-1 h-3 w-3"
+                      onClick={() => handleRemoveTag(tag)}
+                    />
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-6 border-t">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={loading || !formData.title.trim()}>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={loading || !formData.title.trim() || !formData.question_text.trim()}
+              className="min-w-[120px]"
+            >
               {loading ? 'Saving...' : question ? 'Update Question' : 'Create Question'}
             </Button>
           </div>

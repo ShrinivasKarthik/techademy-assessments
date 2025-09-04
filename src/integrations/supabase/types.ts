@@ -593,7 +593,6 @@ export type Database = {
           config: Json | null
           created_at: string
           created_by: string | null
-          description: string | null
           difficulty: Database["public"]["Enums"]["difficulty_level"] | null
           difficulty_score: number | null
           id: string
@@ -604,6 +603,7 @@ export type Database = {
           parent_question_id: string | null
           points: number
           quality_rating: number | null
+          question_text: string | null
           question_type: Database["public"]["Enums"]["question_type"]
           tags: string[] | null
           title: string
@@ -618,7 +618,6 @@ export type Database = {
           config?: Json | null
           created_at?: string
           created_by?: string | null
-          description?: string | null
           difficulty?: Database["public"]["Enums"]["difficulty_level"] | null
           difficulty_score?: number | null
           id?: string
@@ -629,6 +628,7 @@ export type Database = {
           parent_question_id?: string | null
           points?: number
           quality_rating?: number | null
+          question_text?: string | null
           question_type: Database["public"]["Enums"]["question_type"]
           tags?: string[] | null
           title: string
@@ -643,7 +643,6 @@ export type Database = {
           config?: Json | null
           created_at?: string
           created_by?: string | null
-          description?: string | null
           difficulty?: Database["public"]["Enums"]["difficulty_level"] | null
           difficulty_score?: number | null
           id?: string
@@ -654,6 +653,7 @@ export type Database = {
           parent_question_id?: string | null
           points?: number
           quality_rating?: number | null
+          question_text?: string | null
           question_type?: Database["public"]["Enums"]["question_type"]
           tags?: string[] | null
           title?: string

@@ -130,9 +130,9 @@ export default function QuestionCard({
       </CardHeader>
 
       <CardContent className="pt-0">
-        {question.description && (
+        {question.question_text && (
           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-            {question.description}
+            {question.question_text}
           </p>
         )}
 

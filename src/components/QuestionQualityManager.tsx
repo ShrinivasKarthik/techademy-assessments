@@ -81,12 +81,12 @@ export default function QuestionQualityManager() {
       }
 
       // Check for incomplete content
-      if (!question.description || question.description.trim().length < 10) {
+      if (!question.question_text || question.question_text.trim().length < 10) {
         questionIssues.push({
           type: 'incomplete',
           severity: 'medium',
-          description: 'Missing or insufficient description',
-          suggestion: 'Add a detailed description to improve clarity'
+          description: 'Missing or insufficient question text',
+          suggestion: 'Add detailed question text to improve clarity'
         });
       }
 
@@ -129,7 +129,7 @@ export default function QuestionQualityManager() {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = 
         question.title.toLowerCase().includes(searchLower) ||
-        question.description?.toLowerCase().includes(searchLower);
+        question.question_text?.toLowerCase().includes(searchLower);
       
       if (!matchesSearch) return false;
     }
