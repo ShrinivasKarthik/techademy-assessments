@@ -47,10 +47,11 @@ const AssessmentDashboard = () => {
         id: assessment.id,
         title: assessment.title,
         type: 'Mixed',
-        status: assessment.status,
+        status: assessment.status || 'draft',
         participants: assessment.assessment_instances?.[0]?.count || 0,
-        completion: assessment.status === 'published' ? 100 : 0,
-        timeLeft: assessment.status === 'draft' ? 'Draft' : assessment.status === 'published' ? 'Active' : 'Completed',
+        completion: assessment.status === 'published' ? 100 : assessment.status === 'draft' ? 0 : 50,
+        timeLeft: assessment.status === 'draft' ? 'Draft' : 
+                 assessment.status === 'published' ? 'Active' : 'Completed',
         questionCount: assessment.questions?.[0]?.count || 0
       })) || [];
 
@@ -120,10 +121,12 @@ const AssessmentDashboard = () => {
     const statusConfig = {
       active: { variant: 'default', icon: Play },
       completed: { variant: 'secondary', icon: CheckCircle },
-      draft: { variant: 'outline', icon: AlertCircle }
+      draft: { variant: 'outline', icon: AlertCircle },
+      published: { variant: 'default', icon: Play },
+      'in_progress': { variant: 'default', icon: Play }
     };
     
-    const config = statusConfig[status as keyof typeof statusConfig];
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
     const Icon = config.icon;
     
     return (
