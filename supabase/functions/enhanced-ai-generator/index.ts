@@ -82,34 +82,75 @@ serve(async (req) => {
 async function generateBulkQuestions(skills: string[], difficulty: string, count: number, context: string, assessmentContext: any, supabase: any, userId: string, questionType: string | null) {
   const skillsText = skills.length > 0 ? skills.join(', ') : 'general programming';
   
-  const prompt = `Generate ${count} diverse assessment questions focused on these skills: ${skillsText}.
+  let prompt = '';
   
-  Difficulty: ${difficulty}
-  Context: ${context}
-  Assessment Context: ${JSON.stringify(assessmentContext || {})}
-  
-  Requirements:
-  ${questionType ? `- Generate ONLY ${questionType} questions` : '- Mix different question types (coding, MCQ, subjective)'}
-  - Each question should test specific skills mentioned
-  - Provide variety in complexity and approach
-  - Include proper configuration for each question type
-  - For MCQ questions: Create realistic, specific options with clear correct answers
-  
-  Return a JSON array of questions with this exact structure:
-  [
-    {
-      "title": "Question title",
-      "description": "Detailed description",
-      "question_type": "coding|mcq|subjective|file_upload|audio",
-      "difficulty": "beginner|intermediate|advanced",
-      "points": 10,
-      "skills": ["skill1", "skill2"],
-      "tags": ["tag1", "tag2"],
-      "config": {
-        // Type-specific configuration
+  if (questionType === 'mcq') {
+    prompt = `Generate ${count} high-quality MCQ questions focused on these skills: ${skillsText}.
+    
+    Difficulty: ${difficulty}
+    Context: ${context}
+    Assessment Context: ${JSON.stringify(assessmentContext || {})}
+    
+    Return a JSON array of MCQ questions with this EXACT structure:
+    [
+      {
+        "title": "Clear, specific question title",
+        "description": "Well-formatted question text with context. Make it realistic and practical.",
+        "question_type": "mcq",
+        "difficulty": "${difficulty}",
+        "points": ${difficulty === 'beginner' ? 5 : difficulty === 'intermediate' ? 10 : 15},
+        "skills": [${skills.map(s => `"${s}"`).join(', ')}],
+        "tags": ["relevant", "tags"],
+        "config": {
+          "options": [
+            {"id": "1", "text": "Specific correct answer content", "isCorrect": true},
+            {"id": "2", "text": "Plausible but incorrect option", "isCorrect": false},
+            {"id": "3", "text": "Another realistic incorrect option", "isCorrect": false},
+            {"id": "4", "text": "Third incorrect but believable option", "isCorrect": false}
+          ],
+          "allowMultiple": false,
+          "shuffleOptions": true,
+          "explanation": "Clear explanation of why the correct answer is right"
+        }
       }
-    }
-  ]`;
+    ]
+    
+    CRITICAL: Each question MUST have exactly one option with "isCorrect": true and others with "isCorrect": false.`;
+  } else {
+    prompt = `Generate ${count} diverse assessment questions focused on these skills: ${skillsText}.
+    
+    Difficulty: ${difficulty}
+    Context: ${context}
+    Assessment Context: ${JSON.stringify(assessmentContext || {})}
+    
+    Requirements:
+    ${questionType ? `- Generate ONLY ${questionType} questions` : '- Mix different question types (coding, MCQ, subjective)'}
+    - Each question should test specific skills mentioned
+    - Provide variety in complexity and approach
+    - Include proper configuration for each question type
+    ${questionType === null ? `
+    - For MCQ questions: Include options with "isCorrect": true/false properties
+    - For coding questions: Include test cases and starter code
+    - For subjective questions: Include rubric and word limits` : ''}
+    
+    Return a JSON array of questions with this exact structure:
+    [
+      {
+        "title": "Question title",
+        "description": "Detailed description",
+        "question_type": "${questionType || 'coding|mcq|subjective|file_upload|audio'}",
+        "difficulty": "${difficulty}",
+        "points": ${difficulty === 'beginner' ? 5 : difficulty === 'intermediate' ? 10 : 15},
+        "skills": [${skills.map(s => `"${s}"`).join(', ')}],
+        "tags": ["tag1", "tag2"],
+        "config": {
+          ${questionType === 'mcq' || !questionType ? `
+          // For MCQ: "options": [{"id": "1", "text": "answer", "isCorrect": true/false}], "allowMultiple": false` : ''}
+          // Type-specific configuration based on question_type
+        }
+      }
+    ]`;
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -234,31 +275,71 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
 async function generateSkillTargetedQuestion(skills: string[], difficulty: string, context: string, supabase: any, userId: string, questionType: string | null) {
   const skillsText = skills.join(', ');
   
-  const prompt = `Create a focused assessment question specifically designed to test these skills: ${skillsText}.
+  let prompt = '';
   
-  Difficulty: ${difficulty}
-  Context: ${context}
-  
-  The question should:
-  - Directly assess the specified skills
-  - Be appropriately challenging for the difficulty level  
-  - Include realistic scenarios or examples
-  - Have clear success criteria
-  ${questionType ? `- Must be of type: ${questionType}` : ''}
-  
-  Return a single question object with this structure:
-  {
-    "title": "Question title",
-    "description": "Detailed description with clear instructions",
-    "question_type": "${questionType || 'coding|mcq|subjective|file_upload|audio'}", 
-    "difficulty": "${difficulty}",
-    "points": ${difficulty === 'beginner' ? 5 : difficulty === 'intermediate' ? 10 : 15},
-    "skills": ${JSON.stringify(skills)},
-    "tags": ["relevant", "tags"],
-    "config": {
-      // Complete configuration for the question type
+  if (questionType === 'mcq') {
+    prompt = `Create a focused MCQ assessment question specifically designed to test these skills: ${skillsText}.
+    
+    Difficulty: ${difficulty}
+    Context: ${context}
+    
+    Return a single MCQ question with this EXACT structure:
+    {
+      "title": "Clear, specific question title about the skills",
+      "description": "Well-formatted question text with context. Make it realistic and practical.",
+      "question_type": "mcq",
+      "difficulty": "${difficulty}",
+      "points": ${difficulty === 'beginner' ? 5 : difficulty === 'intermediate' ? 10 : 15},
+      "skills": ${JSON.stringify(skills)},
+      "tags": ["relevant", "tags"],
+      "config": {
+        "options": [
+          {"id": "1", "text": "Specific correct answer content", "isCorrect": true},
+          {"id": "2", "text": "Plausible but incorrect option", "isCorrect": false},
+          {"id": "3", "text": "Another realistic incorrect option", "isCorrect": false},
+          {"id": "4", "text": "Third incorrect but believable option", "isCorrect": false}
+        ],
+        "allowMultiple": false,
+        "shuffleOptions": true,
+        "explanation": "Clear explanation of why the correct answer is right"
+      }
     }
-  }`;
+    
+    CRITICAL: The question MUST have exactly one option with "isCorrect": true and others with "isCorrect": false.`;
+  } else {
+    prompt = `Create a focused assessment question specifically designed to test these skills: ${skillsText}.
+    
+    Difficulty: ${difficulty}
+    Context: ${context}
+    
+    The question should:
+    - Directly assess the specified skills
+    - Be appropriately challenging for the difficulty level  
+    - Include realistic scenarios or examples
+    - Have clear success criteria
+    ${questionType ? `- Must be of type: ${questionType}` : ''}
+    
+    Return a single question object with this structure:
+    {
+      "title": "Question title",
+      "description": "Detailed description with clear instructions",
+      "question_type": "${questionType || 'coding|mcq|subjective|file_upload|audio'}", 
+      "difficulty": "${difficulty}",
+      "points": ${difficulty === 'beginner' ? 5 : difficulty === 'intermediate' ? 10 : 15},
+      "skills": ${JSON.stringify(skills)},
+      "tags": ["relevant", "tags"],
+      "config": {
+        ${questionType === 'mcq' ? `
+        "options": [
+          {"id": "1", "text": "correct answer", "isCorrect": true},
+          {"id": "2", "text": "incorrect option", "isCorrect": false},
+          {"id": "3", "text": "incorrect option", "isCorrect": false},
+          {"id": "4", "text": "incorrect option", "isCorrect": false}
+        ],
+        "allowMultiple": false` : '// Complete configuration for the question type'}
+      }
+    }`;
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
