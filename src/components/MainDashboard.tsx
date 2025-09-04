@@ -51,10 +51,8 @@ interface RecentAssessment {
 const MainDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  // TESTING MODE: Skip auth context
-  const user = { id: 'test-user' };
-  const profile = null;
-  // const { user, profile } = useAuth();
+  // Fixed: Restore real auth context
+  const { user, profile } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalAssessments: 0,
     activeAssessments: 0,
@@ -77,37 +75,36 @@ const MainDashboard = () => {
     try {
       setLoading(true);
       
-      // Simplified data loading for testing
-      const mockAssessments = [
-        { id: '1', title: 'Sample Assessment 1', status: 'published', created_at: new Date().toISOString() },
-        { id: '2', title: 'Sample Assessment 2', status: 'draft', created_at: new Date().toISOString() },
-        { id: '3', title: 'Sample Assessment 3', status: 'published', created_at: new Date().toISOString() }
-      ];
-      
-      /* ORIGINAL SUPABASE CALL - DISABLED FOR TESTING
-      const response = await fetch(
-        `https://axdwgxtukqqzupboojmx.supabase.co/rest/v1/assessments?select=id,title,status,created_at&user_id=eq.${user.id}&order=created_at.desc`,
-        {
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4ZHdneHR1a3FxenVwYm9vam14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NDc4MDksImV4cCI6MjA3MjUyMzgwOX0.jqTQyfetH-utIZUeSVH34ctBY70bIig65C8NZo3tMIM',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      */
-      
-      const assessments = mockAssessments;
-      const error = null;
+      // Load real data from Supabase
+      const { data: assessments, error } = await supabase
+        .from('assessments')
+        .select('id, title, status, created_at')
+        .order('created_at', { ascending: false });
+
+      const { data: instances } = await supabase
+        .from('assessment_instances')
+        .select('id, total_score, max_possible_score, participant_id');
+
+      if (error) throw error;
 
       const totalAssessments = assessments?.length || 0;
       const activeAssessments = assessments?.filter(a => a.status === 'published').length || 0;
+      const totalParticipants = new Set(instances?.map(i => i.participant_id)).size || 0;
+      
+      const avgScore = instances?.length 
+        ? instances.reduce((sum, instance) => {
+            const score = instance.total_score && instance.max_possible_score 
+              ? (instance.total_score / instance.max_possible_score) * 100 
+              : 0;
+            return sum + score;
+          }, 0) / instances.length
+        : 0;
 
       setStats({
         totalAssessments,
         activeAssessments,
-        totalParticipants: 0, // Will be populated when we have instance data
-        avgScore: 0,
+        totalParticipants,
+        avgScore,
         recentActivity: totalAssessments
       });
 
@@ -190,7 +187,7 @@ const MainDashboard = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'published': return 'success';
+      case 'published': return 'default';
       case 'draft': return 'secondary';
       case 'archived': return 'outline';
       default: return 'secondary';
@@ -293,15 +290,108 @@ const MainDashboard = () => {
           </Card>
         </div>
 
-        <div className="text-center py-8">
-          <h2 className="text-xl font-semibold mb-4">🎉 Authentication System Implemented!</h2>
-          <p className="text-muted-foreground mb-4">
-            Phase 1 complete: User authentication, profiles, and role-based access control are now active.
-          </p>
-          <Button onClick={() => navigate('/auth')}>
-            Try the Auth System
-          </Button>
+        {/* Feature Showcase Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {quickActions.map((action, index) => {
+            const Icon = action.icon;
+            return (
+              <Card key={index} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={action.action}>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className={`p-3 rounded-lg bg-${action.color}/10`}>
+                      <Icon className={`w-6 h-6 text-${action.color}`} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{action.title}</h3>
+                      <p className="text-sm text-muted-foreground">{action.description}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
+
+        {/* Assessment Types Overview */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5" />
+              AI-Powered Assessment Types
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {assessmentTypes.map((type, index) => {
+                const Icon = type.icon;
+                return (
+                  <div key={index} className="text-center p-4 rounded-lg border">
+                    <Icon className={`w-8 h-8 mx-auto mb-2 text-${type.color}`} />
+                    <h4 className="font-medium">{type.title}</h4>
+                    <p className="text-2xl font-bold">{type.count}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Assessments */}
+        {recentAssessments.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Recent Assessments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentAssessments.map((assessment) => {
+                  const StatusIcon = getStatusIcon(assessment.status);
+                  return (
+                    <div key={assessment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => navigate(`/assessments/${assessment.id}/preview`)}>
+                      <div className="flex items-center gap-4">
+                        <StatusIcon className="w-5 h-5" />
+                        <div>
+                          <h4 className="font-medium">{assessment.title}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Created {new Date(assessment.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getStatusColor(assessment.status)}>
+                          {assessment.status}
+                        </Badge>
+                        <Button variant="ghost" size="sm">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty State when no assessments */}
+        {recentAssessments.length === 0 && (
+          <Card className="text-center py-12">
+            <CardContent>
+              <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">No assessments yet</h3>
+              <p className="text-muted-foreground mb-4">
+                Get started by creating your first AI-powered assessment
+              </p>
+              <Button onClick={() => navigate('/assessments/create')}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Your First Assessment
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
