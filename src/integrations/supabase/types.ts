@@ -68,6 +68,20 @@ export type Database = {
             referencedRelation: "assessments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_instances_assessment"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_instances_participant"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       assessments: {
@@ -113,7 +127,15 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_assessments_creator"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       evaluations: {
         Row: {
@@ -149,6 +171,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "evaluations_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_evaluations_submission"
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "submissions"
@@ -196,7 +225,22 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_proctoring_instance"
+            columns: ["assessment_instance_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_proctoring_participant"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -248,6 +292,20 @@ export type Database = {
           skill_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_question_skills_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_question_skills_skill"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "question_skills_question_id_fkey"
             columns: ["question_id"]
@@ -306,6 +364,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_questions_assessment"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "questions_assessment_id_fkey"
             columns: ["assessment_id"]
             isOneToOne: false
@@ -340,6 +405,13 @@ export type Database = {
           weight?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_rubrics_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rubrics_question_id_fkey"
             columns: ["question_id"]
@@ -393,6 +465,20 @@ export type Database = {
           submitted_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_submissions_instance"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_submissions_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "submissions_instance_id_fkey"
             columns: ["instance_id"]
