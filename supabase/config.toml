@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.realtime-proctoring]
 verify_jwt = false
+
+[functions.ai-content-generator]
+verify_jwt = false
+
+[functions.ai-assessment-insights]
+verify_jwt = false

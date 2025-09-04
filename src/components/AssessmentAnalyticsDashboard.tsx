@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import AIInsightsDashboard from './AIInsightsDashboard';
 
 interface AssessmentResult {
   id: string;
@@ -412,6 +413,11 @@ const AssessmentAnalyticsDashboard: React.FC<AssessmentAnalyticsDashboardProps> 
         </TabsContent>
 
         <TabsContent value="skills" className="space-y-6">
+          {/* AI Insights Integration */}
+          <div className="mb-6">
+            <AIInsightsDashboard assessmentId={assessmentId} />
+          </div>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

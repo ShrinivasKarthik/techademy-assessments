@@ -45,28 +45,57 @@ const AIContentGenerator: React.FC<AIContentGeneratorProps> = ({
     setIsGenerating(true);
 
     try {
-      // Simulate AI content generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call AI content generation edge function
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      const { data, error } = await supabase.functions.invoke('ai-content-generator', {
+        body: {
+          topic,
+          questionType,
+          difficulty: difficulty || 'medium',
+          context,
+          assessmentContext: null
+        }
+      });
 
-      const templates = getTemplatesByType(questionType, topic, difficulty, context);
-      const template = templates[Math.floor(Math.random() * templates.length)];
+      if (error) {
+        throw new Error(error.message);
+      }
 
-      onContentGenerated(template);
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate content');
+      }
+
+      onContentGenerated(data.content);
 
       toast({
-        title: "Content Generated",
-        description: `Generated ${questionType} question about ${topic}`,
+        title: "AI Content Generated",
+        description: `Generated ${questionType} question about ${topic} using AI`,
       });
 
       // Reset form
       setTopic('');
       setContext('');
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate content. Please try again.",
-        variant: "destructive"
-      });
+      console.error('AI generation error:', error);
+      
+      // Fallback to template generation
+      try {
+        const templates = getTemplatesByType(questionType, topic, difficulty, context);
+        const template = templates[Math.floor(Math.random() * templates.length)];
+        onContentGenerated(template);
+        
+        toast({
+          title: "Content Generated",
+          description: `Generated ${questionType} question about ${topic} (using fallback)`,
+        });
+      } catch (fallbackError) {
+        toast({
+          title: "Error",
+          description: "Failed to generate content. Please try again.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsGenerating(false);
     }
