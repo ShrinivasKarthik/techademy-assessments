@@ -131,7 +131,9 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
   }
 
   try {
-    const generatedQuestions = JSON.parse(data.choices[0].message.content);
+    const content = data.choices[0].message.content;
+    const cleanedContent = extractJsonFromMarkdown(content);
+    const generatedQuestions = JSON.parse(cleanedContent);
     return Array.isArray(generatedQuestions) ? generatedQuestions : [generatedQuestions];
   } catch (parseError) {
     console.error('Failed to parse generated questions:', data.choices[0].message.content);
@@ -194,7 +196,9 @@ async function generateSkillTargetedQuestion(skills: string[], difficulty: strin
   }
 
   try {
-    return JSON.parse(data.choices[0].message.content);
+    const content = data.choices[0].message.content;
+    const cleanedContent = extractJsonFromMarkdown(content);
+    return JSON.parse(cleanedContent);
   } catch (parseError) {
     console.error('Failed to parse generated question:', data.choices[0].message.content);
     throw new Error('Failed to generate valid question format');
@@ -248,7 +252,9 @@ async function autoTagQuestion(questionData: any) {
   }
 
   try {
-    return JSON.parse(data.choices[0].message.content);
+    const content = data.choices[0].message.content;
+    const cleanedContent = extractJsonFromMarkdown(content);
+    return JSON.parse(cleanedContent);
   } catch (parseError) {
     console.error('Failed to parse auto-tag results:', data.choices[0].message.content);
     throw new Error('Failed to analyze question for tags');
@@ -325,7 +331,9 @@ async function recommendQuestions(assessmentContext: any, supabase: any) {
   }
 
   try {
-    const recommendations = JSON.parse(data.choices[0].message.content);
+    const content = data.choices[0].message.content;
+    const cleanedContent = extractJsonFromMarkdown(content);
+    const recommendations = JSON.parse(cleanedContent);
     
     // Enhance recommendations with actual question data
     const enhancedRecommendations = recommendations.map((rec: any) => {
@@ -341,4 +349,15 @@ async function recommendQuestions(assessmentContext: any, supabase: any) {
     console.error('Failed to parse recommendations:', data.choices[0].message.content);
     throw new Error('Failed to generate question recommendations');
   }
+}
+
+// Helper function to extract JSON from markdown code blocks
+function extractJsonFromMarkdown(content: string): string {
+  // Remove markdown code block formatting if present
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+  // Return original content if no markdown formatting found
+  return content.trim();
 }
