@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monitor, X } from "lucide-react";
+import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monitor, X, Mic } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
