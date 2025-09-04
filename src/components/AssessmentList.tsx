@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAssessmentState } from '@/contexts/AssessmentStateContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Edit, Trash2, Users, Clock, BookOpen, BarChart3 } from 'lucide-react';
@@ -21,49 +22,12 @@ interface Assessment {
 
 const AssessmentList = () => {
   const { toast } = useToast();
-  const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { assessments, loading, refreshAssessments } = useAssessmentState();
 
   useEffect(() => {
-    fetchAssessments();
-  }, []);
+    refreshAssessments();
+  }, [refreshAssessments]);
 
-  const fetchAssessments = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('assessments')
-        .select(`
-          id,
-          title,
-          description,
-          duration_minutes,
-          status,
-          created_at,
-          questions(count),
-          assessment_instances(count)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const processedData = data?.map(assessment => ({
-        ...assessment,
-        question_count: assessment.questions?.[0]?.count || 0,
-        instance_count: assessment.assessment_instances?.[0]?.count || 0
-      })) || [];
-
-      setAssessments(processedData);
-    } catch (error) {
-      console.error('Error fetching assessments:', error);
-      toast({
-        title: "Error loading assessments",
-        description: "Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -91,7 +55,8 @@ const AssessmentList = () => {
 
       if (error) throw error;
 
-      setAssessments(prev => prev.filter(a => a.id !== id));
+      // Refresh assessments after deletion
+      await refreshAssessments();
       toast({
         title: "Assessment deleted",
         description: `"${title}" has been deleted successfully.`
@@ -161,7 +126,7 @@ const AssessmentList = () => {
             <AssessmentWorkflow
               key={assessment.id}
               assessment={assessment}
-              onStatusChange={fetchAssessments}
+              onStatusChange={refreshAssessments}
             />
           ))}
         </div>
