@@ -1,397 +1,643 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
+  Shield, 
+  Eye, 
   Camera, 
   Mic, 
   Monitor, 
-  Eye, 
   AlertTriangle, 
   CheckCircle,
   XCircle,
-  Settings,
-  Shield,
-  Activity,
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  Play,
   Pause,
-  Play
+  Square,
+  Wifi,
+  WifiOff,
+  Battery,
+  Clock,
+  Maximize,
+  Minimize
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
-interface ProctoringSettings {
+interface ProctoringConfig {
   cameraRequired: boolean;
-  microphoneMonitoring: boolean;
-  screenRecording: boolean;
+  microphoneRequired: boolean;
+  screenSharing: boolean;
   tabSwitchDetection: boolean;
-  facialRecognition: boolean;
-  keystrokeAnalysis: boolean;
-  timeBasedWarnings: boolean;
+  fullscreenRequired: boolean;
+  faceDetection: boolean;
+  voiceAnalysis: boolean;
+  environmentCheck: boolean;
+  browserLockdown: boolean;
 }
 
-interface SecurityAlert {
+interface SecurityEvent {
   id: string;
-  type: 'tab_switch' | 'camera_lost' | 'face_not_detected' | 'suspicious_behavior' | 'audio_detected';
-  message: string;
+  type: 'tab_switch' | 'fullscreen_exit' | 'camera_blocked' | 'mic_muted' | 'face_not_detected' | 'suspicious_activity' | 'network_issue';
   timestamp: Date;
-  severity: 'low' | 'medium' | 'high';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  evidence?: string;
 }
 
-const LiveProctoringSystem: React.FC = () => {
-  const [isActive, setIsActive] = useState(false);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [microphoneStream, setMicrophoneStream] = useState<MediaStream | null>(null);
+interface LiveProctoringSystemProps {
+  assessmentId: string;
+  participantId: string;
+  config: ProctoringConfig;
+  onSecurityEvent: (event: SecurityEvent) => void;
+  onStatusChange: (status: 'active' | 'paused' | 'stopped') => void;
+}
+
+const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
+  assessmentId,
+  participantId,
+  config,
+  onSecurityEvent,
+  onStatusChange
+}) => {
+  const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   
-  const [settings, setSettings] = useState<ProctoringSettings>({
-    cameraRequired: true,
-    microphoneMonitoring: true,
-    screenRecording: true,
-    tabSwitchDetection: true,
-    facialRecognition: false,
-    keystrokeAnalysis: false,
-    timeBasedWarnings: true
+  const [status, setStatus] = useState<'initializing' | 'active' | 'paused' | 'stopped'>('initializing');
+  const [permissions, setPermissions] = useState({
+    camera: false,
+    microphone: false,
+    screen: false
   });
-
-  const [alerts, setAlerts] = useState<SecurityAlert[]>([
-    {
-      id: '1',
-      type: 'tab_switch',
-      message: 'Candidate switched tabs 3 times in the last 5 minutes',
-      timestamp: new Date(),
-      severity: 'medium'
-    },
-    {
-      id: '2',
-      type: 'camera_lost',
-      message: 'Camera feed was lost for 15 seconds',
-      timestamp: new Date(Date.now() - 300000),
-      severity: 'high'
-    }
-  ]);
-
-  const [proctoringStats, setProctoringStats] = useState({
-    totalTabSwitches: 5,
-    cameraUptime: 95,
-    faceDetectionRate: 88,
-    suspiciousEvents: 2,
-    sessionDuration: 45 // minutes
-  });
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [networkStatus, setNetworkStatus] = useState<'online' | 'offline' | 'unstable'>('online');
+  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
+  const [recording, setRecording] = useState(false);
 
   useEffect(() => {
-    if (isActive && settings.cameraRequired) {
-      startCamera();
-    } else {
-      stopCamera();
-    }
-
+    initializeProctoring();
+    setupEventListeners();
+    
     return () => {
-      stopCamera();
-      stopMicrophone();
+      cleanup();
     };
-  }, [isActive, settings.cameraRequired]);
+  }, []);
 
-  const startCamera = async () => {
+  const initializeProctoring = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: settings.microphoneMonitoring 
+      await requestPermissions();
+      await setupDeviceMonitoring();
+      setStatus('active');
+      onStatusChange('active');
+      
+      toast({
+        title: "Proctoring Active",
+        description: "Live monitoring has been successfully initialized.",
       });
-      setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
     } catch (error) {
-      console.error('Error accessing camera:', error);
-      addAlert('camera_lost', 'Failed to access camera', 'high');
+      console.error('Failed to initialize proctoring:', error);
+      toast({
+        title: "Initialization Failed",
+        description: "Could not start proctoring. Please check permissions.",
+        variant: "destructive"
+      });
     }
   };
 
-  const stopCamera = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
+  const requestPermissions = async () => {
+    if (config.cameraRequired || config.microphoneRequired) {
+      try {
+        const constraints: MediaStreamConstraints = {};
+        if (config.cameraRequired) constraints.video = { width: 640, height: 480 };
+        if (config.microphoneRequired) constraints.audio = true;
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = stream;
+
+        if (videoRef.current && constraints.video) {
+          videoRef.current.srcObject = stream;
+          setPermissions(prev => ({ ...prev, camera: true }));
+        }
+
+        if (constraints.audio) {
+          setPermissions(prev => ({ ...prev, microphone: true }));
+        }
+
+        // Start face detection if enabled
+        if (config.faceDetection && constraints.video) {
+          startFaceDetection();
+        }
+
+      } catch (error) {
+        logSecurityEvent({
+          type: 'camera_blocked',
+          severity: 'critical',
+          description: 'Camera or microphone access denied'
+        });
+        throw error;
+      }
+    }
+
+    if (config.screenSharing) {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false
+        });
+        setPermissions(prev => ({ ...prev, screen: true }));
+      } catch (error) {
+        logSecurityEvent({
+          type: 'suspicious_activity',
+          severity: 'high',
+          description: 'Screen sharing permission denied'
+        });
+      }
     }
   };
 
-  const stopMicrophone = () => {
-    if (microphoneStream) {
-      microphoneStream.getTracks().forEach(track => track.stop());
-      setMicrophoneStream(null);
+  const setupDeviceMonitoring = async () => {
+    // Monitor network status
+    window.addEventListener('online', () => setNetworkStatus('online'));
+    window.addEventListener('offline', () => setNetworkStatus('offline'));
+
+    // Monitor battery if available
+    if ('getBattery' in navigator) {
+      try {
+        const battery = await (navigator as any).getBattery();
+        setBatteryLevel(Math.round(battery.level * 100));
+        
+        battery.addEventListener('levelchange', () => {
+          setBatteryLevel(Math.round(battery.level * 100));
+        });
+      } catch (error) {
+        console.log('Battery API not available');
+      }
     }
   };
 
-  const addAlert = (type: SecurityAlert['type'], message: string, severity: SecurityAlert['severity']) => {
-    const newAlert: SecurityAlert = {
+  const setupEventListeners = () => {
+    // Tab switch detection
+    if (config.tabSwitchDetection) {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('blur', handleWindowBlur);
+      window.addEventListener('focus', handleWindowFocus);
+    }
+
+    // Fullscreen monitoring
+    if (config.fullscreenRequired) {
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    }
+
+    // Keyboard shortcuts blocking
+    if (config.browserLockdown) {
+      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      logSecurityEvent({
+        type: 'tab_switch',
+        severity: 'medium',
+        description: 'Participant switched away from assessment tab'
+      });
+    }
+  };
+
+  const handleWindowBlur = () => {
+    logSecurityEvent({
+      type: 'tab_switch',
+      severity: 'medium',
+      description: 'Assessment window lost focus'
+    });
+  };
+
+  const handleWindowFocus = () => {
+    // Log return to assessment
+  };
+
+  const handleFullscreenChange = () => {
+    const isNowFullscreen = !!(document.fullscreenElement || 
+                              (document as any).webkitFullscreenElement || 
+                              (document as any).mozFullScreenElement);
+    
+    setIsFullscreen(isNowFullscreen);
+    
+    if (config.fullscreenRequired && !isNowFullscreen) {
+      logSecurityEvent({
+        type: 'fullscreen_exit',
+        severity: 'high',
+        description: 'Participant exited fullscreen mode'
+      });
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Block common shortcuts
+    const blockedKeys = [
+      'F12', // Developer tools
+      'F5', // Refresh
+      'Tab', // Alt+Tab when combined
+    ];
+    
+    if (blockedKeys.includes(e.key) || 
+        (e.ctrlKey && ['r', 'R', 'u', 'U', 'i', 'I', 'j', 'J', 's', 'S'].includes(e.key)) ||
+        (e.altKey && e.key === 'Tab')) {
+      e.preventDefault();
+      logSecurityEvent({
+        type: 'suspicious_activity',
+        severity: 'medium',
+        description: `Blocked keyboard shortcut: ${e.key}`
+      });
+    }
+  };
+
+  const startFaceDetection = () => {
+    // Simplified face detection simulation
+    const interval = setInterval(() => {
+      if (videoRef.current && canvasRef.current) {
+        const context = canvasRef.current.getContext('2d');
+        if (context && videoRef.current.videoWidth > 0) {
+          // Simulate face detection (in real implementation, use ML library)
+          const detected = Math.random() > 0.2; // 80% detection rate simulation
+          setFaceDetected(detected);
+          
+          if (!detected) {
+            logSecurityEvent({
+              type: 'face_not_detected',
+              severity: 'medium',
+              description: 'Face not detected in camera feed'
+            });
+          }
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  };
+
+  const logSecurityEvent = (event: Omit<SecurityEvent, 'id' | 'timestamp'>) => {
+    const securityEvent: SecurityEvent = {
       id: Date.now().toString(),
-      type,
-      message,
       timestamp: new Date(),
-      severity
+      ...event
     };
-    setAlerts(prev => [newAlert, ...prev].slice(0, 10)); // Keep only last 10 alerts
+
+    setSecurityEvents(prev => [securityEvent, ...prev].slice(0, 50)); // Keep last 50 events
+    onSecurityEvent(securityEvent);
+
+    // Send to backend
+    supabase.functions.invoke('realtime-proctoring', {
+      body: {
+        assessmentId,
+        participantId,
+        event: securityEvent
+      }
+    }).catch(console.error);
   };
 
-  const getAlertIcon = (type: SecurityAlert['type']) => {
-    switch (type) {
-      case 'tab_switch': return <Monitor className="w-4 h-4" />;
-      case 'camera_lost': return <Camera className="w-4 h-4" />;
-      case 'face_not_detected': return <Eye className="w-4 h-4" />;
-      case 'audio_detected': return <Mic className="w-4 h-4" />;
-      default: return <AlertTriangle className="w-4 h-4" />;
+  const toggleRecording = () => {
+    setRecording(!recording);
+    // Implement actual recording logic here
+  };
+
+  const enterFullscreen = () => {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen();
     }
   };
 
-  const getAlertColor = (severity: SecurityAlert['severity']) => {
+  const exitFullscreen = () => {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  };
+
+  const cleanup = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('blur', handleWindowBlur);
+    window.removeEventListener('focus', handleWindowFocus);
+  };
+
+  const getStatusColor = () => {
+    switch (status) {
+      case 'active': return 'text-green-600';
+      case 'paused': return 'text-yellow-600';
+      case 'stopped': return 'text-red-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'low': return 'text-yellow-500';
-      case 'medium': return 'text-orange-500';
-      case 'high': return 'text-red-500';
+      case 'low': return 'border-l-blue-500 bg-blue-50';
+      case 'medium': return 'border-l-yellow-500 bg-yellow-50';
+      case 'high': return 'border-l-orange-500 bg-orange-50';
+      case 'critical': return 'border-l-red-500 bg-red-50';
+      default: return 'border-l-gray-500 bg-gray-50';
     }
-  };
-
-  const toggleSetting = (key: keyof ProctoringSettings) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Live Proctoring System</h1>
-          <p className="text-muted-foreground">Real-time monitoring and security for assessments</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Badge variant={isActive ? "default" : "outline"} className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-            {isActive ? 'Active' : 'Inactive'}
-          </Badge>
-          <Button 
-            onClick={() => setIsActive(!isActive)}
-            variant={isActive ? "destructive" : "default"}
-            className="flex items-center gap-2"
-          >
-            {isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            {isActive ? 'Stop Monitoring' : 'Start Monitoring'}
-          </Button>
-        </div>
-      </div>
+      {/* Status Header */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Shield className={`w-5 h-5 ${getStatusColor()}`} />
+                <span className={`font-medium ${getStatusColor()}`}>
+                  Proctoring {status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1">
+                  {permissions.camera ? 
+                    <Camera className="w-4 h-4 text-green-500" /> : 
+                    <Camera className="w-4 h-4 text-red-500" />
+                  }
+                  <span>Camera</span>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  {permissions.microphone ? 
+                    <Mic className="w-4 h-4 text-green-500" /> : 
+                    <Mic className="w-4 h-4 text-red-500" />
+                  }
+                  <span>Microphone</span>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  {networkStatus === 'online' ? 
+                    <Wifi className="w-4 h-4 text-green-500" /> : 
+                    <WifiOff className="w-4 h-4 text-red-500" />
+                  }
+                  <span>Network</span>
+                </div>
+                
+                {batteryLevel !== null && (
+                  <div className="flex items-center gap-1">
+                    <Battery className="w-4 h-4" />
+                    <span>{batteryLevel}%</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleRecording}
+                className={recording ? 'text-red-600' : ''}
+              >
+                {recording ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {recording ? 'Stop' : 'Record'}
+              </Button>
+              
+              {config.fullscreenRequired && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={isFullscreen ? exitFullscreen : enterFullscreen}
+                >
+                  {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                  {isFullscreen ? 'Exit' : 'Fullscreen'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Live Feed */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="w-5 h-5" />
-                Live Camera Feed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  className="w-full h-64 bg-gray-900 rounded-lg object-cover"
-                />
-                {!cameraStream && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg">
-                    <div className="text-center text-white">
-                      <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>Camera not available</p>
+      <Tabs defaultValue="monitoring" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="monitoring">Live Monitoring</TabsTrigger>
+          <TabsTrigger value="events">Security Events</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="monitoring" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Video Feed */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Camera className="w-5 h-5" />
+                  Video Feed
+                  {faceDetected ? (
+                    <Badge className="bg-green-100 text-green-700">Face Detected</Badge>
+                  ) : (
+                    <Badge variant="destructive">No Face</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="relative">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    className="w-full h-48 bg-black rounded-lg"
+                  />
+                  <canvas
+                    ref={canvasRef}
+                    className="hidden"
+                    width="640"
+                    height="480"
+                  />
+                  {!permissions.camera && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg">
+                      <div className="text-center">
+                        <Camera className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm text-gray-500">Camera not available</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Environment Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Monitor className="w-5 h-5" />
+                  Environment Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Fullscreen Mode</span>
+                    <div className="flex items-center gap-2">
+                      {isFullscreen ? (
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-500" />
+                      )}
+                      <span className="text-sm">{isFullscreen ? 'Active' : 'Inactive'}</span>
                     </div>
                   </div>
-                )}
-                <div className="absolute top-2 right-2 flex gap-2">
-                  <Badge variant={cameraStream ? "default" : "destructive"}>
-                    {cameraStream ? 'Recording' : 'Offline'}
-                  </Badge>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Face Detection</span>
+                    <div className="flex items-center gap-2">
+                      {faceDetected ? (
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-500" />
+                      )}
+                      <span className="text-sm">{faceDetected ? 'Detected' : 'Not Detected'}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Network Connection</span>
+                    <div className="flex items-center gap-2">
+                      {networkStatus === 'online' ? (
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-500" />
+                      )}
+                      <span className="text-sm capitalize">{networkStatus}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Recording Status</span>
+                    <div className="flex items-center gap-2">
+                      {recording ? (
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                      ) : (
+                        <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                      )}
+                      <span className="text-sm">{recording ? 'Recording' : 'Standby'}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-          {/* Security Alerts */}
+        <TabsContent value="events" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Security Alerts
+                <AlertTriangle className="w-5 h-5" />
+                Recent Security Events
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {alerts.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <CheckCircle className="w-8 h-8 mx-auto mb-2" />
-                    No security alerts
-                  </div>
-                ) : (
-                  alerts.map((alert) => (
-                    <Alert key={alert.id} className="p-3">
-                      <div className="flex items-start gap-3">
-                        <div className={getAlertColor(alert.severity)}>
-                          {getAlertIcon(alert.type)}
+              {securityEvents.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {securityEvents.map((event) => (
+                    <div key={event.id} className={`p-3 border-l-4 ${getSeverityColor(event.severity)}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium capitalize">{event.type.replace('_', ' ')}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {event.severity}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {event.timestamp.toLocaleTimeString()}
+                          </span>
                         </div>
-                        <div className="flex-1">
-                          <AlertDescription className="text-sm">
-                            {alert.message}
-                          </AlertDescription>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {alert.timestamp.toLocaleTimeString()}
-                          </div>
-                        </div>
-                        <Badge variant={alert.severity === 'high' ? 'destructive' : 'outline'} className="text-xs">
-                          {alert.severity}
-                        </Badge>
                       </div>
-                    </Alert>
-                  ))
-                )}
-              </div>
+                      <p className="text-sm text-muted-foreground">{event.description}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No security events recorded</p>
+                </div>
+              )}
             </CardContent>
           </Card>
-        </div>
+        </TabsContent>
 
-        {/* Controls & Stats */}
-        <div className="space-y-6">
-          {/* Proctoring Settings */}
+        <TabsContent value="analytics" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold">{securityEvents.length}</div>
+                <div className="text-sm text-muted-foreground">Total Events</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold">
+                  {securityEvents.filter(e => e.severity === 'critical').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Critical Events</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold">
+                  {Math.round((faceDetected ? 1 : 0) * 100)}%
+                </div>
+                <div className="text-sm text-muted-foreground">Face Detection Rate</div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Proctoring Settings
-              </CardTitle>
+              <CardTitle>Proctoring Configuration</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Camera Required</div>
-                    <div className="text-xs text-muted-foreground">Mandatory camera monitoring</div>
-                  </div>
-                  <Switch
-                    checked={settings.cameraRequired}
-                    onCheckedChange={() => toggleSetting('cameraRequired')}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Microphone Monitoring</div>
-                    <div className="text-xs text-muted-foreground">Detect audio anomalies</div>
-                  </div>
-                  <Switch
-                    checked={settings.microphoneMonitoring}
-                    onCheckedChange={() => toggleSetting('microphoneMonitoring')}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Screen Recording</div>
-                    <div className="text-xs text-muted-foreground">Record screen activity</div>
-                  </div>
-                  <Switch
-                    checked={settings.screenRecording}
-                    onCheckedChange={() => toggleSetting('screenRecording')}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Tab Switch Detection</div>
-                    <div className="text-xs text-muted-foreground">Monitor browser tabs</div>
-                  </div>
-                  <Switch
-                    checked={settings.tabSwitchDetection}
-                    onCheckedChange={() => toggleSetting('tabSwitchDetection')}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Facial Recognition</div>
-                    <div className="text-xs text-muted-foreground">Verify identity continuously</div>
-                  </div>
-                  <Switch
-                    checked={settings.facialRecognition}
-                    onCheckedChange={() => toggleSetting('facialRecognition')}
-                  />
+            <CardContent>
+              <div className="space-y-4">
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Proctoring settings are configured by the assessment administrator and cannot be modified during the exam.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>Camera Required: {config.cameraRequired ? 'Yes' : 'No'}</div>
+                  <div>Microphone Required: {config.microphoneRequired ? 'Yes' : 'No'}</div>
+                  <div>Screen Sharing: {config.screenSharing ? 'Yes' : 'No'}</div>
+                  <div>Tab Switch Detection: {config.tabSwitchDetection ? 'Yes' : 'No'}</div>
+                  <div>Fullscreen Required: {config.fullscreenRequired ? 'Yes' : 'No'}</div>
+                  <div>Face Detection: {config.faceDetection ? 'Yes' : 'No'}</div>
+                  <div>Voice Analysis: {config.voiceAnalysis ? 'Yes' : 'No'}</div>
+                  <div>Browser Lockdown: {config.browserLockdown ? 'Yes' : 'No'}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          {/* Session Statistics */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                Session Statistics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Camera Uptime</span>
-                    <span>{proctoringStats.cameraUptime}%</span>
-                  </div>
-                  <Progress value={proctoringStats.cameraUptime} />
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Face Detection Rate</span>
-                    <span>{proctoringStats.faceDetectionRate}%</span>
-                  </div>
-                  <Progress value={proctoringStats.faceDetectionRate} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="text-center p-3 bg-muted rounded-lg">
-                    <div className="text-2xl font-bold text-orange-500">{proctoringStats.totalTabSwitches}</div>
-                    <div className="text-xs text-muted-foreground">Tab Switches</div>
-                  </div>
-                  <div className="text-center p-3 bg-muted rounded-lg">
-                    <div className="text-2xl font-bold text-red-500">{proctoringStats.suspiciousEvents}</div>
-                    <div className="text-xs text-muted-foreground">Suspicious Events</div>
-                  </div>
-                </div>
-
-                <div className="text-center pt-2">
-                  <div className="text-lg font-semibold">{proctoringStats.sessionDuration}m</div>
-                  <div className="text-xs text-muted-foreground">Session Duration</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                <Eye className="w-4 h-4 mr-2" />
-                Take Screenshot
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Flag Session
-              </Button>
-              <Button variant="destructive" className="w-full justify-start">
-                <XCircle className="w-4 h-4 mr-2" />
-                Terminate Session
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
