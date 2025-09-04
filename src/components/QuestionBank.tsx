@@ -445,6 +445,7 @@ export default function QuestionBank() {
             } else {
               await createQuestion(questionData);
             }
+            await fetchQuestions(); // Refresh the questions list
             setShowCreateModal(false);
             setSelectedQuestion(null);
           }}
