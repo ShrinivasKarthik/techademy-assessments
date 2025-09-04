@@ -33,16 +33,34 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
+    // Extract user ID from authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      throw new Error('Authorization header required');
+    }
+
+    // Parse JWT token to get user ID
+    const token = authHeader.replace('Bearer ', '');
+    const [, payload] = token.split('.');
+    const decodedPayload = JSON.parse(atob(payload));
+    const userId = decodedPayload.sub;
+
+    if (!userId) {
+      throw new Error('Invalid authorization token');
+    }
+
+    console.log('User ID extracted:', userId);
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let results = [];
 
     if (type === 'bulk_generate') {
       // Generate multiple questions based on skills and context
-      results = await generateBulkQuestions(skills, difficulty, count, context, assessmentContext, supabase);
+      results = await generateBulkQuestions(skills, difficulty, count, context, assessmentContext, supabase, userId);
     } else if (type === 'skill_targeted') {
       // Generate questions targeted to specific skills
-      results = await generateSkillTargetedQuestion(skills, difficulty, context, supabase);
+      results = await generateSkillTargetedQuestion(skills, difficulty, context, supabase, userId);
     } else if (type === 'auto_tag') {
       // Auto-tag existing questions with skills
       const { questionData } = await req.json();
@@ -73,7 +91,7 @@ serve(async (req) => {
   }
 });
 
-async function generateBulkQuestions(skills: string[], difficulty: string, count: number, context: string, assessmentContext: any, supabase: any) {
+async function generateBulkQuestions(skills: string[], difficulty: string, count: number, context: string, assessmentContext: any, supabase: any, userId: string) {
   const skillsText = skills.length > 0 ? skills.join(', ') : 'general programming';
   
   const prompt = `Generate ${count} diverse assessment questions focused on these skills: ${skillsText}.
@@ -161,7 +179,7 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
             tags: questionData.tags || [],
             order_index: nextOrderIndex,
             assessment_id: null, // Standalone question for question bank
-            created_by: null // Will be set by RLS
+            created_by: userId // Set to actual user ID from auth token
           })
           .select()
           .single();
@@ -224,7 +242,7 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
   }
 }
 
-async function generateSkillTargetedQuestion(skills: string[], difficulty: string, context: string, supabase: any) {
+async function generateSkillTargetedQuestion(skills: string[], difficulty: string, context: string, supabase: any, userId: string) {
   const skillsText = skills.join(', ');
   
   const prompt = `Create a focused assessment question specifically designed to test these skills: ${skillsText}.
@@ -306,7 +324,7 @@ async function generateSkillTargetedQuestion(skills: string[], difficulty: strin
           tags: questionData.tags || [],
           order_index: nextOrderIndex,
           assessment_id: null, // Standalone question for question bank
-          created_by: null // Will be set by RLS
+          created_by: userId // Set to actual user ID from auth token
         })
         .select()
         .single();
