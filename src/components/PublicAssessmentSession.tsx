@@ -214,7 +214,15 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       startAssessment();
       return;
     }
-    setSessionState('proctoring_setup');
+    
+    // Check if proctoring should auto-start
+    if (assessment.proctoring_config?.autoStart) {
+      // Auto-start proctoring and go directly to assessment
+      completeProctoringSetup();
+    } else {
+      // Manual proctoring setup
+      setSessionState('proctoring_setup');
+    }
   };
 
   const completeProctoringSetup = async () => {
@@ -253,8 +261,11 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   };
 
   const handleProctoringStatusChange = async (status: 'active' | 'paused' | 'stopped') => {
-    if (status === 'active' && sessionState === 'proctoring_check') {
-      setSessionState('in_progress');
+    if (status === 'active') {
+      // Auto-transition to assessment when proctoring becomes active
+      if (sessionState === 'proctoring_check' || sessionState === 'proctoring_setup') {
+        startAssessment();
+      }
     } else if (status === 'paused') {
       setSessionState('paused');
     }

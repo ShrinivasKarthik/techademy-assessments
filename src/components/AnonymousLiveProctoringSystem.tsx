@@ -123,6 +123,8 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
         
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // Ensure video starts playing
+          await videoRef.current.play().catch(console.error);
         }
         
         streamRef.current = stream;

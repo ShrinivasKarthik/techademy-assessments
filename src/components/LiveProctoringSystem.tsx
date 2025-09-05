@@ -125,6 +125,8 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
 
         if (videoRef.current && constraints.video) {
           videoRef.current.srcObject = stream;
+          // Ensure video starts playing
+          await videoRef.current.play().catch(console.error);
           setPermissions(prev => ({ ...prev, camera: true }));
         }
 
@@ -458,6 +460,7 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
                   <video
                     ref={videoRef}
                     autoPlay
+                    playsInline
                     muted
                     className="w-full h-48 bg-black rounded-lg"
                   />
