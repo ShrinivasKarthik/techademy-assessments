@@ -158,7 +158,7 @@ const AssessmentPreview: React.FC<AssessmentPreviewProps> = ({ assessmentId }) =
         </Button>
         
         <div className="flex gap-2">
-          <Button variant="outline">Edit Assessment</Button>
+          <Button variant="outline" onClick={() => navigate(`/assessments/create?edit=${assessmentId}`)}>Edit Assessment</Button>
           <Button onClick={startAssessment} disabled={assessment.status === 'draft'}>
             <Play className="w-4 h-4 mr-2" />
             Start Assessment

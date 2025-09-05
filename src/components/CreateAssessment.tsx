@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monitor, X, Mic, CheckCircle } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
 import EnhancedAIGenerator from "./EnhancedAIGenerator";
 import AssessmentQualityAssurance from './AssessmentQualityAssurance';
@@ -59,6 +60,9 @@ interface Assessment {
 
 const CreateAssessment = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editAssessmentId = searchParams.get('edit');
   const [assessment, setAssessment] = useState<Assessment>({
     title: '',
     description: '',
@@ -107,6 +111,7 @@ const CreateAssessment = () => {
   const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [showQuestionBrowser, setShowQuestionBrowser] = useState(false);
   const [showQualityAssurance, setShowQualityAssurance] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const questionTypes = [
     { value: 'coding', label: 'Coding Challenge' },
@@ -121,6 +126,73 @@ const CreateAssessment = () => {
     { value: 'intermediate', label: 'Intermediate' },
     { value: 'advanced', label: 'Advanced' }
   ];
+
+  // Load existing assessment for editing
+  useEffect(() => {
+    if (editAssessmentId) {
+      loadAssessment(editAssessmentId);
+    }
+  }, [editAssessmentId]);
+
+  const loadAssessment = async (assessmentId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('assessments')
+        .select(`
+          *,
+          questions!fk_questions_assessment(*)
+        `)
+        .eq('id', assessmentId)
+        .single();
+
+      if (error) throw error;
+
+      const sortedQuestions = data.questions.sort((a, b) => a.order_index - b.order_index);
+      
+      setAssessment({
+        title: data.title,
+        description: data.description || '',
+        instructions: data.instructions || '',
+        duration_minutes: data.duration_minutes,
+        max_attempts: data.max_attempts,
+        status: data.status === 'archived' ? 'draft' : data.status,
+        proctoring_enabled: data.proctoring_enabled,
+        proctoring_config: {
+          cameraRequired: (data.proctoring_config as any)?.cameraRequired ?? true,
+          microphoneRequired: (data.proctoring_config as any)?.microphoneRequired ?? true,
+          screenSharing: (data.proctoring_config as any)?.screenSharing ?? false,
+          tabSwitchDetection: (data.proctoring_config as any)?.tabSwitchDetection ?? true,
+          fullscreenRequired: (data.proctoring_config as any)?.fullscreenRequired ?? true,
+          faceDetection: (data.proctoring_config as any)?.faceDetection ?? true,
+          voiceAnalysis: (data.proctoring_config as any)?.voiceAnalysis ?? false,
+          environmentCheck: (data.proctoring_config as any)?.environmentCheck ?? true,
+          browserLockdown: (data.proctoring_config as any)?.browserLockdown ?? true,
+          autoStart: (data.proctoring_config as any)?.autoStart ?? false,
+          requireProctorApproval: (data.proctoring_config as any)?.requireProctorApproval ?? false
+        },
+        questions: sortedQuestions.map(q => ({
+          id: q.id,
+          title: q.title,
+          question_text: q.question_text || '',
+          question_type: q.question_type,
+          difficulty: q.difficulty,
+          points: q.points,
+          order_index: q.order_index,
+          config: q.config || {}
+        }))
+      });
+    } catch (error) {
+      console.error('Error loading assessment:', error);
+      toast({
+        title: "Error loading assessment",
+        description: "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addQuestion = () => {
     const newQuestion = {
@@ -200,75 +272,124 @@ const CreateAssessment = () => {
 
   const saveAssessment = async () => {
     try {
-      const { data: assessmentData, error: assessmentError } = await supabase
-        .from('assessments')
-        .insert({
-          title: assessment.title,
-          description: assessment.description,
-          instructions: assessment.instructions,
-          duration_minutes: assessment.duration_minutes,
-          max_attempts: assessment.max_attempts,
-          status: assessment.status,
-          proctoring_enabled: assessment.proctoring_enabled,
-          proctoring_config: assessment.proctoring_config as any,
-          creator_id: null // No user association needed
-        })
-        .select()
-        .single();
+      if (editAssessmentId) {
+        // Update existing assessment
+        const { error: assessmentError } = await supabase
+          .from('assessments')
+          .update({
+            title: assessment.title,
+            description: assessment.description,
+            instructions: assessment.instructions,
+            duration_minutes: assessment.duration_minutes,
+            max_attempts: assessment.max_attempts,
+            status: assessment.status,
+            proctoring_enabled: assessment.proctoring_enabled,
+            proctoring_config: assessment.proctoring_config as any,
+          })
+          .eq('id', editAssessmentId);
 
-      if (assessmentError) throw assessmentError;
+        if (assessmentError) throw assessmentError;
 
-      // Insert questions
-      if (assessment.questions.length > 0) {
-        const questionsData = assessment.questions.map(q => ({
-          assessment_id: assessmentData.id,
-          title: q.title,
-          question_text: q.question_text,
-          question_type: q.question_type,
-          difficulty: q.difficulty,
-          points: q.points,
-          order_index: q.order_index,
-          config: q.config
-          // created_by is now optional and not required
-        }));
-
-        const { error: questionsError } = await supabase
+        // Delete existing questions and insert new ones
+        await supabase
           .from('questions')
-          .insert(questionsData);
+          .delete()
+          .eq('assessment_id', editAssessmentId);
 
-        if (questionsError) throw questionsError;
+        if (assessment.questions.length > 0) {
+          const questionsData = assessment.questions.map(q => ({
+            assessment_id: editAssessmentId,
+            title: q.title,
+            question_text: q.question_text,
+            question_type: q.question_type,
+            difficulty: q.difficulty,
+            points: q.points,
+            order_index: q.order_index,
+            config: q.config
+          }));
+
+          const { error: questionsError } = await supabase
+            .from('questions')
+            .insert(questionsData);
+
+          if (questionsError) throw questionsError;
+        }
+
+        toast({
+          title: "Assessment updated successfully!",
+          description: `"${assessment.title}" has been updated.`
+        });
+
+        navigate(`/assessments/${editAssessmentId}/preview`);
+      } else {
+        // Create new assessment
+        const { data: assessmentData, error: assessmentError } = await supabase
+          .from('assessments')
+          .insert({
+            title: assessment.title,
+            description: assessment.description,
+            instructions: assessment.instructions,
+            duration_minutes: assessment.duration_minutes,
+            max_attempts: assessment.max_attempts,
+            status: assessment.status,
+            proctoring_enabled: assessment.proctoring_enabled,
+            proctoring_config: assessment.proctoring_config as any,
+            creator_id: null
+          })
+          .select()
+          .single();
+
+        if (assessmentError) throw assessmentError;
+
+        if (assessment.questions.length > 0) {
+          const questionsData = assessment.questions.map(q => ({
+            assessment_id: assessmentData.id,
+            title: q.title,
+            question_text: q.question_text,
+            question_type: q.question_type,
+            difficulty: q.difficulty,
+            points: q.points,
+            order_index: q.order_index,
+            config: q.config
+          }));
+
+          const { error: questionsError } = await supabase
+            .from('questions')
+            .insert(questionsData);
+
+          if (questionsError) throw questionsError;
+        }
+
+        toast({
+          title: "Assessment created successfully!",
+          description: `"${assessment.title}" has been created.`
+        });
+
+        // Reset form
+        setAssessment({
+          title: '',
+          description: '',
+          instructions: '',
+          duration_minutes: 60,
+          max_attempts: 1,
+          status: 'draft',
+          proctoring_enabled: false,
+          proctoring_config: {
+            cameraRequired: true,
+            microphoneRequired: true,
+            screenSharing: false,
+            tabSwitchDetection: true,
+            fullscreenRequired: true,
+            faceDetection: true,
+            voiceAnalysis: false,
+            environmentCheck: true,
+            browserLockdown: true,
+            autoStart: false,
+            requireProctorApproval: false
+          },
+          questions: []
+        });
       }
-
-      toast({
-        title: "Assessment saved successfully!",
-        description: `"${assessment.title}" has been created.`
-      });
-
-      // Reset form
-      setAssessment({
-        title: '',
-        description: '',
-        instructions: '',
-        duration_minutes: 60,
-        max_attempts: 1,
-        status: 'draft',
-        proctoring_enabled: false,
-        proctoring_config: {
-          cameraRequired: true,
-          microphoneRequired: true,
-          screenSharing: false,
-          tabSwitchDetection: true,
-          fullscreenRequired: true,
-          faceDetection: true,
-          voiceAnalysis: false,
-          environmentCheck: true,
-          browserLockdown: true,
-          autoStart: false,
-          requireProctorApproval: false
-        },
-        questions: []
-      });
-
     } catch (error) {
       console.error('Error saving assessment:', error);
       toast({
@@ -282,15 +403,15 @@ const CreateAssessment = () => {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Create Assessment</h1>
+        <h1 className="text-3xl font-bold">{editAssessmentId ? 'Edit Assessment' : 'Create Assessment'}</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
             <Eye className="w-4 h-4 mr-2" />
             Preview
           </Button>
-          <Button onClick={saveAssessment} size="sm">
+          <Button onClick={saveAssessment} size="sm" disabled={loading}>
             <Save className="w-4 h-4 mr-2" />
-            Save Assessment
+            {editAssessmentId ? 'Update Assessment' : 'Save Assessment'}
           </Button>
         </div>
       </div>
