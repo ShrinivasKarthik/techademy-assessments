@@ -57,7 +57,6 @@ export const useAssessments = () => {
               {
                 headers: {
                   'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4ZHdneHR1a3FxenVwYm9vam14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NDc4MDksImV4cCI6MjA3MjUyMzgwOX0.jqTQyfetH-utIZUeSVH34ctBY70bIig65C8NZo3tMIM',
-                  'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
                   'Content-Type': 'application/json'
                 }
               }
@@ -70,7 +69,6 @@ export const useAssessments = () => {
               {
                 headers: {
                   'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4ZHdneHR1a3FxenVwYm9vam14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NDc4MDksImV4cCI6MjA3MjUyMzgwOX0.jqTQyfetH-utIZUeSVH34ctBY70bIig65C8NZo3tMIM',
-                  'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
                   'Content-Type': 'application/json'
                 }
               }

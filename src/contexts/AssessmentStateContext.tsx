@@ -72,24 +72,14 @@ export const AssessmentStateProvider: React.FC<{ children: React.ReactNode }> = 
 
   // Assessment operations
   const refreshAssessments = useCallback(async () => {
-    if (!user) return;
-    
     try {
       setLoading(true);
       
-      const query = supabase
+      // Fetch all assessments publicly (no user filtering)
+      const { data, error } = await supabase
         .from('assessments')
         .select('*')
         .order('updated_at', { ascending: false });
-      
-      // Filter by creator for instructors, show all published for students
-      if (profile?.role === 'student') {
-        query.eq('status', 'published');
-      } else if (profile?.role === 'instructor') {
-        query.eq('creator_id', user.id);
-      }
-      
-      const { data, error } = await query;
       
       if (error) throw error;
       setAssessments(data || []);
@@ -104,7 +94,7 @@ export const AssessmentStateProvider: React.FC<{ children: React.ReactNode }> = 
     } finally {
       setLoading(false);
     }
-  }, [user, profile, toast]);
+  }, [toast]); // Remove user and profile dependencies
 
   const updateAssessment = useCallback(async (id: string, updates: Partial<Assessment>) => {
     try {
@@ -363,14 +353,12 @@ export const AssessmentStateProvider: React.FC<{ children: React.ReactNode }> = 
 
   // Load initial data
   useEffect(() => {
-    if (user) {
-      refreshAssessments();
-    }
+    refreshAssessments();
     
     return () => {
       unsubscribeFromAll();
     };
-  }, [user, refreshAssessments, unsubscribeFromAll]);
+  }, [refreshAssessments, unsubscribeFromAll]);
 
   const value = {
     // State
