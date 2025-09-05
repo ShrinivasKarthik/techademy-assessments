@@ -98,6 +98,11 @@ export const useRealtimeV2 = ({
   const { toast } = useToast();
 
   const connect = useCallback(() => {
+    // Don't connect if no callbacks are provided (for anonymous users)
+    if (!onInsert && !onUpdate && !onDelete) {
+      return;
+    }
+    
     if (subscription) {
       console.log('Already connected to', table);
       return;
