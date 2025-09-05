@@ -77,21 +77,38 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // More lenient face detection for real-world scenarios
+    // Much stricter face detection algorithm
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const brightness = calculateBrightness(imageData);
     const centerBrightness = calculateCenterBrightness(imageData);
+    const edgeContrast = calculateEdgeContrast(imageData);
+    const imageVariance = calculateImageVariance(imageData);
     
-    console.log('Face detection values:', { brightness, centerBrightness });
+    console.log('Face detection values:', { 
+      brightness, 
+      centerBrightness, 
+      edgeContrast,
+      imageVariance,
+      currentFaceDetected: faceDetected 
+    });
     
-    // Simplified and more reliable detection
-    // Just check if there's reasonable content and not a black/white screen
+    // Very strict detection - require clear facial features and good image quality
     const hasFacePattern = 
-      brightness > 25 && brightness < 250 && // Very broad range - avoid pure black/white
-      centerBrightness > 20 && // Some content in center area
-      centerBrightness < 240; // Not overexposed center
+      brightness >= 80 && brightness <= 180 && // Much stricter brightness range (your 127 would fail)
+      centerBrightness >= 90 && centerBrightness <= 170 && // Require clear center
+      edgeContrast >= 15 && // Strong edge contrast for clear features
+      imageVariance >= 500 && // Require good image variation (not blurry/covered)
+      centerBrightness > brightness * 0.85 && // Center should be well-lit
+      Math.abs(centerBrightness - brightness) <= 50; // Center shouldn't be too different from overall
     
-    console.log('Face detected:', hasFacePattern);
+    console.log('Face pattern check result:', hasFacePattern, {
+      brightnessOK: brightness >= 80 && brightness <= 180,
+      centerOK: centerBrightness >= 90 && centerBrightness <= 170,
+      edgeOK: edgeContrast >= 15,
+      varianceOK: imageVariance >= 500,
+      ratioOK: centerBrightness > brightness * 0.85,
+      diffOK: Math.abs(centerBrightness - brightness) <= 50
+    });
     
     if (hasFacePattern !== faceDetected) {
       setFaceDetected(hasFacePattern);
@@ -148,6 +165,30 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     }
     
     return count > 0 ? total / count : 0;
+  };
+
+  const calculateImageVariance = (imageData: ImageData): number => {
+    const { data } = imageData;
+    let sum = 0;
+    let sumSquares = 0;
+    let count = 0;
+    
+    // Sample every 4th pixel for performance
+    for (let i = 0; i < data.length; i += 16) { // Every 4th pixel
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const gray = (r + g + b) / 3;
+      
+      sum += gray;
+      sumSquares += gray * gray;
+      count++;
+    }
+    
+    const mean = sum / count;
+    const variance = (sumSquares / count) - (mean * mean);
+    
+    return variance;
   };
 
   const calculateEdgeContrast = (imageData: ImageData): number => {
