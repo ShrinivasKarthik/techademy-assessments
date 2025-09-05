@@ -27,6 +27,7 @@ interface AnonymousLiveProctoringSystemProps {
   config: any;
   onSecurityEvent: (event: SecurityEvent) => void;
   onStatusChange: (status: 'active' | 'paused' | 'stopped') => void;
+  isInAssessment?: boolean; // New prop to indicate if we're in active assessment
 }
 
 const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps> = ({
@@ -34,27 +35,33 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   participantId,
   config,
   onSecurityEvent,
-  onStatusChange
+  onStatusChange,
+  isInAssessment = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   
-  const [status, setStatus] = useState<'initializing' | 'active' | 'paused' | 'stopped'>('initializing');
+  const [status, setStatus] = useState<'initializing' | 'active' | 'paused' | 'stopped'>(isInAssessment ? 'active' : 'initializing');
   const [permissions, setPermissions] = useState({
-    camera: false,
-    microphone: false
+    camera: isInAssessment, // Assume permissions granted if in assessment
+    microphone: isInAssessment
   });
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [setupComplete, setSetupComplete] = useState(false);
+  const [setupComplete, setSetupComplete] = useState(isInAssessment); // Skip setup if in assessment
 
   useEffect(() => {
     checkFullscreen();
     setupEventListeners();
     
+    // If we're in assessment mode, try to get media stream
+    if (isInAssessment && config.cameraRequired) {
+      requestPermissions();
+    }
+    
     return () => {
       cleanup();
     };
-  }, []);
+  }, [isInAssessment]);
 
   const checkFullscreen = () => {
     const isFullscreenActive = !!(
@@ -240,10 +247,10 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
               </Badge>
             </div>
             <div className="flex items-center gap-2">
-              {permissions.camera && (
+              {(permissions.camera || isInAssessment) && (
                 <Camera className="h-4 w-4 text-green-500" />
               )}
-              {permissions.microphone && (
+              {(permissions.microphone || isInAssessment) && (
                 <Mic className="h-4 w-4 text-green-500" />
               )}
               {isFullscreen && (
