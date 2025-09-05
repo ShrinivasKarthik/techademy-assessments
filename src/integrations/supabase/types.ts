@@ -150,13 +150,6 @@ export type Database = {
             referencedRelation: "assessments"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_instances_participant"
-            columns: ["participant_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
         ]
       }
       assessment_shares: {
