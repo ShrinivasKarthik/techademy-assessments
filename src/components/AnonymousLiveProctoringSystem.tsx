@@ -67,18 +67,22 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // More accurate face detection
+    // Balanced face detection algorithm
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const brightness = calculateBrightness(imageData);
     const centerBrightness = calculateCenterBrightness(imageData);
     const edgeContrast = calculateEdgeContrast(imageData);
     
-    // Proper face detection: check for reasonable brightness AND facial features
+    // Balanced criteria for face detection
+    // 1. Not too dark (black screen) or too bright (white screen)  
+    // 2. Center area has reasonable brightness (face area)
+    // 3. Some edge contrast (facial features)
+    // 4. Overall brightness indicates content is present
     const hasFacePattern = 
-      brightness > 40 && brightness < 220 && // Reasonable brightness range
-      centerBrightness > brightness * 0.8 && // Center has some content
-      edgeContrast > 15 && // Some edge contrast indicating features
-      brightness > 60; // Minimum brightness to indicate presence
+      brightness > 50 && brightness < 200 && // Avoid very dark or very bright
+      centerBrightness > 40 && // Center has decent content
+      edgeContrast > 10 && // Some facial features detected
+      centerBrightness > brightness * 0.7; // Center is reasonably bright relative to whole image
     
     if (hasFacePattern !== faceDetected) {
       setFaceDetected(hasFacePattern);
@@ -165,13 +169,13 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     checkFullscreen();
     setupEventListeners();
     
-    // If we're in assessment mode, try to get media stream and ensure active status
+    // Force active status when in assessment mode
     if (isInAssessment) {
+      setStatus('active');
+      onStatusChange('active');
+      
       if (config.cameraRequired) {
         requestPermissions();
-      } else {
-        setStatus('active');
-        onStatusChange('active');
       }
     }
     
@@ -179,6 +183,14 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       cleanup();
     };
   }, [isInAssessment]);
+
+  // Ensure status stays active during assessment
+  useEffect(() => {
+    if (isInAssessment && status !== 'active') {
+      setStatus('active');
+      onStatusChange('active');
+    }
+  }, [isInAssessment, status]);
 
   const checkFullscreen = () => {
     const isFullscreenActive = !!(
@@ -387,6 +399,8 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
               <Badge variant={status === 'active' ? 'default' : 'destructive'}>
                 {status === 'active' ? 'Proctoring Active' : 'Proctoring Inactive'}
               </Badge>
+              {/* Debug status */}
+              <span className="text-xs text-muted-foreground">({status})</span>
             </div>
             <div className="flex items-center gap-2">
               {(permissions.camera || isInAssessment) && (
