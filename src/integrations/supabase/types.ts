@@ -82,11 +82,15 @@ export type Database = {
           assessment_id: string
           current_question_index: number | null
           id: string
+          is_anonymous: boolean
           max_possible_score: number | null
+          participant_email: string | null
           participant_id: string
+          participant_name: string | null
           proctoring_started_at: string | null
           proctoring_violations: Json | null
           session_state: string | null
+          share_token: string | null
           started_at: string
           status: Database["public"]["Enums"]["submission_status"]
           submitted_at: string | null
@@ -97,11 +101,15 @@ export type Database = {
           assessment_id: string
           current_question_index?: number | null
           id?: string
+          is_anonymous?: boolean
           max_possible_score?: number | null
+          participant_email?: string | null
           participant_id: string
+          participant_name?: string | null
           proctoring_started_at?: string | null
           proctoring_violations?: Json | null
           session_state?: string | null
+          share_token?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["submission_status"]
           submitted_at?: string | null
@@ -112,11 +120,15 @@ export type Database = {
           assessment_id?: string
           current_question_index?: number | null
           id?: string
+          is_anonymous?: boolean
           max_possible_score?: number | null
+          participant_email?: string | null
           participant_id?: string
+          participant_name?: string | null
           proctoring_started_at?: string | null
           proctoring_violations?: Json | null
           session_state?: string | null
+          share_token?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["submission_status"]
           submitted_at?: string | null
@@ -144,6 +156,65 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      assessment_shares: {
+        Row: {
+          access_count: number
+          allow_anonymous: boolean
+          assessment_id: string
+          completion_count: number
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_attempts: number | null
+          require_email: boolean
+          require_name: boolean
+          settings: Json | null
+          share_token: string
+        }
+        Insert: {
+          access_count?: number
+          allow_anonymous?: boolean
+          assessment_id: string
+          completion_count?: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_attempts?: number | null
+          require_email?: boolean
+          require_name?: boolean
+          settings?: Json | null
+          share_token: string
+        }
+        Update: {
+          access_count?: number
+          allow_anonymous?: boolean
+          assessment_id?: string
+          completion_count?: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_attempts?: number | null
+          require_email?: boolean
+          require_name?: boolean
+          settings?: Json | null
+          share_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_shares_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
           },
         ]
       }
