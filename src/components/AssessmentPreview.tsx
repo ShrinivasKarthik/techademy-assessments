@@ -55,7 +55,7 @@ const AssessmentPreview: React.FC<AssessmentPreviewProps> = ({ assessmentId }) =
           duration_minutes,
           max_attempts,
           status,
-          questions(
+          questions!fk_questions_assessment(
             id,
             title,
             question_text,
