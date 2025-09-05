@@ -37,7 +37,19 @@ const Navigation = () => {
     navigate('/auth');
   };
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    // Special handling for assessment routes
+    if (path === "/assessments/create") {
+      return location.pathname === "/assessments/create" && !location.search.includes('edit=');
+    }
+    
+    // Check if we're in edit mode
+    if (location.pathname.includes('/edit')) {
+      return path === "/assessments/create"; // Treat edit as part of create workflow for nav highlighting
+    }
+    
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
 
   const getNavLinksForRole = () => {
     const baseLinks = [
