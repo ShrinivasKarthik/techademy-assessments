@@ -35,6 +35,7 @@ serve(async (req) => {
     }
 
     if (!shareToken) {
+      console.log('No share token provided')
       return new Response(
         JSON.stringify({ error: 'Share token is required' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -43,17 +44,10 @@ serve(async (req) => {
 
     console.log('Retrieving shared assessment with token:', shareToken)
 
-    // Get the share record and validate it
+    // First, get the share record
     const { data: shareData, error: shareError } = await supabaseClient
       .from('assessment_shares')
-      .select(`
-        *,
-        assessment:assessments (
-          id, title, description, instructions, duration_minutes, 
-          proctoring_enabled, proctoring_config,
-          questions (*)
-        )
-      `)
+      .select('*')
       .eq('share_token', shareToken)
       .eq('is_active', true)
       .single()
@@ -65,6 +59,8 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       )
     }
+
+    console.log('Share record found:', shareData.id)
 
     // Check if share has expired
     if (shareData.expires_at && new Date(shareData.expires_at) < new Date()) {
@@ -84,15 +80,39 @@ serve(async (req) => {
       )
     }
 
-    const assessment = shareData.assessment
+    // Now get the assessment details
+    const { data: assessment, error: assessmentError } = await supabaseClient
+      .from('assessments')
+      .select('*')
+      .eq('id', shareData.assessment_id)
+      .single()
 
-    if (!assessment) {
-      console.error('Assessment not found for share')
+    if (assessmentError || !assessment) {
+      console.error('Assessment not found:', assessmentError)
       return new Response(
         JSON.stringify({ error: 'Assessment not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       )
     }
+
+    console.log('Assessment found:', assessment.id, assessment.title)
+
+    // Get the questions for this assessment
+    const { data: questions, error: questionsError } = await supabaseClient
+      .from('questions')
+      .select('*')
+      .eq('assessment_id', shareData.assessment_id)
+      .order('order_index')
+
+    if (questionsError) {
+      console.error('Error fetching questions:', questionsError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to load assessment questions' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
+
+    console.log('Questions loaded:', questions?.length || 0)
 
     // Return the assessment data for public access
     const responseData = {
@@ -106,8 +126,8 @@ serve(async (req) => {
         duration_minutes: assessment.duration_minutes,
         proctoring_enabled: assessment.proctoring_enabled,
         proctoring_config: assessment.proctoring_config,
-        question_count: assessment.questions?.length || 0,
-        questions: assessment.questions || []
+        question_count: questions?.length || 0,
+        questions: questions || []
       },
       shareConfig: {
         requireName: shareData.require_name,
