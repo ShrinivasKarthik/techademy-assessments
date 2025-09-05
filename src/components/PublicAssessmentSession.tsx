@@ -287,10 +287,15 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     if (status === 'active') {
       // Auto-transition to assessment when proctoring becomes active
       if (sessionState === 'proctoring_check' || sessionState === 'proctoring_setup') {
-        startAssessment();
+        setSessionState('in_progress');
       }
     } else if (status === 'paused') {
       setSessionState('paused');
+    } else if (status === 'stopped') {
+      // If proctoring stops/fails during check, go back to setup
+      if (sessionState === 'proctoring_check') {
+        setSessionState('proctoring_setup');
+      }
     }
   };
 

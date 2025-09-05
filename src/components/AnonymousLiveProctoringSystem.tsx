@@ -145,14 +145,9 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       onStatusChange('active');
     } catch (error) {
       console.error('Error requesting permissions:', error);
-      const event: SecurityEvent = {
-        id: Date.now().toString(),
-        type: 'camera_blocked',
-        timestamp: new Date(),
-        severity: 'critical',
-        description: 'Failed to access camera or microphone'
-      };
-      onSecurityEvent(event);
+      // Don't create a security event - this should allow retry
+      setStatus('stopped');
+      onStatusChange('stopped');
     }
   };
 
@@ -215,10 +210,19 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
               Please grant all required permissions to continue with the proctored assessment.
             </AlertDescription>
           </Alert>
-
+          
           <Button onClick={requestPermissions} className="w-full">
             Grant Permissions & Start Proctoring
           </Button>
+          
+          {status === 'stopped' && (
+            <Alert className="mt-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Permission request failed. Please check your browser settings and allow camera/microphone access, then try again.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
     );
