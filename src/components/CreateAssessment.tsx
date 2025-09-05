@@ -200,17 +200,6 @@ const CreateAssessment = () => {
 
   const saveAssessment = async () => {
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "Please sign in to save assessments.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
       const { data: assessmentData, error: assessmentError } = await supabase
         .from('assessments')
         .insert({
@@ -222,7 +211,7 @@ const CreateAssessment = () => {
           status: assessment.status,
           proctoring_enabled: assessment.proctoring_enabled,
           proctoring_config: assessment.proctoring_config as any,
-          creator_id: user.id
+          creator_id: '00000000-0000-0000-0000-000000000000' // Public creator ID
         })
         .select()
         .single();
@@ -239,8 +228,8 @@ const CreateAssessment = () => {
           difficulty: q.difficulty,
           points: q.points,
           order_index: q.order_index,
-          config: q.config,
-          created_by: user.id
+          config: q.config
+          // created_by is now optional and not required
         }));
 
         const { error: questionsError } = await supabase
