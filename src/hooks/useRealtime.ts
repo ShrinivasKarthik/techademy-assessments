@@ -100,6 +100,7 @@ export const useRealtimeV2 = ({
   const connect = useCallback(() => {
     // Don't connect if no callbacks are provided (for anonymous users)
     if (!onInsert && !onUpdate && !onDelete) {
+      console.log('Skipping realtime connection - no callbacks provided for table:', table);
       return;
     }
     

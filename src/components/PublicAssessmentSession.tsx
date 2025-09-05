@@ -3,12 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Clock, Users, FileText, AlertTriangle } from 'lucide-react';
+import { Loader2, Clock, Users, FileText, AlertTriangle, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import PublicAssessmentTaking from './PublicAssessmentTaking';
 import PublicAssessmentResults from './PublicAssessmentResults';
+import AnonymousLiveProctoringSystem from './AnonymousLiveProctoringSystem';
 
 interface Assessment {
   id: string;
@@ -61,10 +63,15 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   const [instance, setInstance] = useState<AssessmentInstance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [participantName, setParticipantName] = useState('');
-  const [participantEmail, setParticipantEmail] = useState('');
+  const [proctoringSession, setProctoringSession] = useState<any>(null);
+  const [anonymousParticipantId, setAnonymousParticipantId] = useState<string | null>(null);
+  const [securityViolations, setSecurityViolations] = useState<any[]>([]);
+  const [participantInfo, setParticipantInfo] = useState({
+    name: '',
+    email: ''
+  });
   const [isStarting, setIsStarting] = useState(false);
-  const [sessionState, setSessionState] = useState<'not_started' | 'participant_info' | 'in_progress' | 'submitted'>('not_started');
+  const [sessionState, setSessionState] = useState<'ready' | 'proctoring_setup' | 'proctoring_check' | 'in_progress' | 'submitted' | 'paused'>('ready');
 
   useEffect(() => {
     fetchSharedAssessment();
@@ -74,13 +81,9 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     try {
       setLoading(true);
       
-      console.log('Fetching shared assessment with token:', shareToken);
-      
       const { data, error } = await supabase.functions.invoke('take-shared-assessment', {
         body: { token: shareToken },
       });
-
-      console.log('Edge function response:', { data, error });
 
       if (error) {
         console.error('Error fetching shared assessment:', error);
@@ -88,28 +91,14 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         return;
       }
 
-      if (!data) {
-        console.error('No data received from edge function');
-        setError('No response from server');
+      if (!data?.success) {
+        setError(data?.error || 'Assessment not available');
         return;
       }
-
-      if (!data.success) {
-        console.error('Edge function returned success=false:', data);
-        setError(data.error || 'Assessment not available');
-        return;
-      }
-
-      console.log('Setting assessment data:', data.assessment);
-      console.log('Setting share config:', data.shareConfig);
-      console.log('Assessment is truthy:', !!data.assessment);
-      console.log('ShareConfig is truthy:', !!data.shareConfig);
 
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
       
-      console.log('State after setting - assessment:', !!data.assessment, 'shareConfig:', !!data.shareConfig);
-
       // Check if there's already an instance for this session
       await checkExistingInstance();
 
@@ -128,7 +117,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         .select('*')
         .eq('share_token', shareToken)
         .eq('is_anonymous', true)
-        .order('created_at', { ascending: false })
+        .order('started_at', { ascending: false })
         .limit(1);
 
       if (error) {
@@ -137,12 +126,15 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       }
 
       if (instances && instances.length > 0) {
-        const instance = instances[0];
-        setInstance(instance);
+        const existingInstance = instances[0];
+        setInstance(existingInstance);
+        setAnonymousParticipantId(existingInstance.participant_id || `anon_${Date.now()}`);
         
-        if (instance.status === 'submitted') {
+        if (existingInstance.status === 'submitted') {
           setSessionState('submitted');
-        } else if (instance.session_state === 'in_progress') {
+        } else if (assessment?.proctoring_enabled) {
+          setSessionState(existingInstance.session_state || 'proctoring_setup');
+        } else {
           setSessionState('in_progress');
         }
       }
@@ -151,74 +143,122 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   };
 
-  const startAssessment = async () => {
-    if (!assessment || !shareConfig) return;
-
-    // Validate required fields
-    if (shareConfig.requireName && !participantName.trim()) {
-      toast({
-        title: "Name Required",
-        description: "Please enter your name to continue.",
-        variant: "destructive",
-      });
-      return;
+  const startProctoringSetup = () => {
+    if (assessment?.proctoring_enabled) {
+      const tempId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setAnonymousParticipantId(tempId);
+      setSessionState('proctoring_setup');
+    } else {
+      startAssessment();
     }
+  };
 
-    if (shareConfig.requireEmail && !participantEmail.trim()) {
-      toast({
-        title: "Email Required", 
-        description: "Please enter your email to continue.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const completeProctoringSetup = async () => {
     try {
-      setIsStarting(true);
+      if (!assessment || !anonymousParticipantId) return;
 
-      // Create assessment instance for anonymous participant
-      const { data: newInstance, error: instanceError } = await supabase
-        .from('assessment_instances')
+      // Create proctoring session for anonymous user
+      const { data: newProctoringSession, error: proctoringError } = await supabase
+        .from('proctoring_sessions')
         .insert({
-          assessment_id: assessment.id,
-          participant_id: null, // Anonymous
-          participant_name: participantName.trim() || null,
-          participant_email: participantEmail.trim() || null,
-          share_token: shareToken,
-          is_anonymous: true,
-          session_state: 'in_progress',
-          time_remaining_seconds: assessment.duration_minutes * 60,
-          current_question_index: 0,
-          status: 'in_progress'
+          assessment_instance_id: null, // Will be updated when instance is created
+          participant_id: anonymousParticipantId,
+          status: 'initializing',
+          permissions: {},
+          security_events: [],
+          monitoring_data: {}
         })
         .select()
         .single();
 
-      if (instanceError) {
-        console.error('Error creating instance:', instanceError);
-        toast({
-          title: "Error",
-          description: "Failed to start assessment. Please try again.",
-          variant: "destructive",
-        });
+      if (proctoringError) {
+        console.error('Error creating proctoring session:', proctoringError);
+        setError('Failed to initialize proctoring');
         return;
+      }
+
+      setProctoringSession(newProctoringSession);
+      setSessionState('proctoring_check');
+    } catch (error) {
+      console.error('Error setting up proctoring:', error);
+      setError('Failed to setup proctoring');
+    }
+  };
+
+  const handleProctoringStatusChange = async (status: 'active' | 'paused' | 'stopped') => {
+    if (status === 'active' && sessionState === 'proctoring_check') {
+      await startAssessment();
+    } else if (status === 'paused') {
+      setSessionState('paused');
+    }
+  };
+
+  const handleSecurityEvent = async (event: any) => {
+    setSecurityViolations(prev => [...prev, event]);
+    
+    if (event.severity === 'critical') {
+      setSessionState('paused');
+    }
+  };
+
+  const startAssessment = async () => {
+    try {
+      if (!assessment || !shareConfig) {
+        setError('Assessment data not loaded');
+        return;
+      }
+
+      // Validate required participant information
+      if (shareConfig.requireName && !participantInfo.name.trim()) {
+        setError('Name is required');
+        return;
+      }
+
+      if (shareConfig.requireEmail && !participantInfo.email.trim()) {
+        setError('Email is required');
+        return;
+      }
+
+      setIsStarting(true);
+
+      // Create assessment instance
+      const instanceData = {
+        assessment_id: assessment.id,
+        share_token: shareToken,
+        participant_name: participantInfo.name || null,
+        participant_email: participantInfo.email || null,
+        participant_id: anonymousParticipantId || null,
+        is_anonymous: true,
+        time_remaining_seconds: assessment.duration_minutes * 60,
+        session_state: assessment.proctoring_enabled ? 'in_progress' : null,
+        status: 'in_progress' as const
+      };
+
+      const { data: newInstance, error: instanceError } = await supabase
+        .from('assessment_instances')
+        .insert(instanceData)
+        .select()
+        .single();
+
+      if (instanceError) {
+        console.error('Error creating assessment instance:', instanceError);
+        setError('Failed to start assessment');
+        return;
+      }
+
+      // Update proctoring session with instance ID if proctoring is enabled
+      if (assessment.proctoring_enabled && proctoringSession) {
+        await supabase
+          .from('proctoring_sessions')
+          .update({ assessment_instance_id: newInstance.id })
+          .eq('id', proctoringSession.id);
       }
 
       setInstance(newInstance);
       setSessionState('in_progress');
-
-      toast({
-        title: "Assessment Started",
-        description: "Good luck with your assessment!",
-      });
-
-    } catch (err: any) {
-      console.error('Error starting assessment:', err);
-      toast({
-        title: "Error",
-        description: "Failed to start assessment. Please try again.",
-        variant: "destructive",
-      });
+    } catch (error) {
+      console.error('Error starting assessment:', error);
+      setError('Failed to start assessment');
     } finally {
       setIsStarting(false);
     }
@@ -266,20 +306,148 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
+  // Show results if submitted
   if (sessionState === 'submitted' && instance) {
-    return <PublicAssessmentResults instance={instance} assessment={assessment} />;
+    return <PublicAssessmentResults instanceId={instance.id} />;
   }
 
-  if (sessionState === 'in_progress' && instance) {
+  // Show paused state
+  if (sessionState === 'paused') {
     return (
-      <PublicAssessmentTaking
-        assessmentId={assessment.id}
-        instance={instance}
-        onSubmission={handleSubmission}
-      />
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <CardTitle className="text-destructive">Assessment Paused</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              Your assessment has been paused due to security violations. Please contact the administrator.
+            </p>
+            <div className="space-y-2">
+              {securityViolations.map((violation, index) => (
+                <div key={index} className="p-2 bg-destructive/10 rounded text-sm">
+                  {violation.description}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
+  // Show proctoring setup
+  if (sessionState === 'proctoring_setup' && assessment?.proctoring_enabled) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Proctoring Setup Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              This assessment requires proctoring. Please ensure you have:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>A working camera and microphone</li>
+              <li>A quiet, well-lit environment</li>
+              <li>No other people in the room</li>
+              <li>Closed all other applications and browser tabs</li>
+            </ul>
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Once proctoring starts, you will be monitored throughout the assessment.
+                Any suspicious activity may result in your assessment being paused or terminated.
+              </AlertDescription>
+            </Alert>
+            <Button onClick={completeProctoringSetup} className="w-full">
+              Start Proctoring Setup
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show proctoring check
+  if (sessionState === 'proctoring_check' && assessment?.proctoring_enabled && anonymousParticipantId) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-6xl mx-auto">
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Proctoring Environment Check
+              </CardTitle>
+              <p className="text-muted-foreground">
+                Please complete the environment check before starting your assessment.
+              </p>
+            </CardHeader>
+          </Card>
+          <AnonymousLiveProctoringSystem
+            assessmentId={assessment.id}
+            participantId={anonymousParticipantId}
+            config={assessment.proctoring_config || {}}
+            onSecurityEvent={handleSecurityEvent}
+            onStatusChange={handleProctoringStatusChange}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Show assessment taking interface if in progress
+  if (sessionState === 'in_progress' && instance && assessment) {
+    if (assessment.proctoring_enabled && anonymousParticipantId) {
+      return (
+        <div className="min-h-screen bg-background">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
+            <div className="lg:col-span-2">
+              <PublicAssessmentTaking
+                assessment={assessment}
+                instance={instance}
+                onSubmit={handleSubmission}
+              />
+            </div>
+            <div className="lg:col-span-1">
+              <Card className="sticky top-4">
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Proctoring Active
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AnonymousLiveProctoringSystem
+                    assessmentId={assessment.id}
+                    participantId={anonymousParticipantId}
+                    config={assessment.proctoring_config || {}}
+                    onSecurityEvent={handleSecurityEvent}
+                    onStatusChange={handleProctoringStatusChange}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <PublicAssessmentTaking
+          assessment={assessment}
+          instance={instance}
+          onSubmit={handleSubmission}
+        />
+      );
+    }
+  }
+
+  // Show assessment info and start form
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -322,6 +490,17 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
               </div>
             </div>
 
+            {/* Proctoring Warning */}
+            {assessment.proctoring_enabled && (
+              <Alert className="border-yellow-200 bg-yellow-50">
+                <Shield className="h-4 w-4 text-yellow-600" />
+                <AlertDescription className="text-yellow-800">
+                  <strong>Proctored Assessment:</strong> This assessment includes live proctoring. 
+                  You will need to grant camera and microphone permissions and will be monitored throughout the assessment.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Instructions */}
             {assessment.instructions && (
               <Alert>
@@ -352,8 +531,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                     <Input
                       id="name"
                       placeholder="Enter your full name"
-                      value={participantName}
-                      onChange={(e) => setParticipantName(e.target.value)}
+                      value={participantInfo.name}
+                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, name: e.target.value }))}
                       disabled={isStarting}
                     />
                   </div>
@@ -366,8 +545,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                       id="email"
                       type="email"
                       placeholder="Enter your email address"
-                      value={participantEmail}
-                      onChange={(e) => setParticipantEmail(e.target.value)}
+                      value={participantInfo.email}
+                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, email: e.target.value }))}
                       disabled={isStarting}
                     />
                   </div>
@@ -378,7 +557,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
             {/* Start Button */}
             <div className="text-center">
               <Button
-                onClick={startAssessment}
+                onClick={assessment.proctoring_enabled ? startProctoringSetup : startAssessment}
                 disabled={isStarting}
                 size="lg"
                 className="w-full md:w-auto"
@@ -389,7 +568,16 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                     Starting Assessment...
                   </>
                 ) : (
-                  'Start Assessment'
+                  <>
+                    {assessment.proctoring_enabled ? (
+                      <>
+                        <Shield className="mr-2 h-4 w-4" />
+                        Start Proctored Assessment
+                      </>
+                    ) : (
+                      'Start Assessment'
+                    )}
+                  </>
                 )}
               </Button>
             </div>
