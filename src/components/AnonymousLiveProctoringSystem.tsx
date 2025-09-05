@@ -54,6 +54,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   const [setupComplete, setSetupComplete] = useState(isInAssessment);
   const [violations, setViolations] = useState<SecurityEvent[]>([]);
   const [faceDetected, setFaceDetected] = useState(false);
+  const [detectionTimestamp, setDetectionTimestamp] = useState(Date.now());
   const [modelsLoading, setModelsLoading] = useState(true);
 
   // Load face-api models
@@ -146,6 +147,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       if (hasFace !== faceDetected) {
         console.log('🔄 UPDATING face detection state from', faceDetected, 'to', hasFace);
         setFaceDetected(hasFace);
+        setDetectionTimestamp(Date.now()); // Force re-render
         
         if (!hasFace && status === 'active') {
           console.log('⚠️ Creating face not detected violation');
@@ -161,6 +163,8 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
         }
       } else {
         console.log('➡️ No state change needed');
+        // Still update timestamp to show detection is working
+        setDetectionTimestamp(Date.now());
       }
     } catch (error) {
       console.error('💥 Face detection error:', error);
@@ -562,7 +566,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
                   <Badge variant={faceDetected ? "default" : "destructive"} className="text-xs">
                     {modelsLoading ? "LOADING..." : (faceDetected ? "FACE DETECTED" : "NO FACE")} 
                     <span className="ml-1 text-xs opacity-70">
-                      {modelsLoading ? "" : (new Date().getSeconds())}
+                      {modelsLoading ? "" : Math.floor((Date.now() - detectionTimestamp) / 1000)}s
                     </span>
                   </Badge>
                 )}
