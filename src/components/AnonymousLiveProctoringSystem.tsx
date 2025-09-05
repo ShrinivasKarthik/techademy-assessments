@@ -45,22 +45,13 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   
   const [status, setStatus] = useState<'initializing' | 'active' | 'paused' | 'stopped'>(isInAssessment ? 'active' : 'initializing');
   const [permissions, setPermissions] = useState({
-    camera: isInAssessment, // Assume permissions granted if in assessment
+    camera: isInAssessment,
     microphone: isInAssessment
   });
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [setupComplete, setSetupComplete] = useState(isInAssessment); // Skip setup if in assessment
+  const [setupComplete, setSetupComplete] = useState(isInAssessment);
   const [violations, setViolations] = useState<SecurityEvent[]>([]);
-  const [faceDetected, setFaceDetected] = useState(true);
-
-  // Debug logging
-  useEffect(() => {
-    console.log('Proctoring Status:', status, 'IsInAssessment:', isInAssessment);
-  }, [status, isInAssessment]);
-
-  useEffect(() => {
-    console.log('Fullscreen state:', isFullscreen, 'Config requires fullscreen:', config.fullscreenRequired);
-  }, [isFullscreen, config.fullscreenRequired]);
+  const [faceDetected, setFaceDetected] = useState(false); // Start with false to be more accurate
 
   // Face detection function
   const detectFace = () => {
@@ -76,16 +67,18 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Simplified and more reliable face detection
+    // More accurate face detection
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const brightness = calculateBrightness(imageData);
     const centerBrightness = calculateCenterBrightness(imageData);
+    const edgeContrast = calculateEdgeContrast(imageData);
     
-    // Relaxed face detection criteria
-    // Check if there's reasonable brightness and some activity in center
+    // Proper face detection: check for reasonable brightness AND facial features
     const hasFacePattern = 
-      brightness > 30 && brightness < 240 && // Very broad brightness range
-      centerBrightness > 20; // Just need some activity in center
+      brightness > 40 && brightness < 220 && // Reasonable brightness range
+      centerBrightness > brightness * 0.8 && // Center has some content
+      edgeContrast > 15 && // Some edge contrast indicating features
+      brightness > 60; // Minimum brightness to indicate presence
     
     if (hasFacePattern !== faceDetected) {
       setFaceDetected(hasFacePattern);
@@ -169,26 +162,23 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   };
 
   useEffect(() => {
-    console.log('Setting up proctoring, isInAssessment:', isInAssessment);
     checkFullscreen();
     setupEventListeners();
     
-    // If we're in assessment mode, try to get media stream
-    if (isInAssessment && config.cameraRequired) {
-      requestPermissions();
-    }
-    
-    // Ensure status is properly set for assessment mode
-    if (isInAssessment && status !== 'active') {
-      console.log('Forcing status to active for assessment mode');
-      setStatus('active');
-      onStatusChange('active');
+    // If we're in assessment mode, try to get media stream and ensure active status
+    if (isInAssessment) {
+      if (config.cameraRequired) {
+        requestPermissions();
+      } else {
+        setStatus('active');
+        onStatusChange('active');
+      }
     }
     
     return () => {
       cleanup();
     };
-  }, [isInAssessment, config.cameraRequired]);
+  }, [isInAssessment]);
 
   const checkFullscreen = () => {
     const isFullscreenActive = !!(
@@ -198,18 +188,10 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       (document as any).msFullscreenElement
     );
     
-    console.log('Fullscreen check:', { 
-      isFullscreenActive, 
-      currentStatus: status, 
-      fullscreenRequired: config.fullscreenRequired,
-      wasFullscreen: isFullscreen 
-    });
-    
     setIsFullscreen(isFullscreenActive);
     
     // If fullscreen is exited while proctoring is active, create a violation
-    if (!isFullscreenActive && status === 'active' && config.fullscreenRequired && isFullscreen) {
-      console.log('Creating fullscreen violation');
+    if (!isFullscreenActive && status === 'active' && config.fullscreenRequired) {
       const event: SecurityEvent = {
         id: Date.now().toString(),
         type: 'fullscreen_exit',
@@ -237,9 +219,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   };
 
   const handleVisibilityChange = () => {
-    console.log('Visibility change:', { hidden: document.hidden, status });
     if (document.hidden && status === 'active') {
-      console.log('Creating tab switch violation');
       const event: SecurityEvent = {
         id: Date.now().toString(),
         type: 'tab_switch',
@@ -247,7 +227,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
         severity: 'high',
         description: 'Tab switch or window minimized detected'
       };
-      setViolations(prev => [event, ...prev].slice(0, 5)); // Keep last 5 violations
+      setViolations(prev => [event, ...prev].slice(0, 5));
       onSecurityEvent(event);
     }
   };
