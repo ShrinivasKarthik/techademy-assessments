@@ -30,22 +30,16 @@ export const useAssessments = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchAssessments = async () => {
-    if (!user) return;
-
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch assessments based on user role  
-      const isAdmin = profile?.role === 'admin';
-      
-      // Use creator_id for compatibility with current schema
+      // Fetch all assessments (public access)
       const response = await fetch(
-        `https://axdwgxtukqqzupboojmx.supabase.co/rest/v1/assessments?select=*${!isAdmin ? `&creator_id=eq.${user.id}` : ''}&order=created_at.desc`,
+        `https://axdwgxtukqqzupboojmx.supabase.co/rest/v1/assessments?select=*&order=created_at.desc`,
         {
           headers: {
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4ZHdneHR1a3FxenVwYm9vam14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NDc4MDksImV4cCI6MjA3MjUyMzgwOX0.jqTQyfetH-utIZUeSVH34ctBY70bIig65C8NZo3tMIM',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
             'Content-Type': 'application/json'
           }
         }
@@ -179,10 +173,8 @@ export const useAssessments = () => {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchAssessments();
-    }
-  }, [user, profile]);
+    fetchAssessments();
+  }, []); // Remove user dependency since it's now public
 
   return {
     assessments,
