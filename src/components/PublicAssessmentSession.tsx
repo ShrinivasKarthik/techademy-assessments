@@ -189,11 +189,34 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
       if (instanceError) {
         console.error('Error creating/finding instance:', instanceError);
-        setError(`Failed to start assessment: ${instanceError.message}`);
-        return;
-      }
+        
+        // If it's a duplicate key error, try to find existing instance
+        if (instanceError.message?.includes('idx_assessment_instances_anonymous_unique')) {
+          console.log('Duplicate key error - attempting to find existing instance');
+          const { data: existingInstance, error: findError } = await supabase
+            .from('assessment_instances')
+            .select('*')
+            .eq('assessment_id', assessment.id)
+            .eq('share_token', shareToken)
+            .eq('is_anonymous', true)
+            .is('participant_id', null)
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .single();
 
-      setInstance(instanceData);
+          if (findError || !existingInstance) {
+            setError('Failed to start assessment: unable to create or find assessment instance');
+            return;
+          }
+
+          setInstance(existingInstance);
+        } else {
+          setError(`Failed to start assessment: ${instanceError.message}`);
+          return;
+        }
+      } else {
+        setInstance(instanceData);
+      }
 
       if (assessment.proctoring_enabled) {
         setSessionState('proctoring_setup');
