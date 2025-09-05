@@ -74,11 +74,15 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   const [sessionState, setSessionState] = useState<'loading' | 'ready' | 'proctoring_setup' | 'proctoring_check' | 'in_progress' | 'submitted' | 'paused'>('loading');
 
   useEffect(() => {
+    console.log('=== PUBLIC ASSESSMENT SESSION STARTING ===');
+    console.log('Share token:', shareToken);
     fetchSharedAssessment();
   }, [shareToken]);
 
   const fetchSharedAssessment = async () => {
     try {
+      console.log('=== FETCHING SHARED ASSESSMENT ===');
+      console.log('Making request to take-shared-assessment with token:', shareToken);
       setLoading(true);
       
       const { data, error } = await supabase.functions.invoke('take-shared-assessment', {

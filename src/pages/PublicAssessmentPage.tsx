@@ -4,8 +4,10 @@ import PublicAssessmentSession from "@/components/PublicAssessmentSession";
 const PublicAssessmentPage = () => {
   const { token } = useParams<{ token: string }>();
   
-  console.log('PublicAssessmentPage loaded with token:', token);
+  console.log('=== PUBLIC ASSESSMENT PAGE LOADED ===');
+  console.log('Token from params:', token);
   console.log('Current URL:', window.location.href);
+  console.log('Current pathname:', window.location.pathname);
 
   if (!token) {
     return (
