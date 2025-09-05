@@ -124,25 +124,35 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       setLoading(true);
       setError(null);
 
-      // Fetch assessment with questions
-      const { data, error: fetchError } = await supabase
+      // Fetch assessment data
+      const { data: assessmentData, error: assessmentError } = await supabase
         .from('assessments')
-        .select(`
-          id, title, description, instructions, duration_minutes,
-          questions (*)
-        `)
+        .select('id, title, description, instructions, duration_minutes')
         .eq('id', assessmentId)
         .single();
 
-      if (fetchError) {
-        console.error('Error fetching assessment:', fetchError);
+      if (assessmentError) {
+        console.error('Error fetching assessment:', assessmentError);
         setError('Failed to load assessment data');
         return;
       }
 
-      // Sort questions by order_index
-      const sortedQuestions = data.questions?.sort((a: any, b: any) => a.order_index - b.order_index) || [];
-      setAssessment({ ...data, questions: sortedQuestions });
+      // Fetch questions separately
+      const { data: questionsData, error: questionsError } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('assessment_id', assessmentId)
+        .order('order_index');
+
+      if (questionsError) {
+        console.error('Error fetching questions:', questionsError);
+        setError('Failed to load assessment questions');
+        return;
+      }
+
+      // Sort questions by order_index (already ordered by database query)
+      const sortedQuestions = questionsData || [];
+      setAssessment({ ...assessmentData, questions: sortedQuestions });
 
       // Load existing answers
       await loadExistingAnswers();
