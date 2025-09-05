@@ -40,6 +40,8 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const faceDetectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [status, setStatus] = useState<'initializing' | 'active' | 'paused' | 'stopped'>(isInAssessment ? 'active' : 'initializing');
   const [permissions, setPermissions] = useState({
@@ -49,6 +51,76 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [setupComplete, setSetupComplete] = useState(isInAssessment); // Skip setup if in assessment
   const [violations, setViolations] = useState<SecurityEvent[]>([]);
+  const [faceDetected, setFaceDetected] = useState(true);
+
+  // Face detection function
+  const detectFace = () => {
+    if (!videoRef.current || !canvasRef.current || !config.faceDetection) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Basic face detection using image analysis
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const brightness = calculateBrightness(imageData);
+    const hasMotion = detectMotion(imageData);
+    
+    // Simple heuristic: if there's sufficient brightness and motion, assume face is present
+    const currentFaceDetected = brightness > 50 && hasMotion;
+    
+    if (currentFaceDetected !== faceDetected) {
+      setFaceDetected(currentFaceDetected);
+      
+      if (!currentFaceDetected && status === 'active') {
+        const event: SecurityEvent = {
+          id: Date.now().toString(),
+          type: 'face_not_detected',
+          timestamp: new Date(),
+          severity: 'high',
+          description: 'Face not detected in camera view'
+        };
+        setViolations(prev => [event, ...prev].slice(0, 5));
+        onSecurityEvent(event);
+      }
+    }
+  };
+
+  const calculateBrightness = (imageData: ImageData): number => {
+    let total = 0;
+    const { data } = imageData;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      total += (r + g + b) / 3;
+    }
+    
+    return total / (data.length / 4);
+  };
+
+  const detectMotion = (imageData: ImageData): boolean => {
+    // Simple motion detection - in a real implementation you'd compare frames
+    const { data } = imageData;
+    let variation = 0;
+    
+    for (let i = 0; i < data.length; i += 40) { // Sample every 10th pixel
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const avg = (r + g + b) / 3;
+      variation += Math.abs(avg - 128); // Compare to neutral gray
+    }
+    
+    return variation > 1000; // Threshold for motion detection
+  };
 
   useEffect(() => {
     checkFullscreen();
@@ -148,6 +220,11 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
           videoRef.current.srcObject = stream;
           // Ensure video starts playing
           await videoRef.current.play().catch(console.error);
+          
+          // Start face detection if required
+          if (config.faceDetection) {
+            faceDetectionIntervalRef.current = setInterval(detectFace, 2000); // Check every 2 seconds
+          }
         }
         
         streamRef.current = stream;
@@ -177,6 +254,10 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   const cleanup = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
+    if (faceDetectionIntervalRef.current) {
+      clearInterval(faceDetectionIntervalRef.current);
     }
     
     document.removeEventListener('fullscreenchange', checkFullscreen);
@@ -293,10 +374,19 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
                 playsInline
                 className="w-full h-full object-cover"
               />
-              <div className="absolute bottom-2 left-2">
+              <canvas
+                ref={canvasRef}
+                className="hidden"
+              />
+              <div className="absolute bottom-2 left-2 flex gap-2">
                 <Badge variant="secondary" className="text-xs">
                   LIVE
                 </Badge>
+                {config.faceDetection && (
+                  <Badge variant={faceDetected ? "default" : "destructive"} className="text-xs">
+                    {faceDetected ? "FACE OK" : "NO FACE"}
+                  </Badge>
+                )}
               </div>
             </div>
           </CardContent>
