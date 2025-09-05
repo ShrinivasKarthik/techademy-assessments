@@ -83,47 +83,72 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
 
   // REAL face detection using face-api.js
   const detectFace = async () => {
-    if (!videoRef.current || !modelsLoadedRef.current || !config.faceDetection) {
-      console.log('Face detection not ready:', { 
-        video: !!videoRef.current, 
-        modelsLoaded: modelsLoadedRef.current, 
-        config: config.faceDetection 
-      });
+    console.log('=== FACE DETECTION ATTEMPT ===');
+    console.log('Video ref exists:', !!videoRef.current);
+    console.log('Models loaded:', modelsLoadedRef.current);
+    console.log('Config face detection:', config.faceDetection);
+    console.log('Current face detected state:', faceDetected);
+    
+    if (!videoRef.current) {
+      console.log('❌ No video element');
+      return;
+    }
+    
+    if (!modelsLoadedRef.current) {
+      console.log('❌ Models not loaded yet');
+      return;
+    }
+    
+    if (!config.faceDetection) {
+      console.log('❌ Face detection disabled in config');
       return;
     }
 
     const video = videoRef.current;
     
+    console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+    console.log('Video ready state:', video.readyState);
+    
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      console.log('Video not ready:', { width: video.videoWidth, height: video.videoHeight });
+      console.log('❌ Video not ready - no dimensions');
       return;
     }
 
     try {
+      console.log('🔍 Starting face detection...');
+      
       // Use face-api.js for REAL face detection
       const detections = await faceapi
         .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ 
           inputSize: 224, 
-          scoreThreshold: 0.5 
-        }))
-        .withFaceLandmarks()
-        .withFaceDescriptors();
+          scoreThreshold: 0.3  // Lower threshold to see if anything is detected
+        }));
+
+      console.log('🎯 Detection results:', {
+        detectionsFound: detections?.length || 0,
+        detectionScores: detections?.map(d => d.score?.toFixed(3)) || [],
+        detectionBoxes: detections?.map(d => ({
+          x: Math.round(d.box?.x || 0),
+          y: Math.round(d.box?.y || 0), 
+          width: Math.round(d.box?.width || 0),
+          height: Math.round(d.box?.height || 0)
+        })) || []
+      });
 
       const hasFace = detections && detections.length > 0;
       
-      console.log('REAL Face detection result:', {
-        detectionsCount: detections?.length || 0,
-        hasFace,
-        currentState: faceDetected,
-        detectionScores: detections?.map(d => d.detection.score) || []
+      console.log('✅ Face detection completed:', {
+        previousState: faceDetected,
+        newState: hasFace,
+        stateChanged: hasFace !== faceDetected
       });
       
       if (hasFace !== faceDetected) {
-        console.log('Updating face detection state from', faceDetected, 'to', hasFace);
+        console.log('🔄 UPDATING face detection state from', faceDetected, 'to', hasFace);
         setFaceDetected(hasFace);
         
         if (!hasFace && status === 'active') {
-          console.log('Creating face not detected violation');
+          console.log('⚠️ Creating face not detected violation');
           const event: SecurityEvent = {
             id: Date.now().toString(),
             type: 'face_not_detected',
@@ -134,10 +159,14 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
           setViolations(prev => [event, ...prev].slice(0, 5));
           onSecurityEvent(event);
         }
+      } else {
+        console.log('➡️ No state change needed');
       }
     } catch (error) {
-      console.error('Face detection error:', error);
+      console.error('💥 Face detection error:', error);
     }
+    
+    console.log('=== FACE DETECTION COMPLETE ===\n');
   };
 
   const calculateBrightness = (imageData: ImageData): number => {
@@ -356,16 +385,18 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
           await videoRef.current.play().catch(console.error);
           
           // Start REAL face detection if required
-          if (config.faceDetection && modelsLoadedRef.current) {
-            console.log('Starting REAL face detection interval');
+          if (config.faceDetection) {
+            console.log('🚀 Starting face detection interval...');
+            console.log('Models loaded:', modelsLoadedRef.current);
+            
+            // Start immediately, then every 2 seconds
+            detectFace();
             faceDetectionIntervalRef.current = setInterval(() => {
-              detectFace(); // Now calls async function
-            }, 3000); // Check every 3 seconds for better performance
+              console.log('⏰ Face detection interval tick');
+              detectFace();
+            }, 2000); // Every 2 seconds for better real-time experience
           } else {
-            console.log('Face detection not started:', { 
-              enabled: config.faceDetection, 
-              modelsLoaded: modelsLoadedRef.current 
-            });
+            console.log('❌ Face detection not enabled in config');
           }
         }
         
@@ -529,7 +560,10 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
                 </Badge>
                 {config.faceDetection && (
                   <Badge variant={faceDetected ? "default" : "destructive"} className="text-xs">
-                    {modelsLoading ? "LOADING..." : (faceDetected ? "FACE DETECTED" : "NO FACE")}
+                    {modelsLoading ? "LOADING..." : (faceDetected ? "FACE DETECTED" : "NO FACE")} 
+                    <span className="ml-1 text-xs opacity-70">
+                      {modelsLoading ? "" : (new Date().getSeconds())}
+                    </span>
                   </Badge>
                 )}
               </div>
