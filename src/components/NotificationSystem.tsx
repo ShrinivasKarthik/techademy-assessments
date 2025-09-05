@@ -63,10 +63,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // Real-time subscriptions for different notification sources
+  // Only establish realtime connections for authenticated users
+  const shouldEnableRealtime = !!(user && profile);
+
   const assessmentRealtime = useRealtimeV2({
     table: 'assessments',
-    onUpdate: (payload) => {
+    onUpdate: shouldEnableRealtime ? (payload) => {
       if (payload.new.status === 'published' && payload.old.status !== 'published') {
         addNotification({
           type: 'assessment_published',
@@ -77,12 +79,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           actionUrl: `/assessments/${payload.new.id}/preview`
         });
       }
-    }
+    } : undefined
   });
 
   const instanceRealtime = useRealtimeV2({
     table: 'assessment_instances',
-    onInsert: (payload) => {
+    onInsert: shouldEnableRealtime ? (payload) => {
       // Notify instructors when someone starts their assessment
       if (profile?.role === 'instructor' || profile?.role === 'admin') {
         addNotification({
@@ -93,8 +95,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           data: { instanceId: payload.new.id, assessmentId: payload.new.assessment_id }
         });
       }
-    },
-    onUpdate: (payload) => {
+    } : undefined,
+    onUpdate: shouldEnableRealtime ? (payload) => {
       // Handle submission notifications
       if (payload.new.status === 'submitted' && payload.old.status !== 'submitted') {
         if (profile?.role === 'instructor' || profile?.role === 'admin') {
@@ -129,12 +131,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           });
         });
       }
-    }
+    } : undefined
   });
 
   const evaluationRealtime = useRealtimeV2({
     table: 'evaluations',
-    onInsert: (payload) => {
+    onInsert: shouldEnableRealtime ? (payload) => {
       // Notify when evaluation is complete
       addNotification({
         type: 'evaluation_complete',
@@ -143,7 +145,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         message: `Assessment has been evaluated with score: ${payload.new.score}/${payload.new.max_score}`,
         data: { evaluationId: payload.new.id, submissionId: payload.new.submission_id }
       });
-    }
+    } : undefined
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
