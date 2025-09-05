@@ -102,9 +102,13 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
       console.log('Setting assessment data:', data.assessment);
       console.log('Setting share config:', data.shareConfig);
+      console.log('Assessment is truthy:', !!data.assessment);
+      console.log('ShareConfig is truthy:', !!data.shareConfig);
 
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
+      
+      console.log('State after setting - assessment:', !!data.assessment, 'shareConfig:', !!data.shareConfig);
 
       // Check if there's already an instance for this session
       await checkExistingInstance();
