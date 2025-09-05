@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import AssessmentAnalyticsDashboard from "@/components/AssessmentAnalyticsDashboard";
+import EnhancedAnalyticsDashboard from "@/components/EnhancedAnalyticsDashboard";
 import AIInsightsDashboard from "@/components/AIInsightsDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -31,13 +32,18 @@ const AssessmentAnalyticsPage = () => {
       </div>
       
       <div className="max-w-7xl mx-auto p-6">
-        <Tabs defaultValue="analytics" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="analytics">Performance Analytics</TabsTrigger>
+        <Tabs defaultValue="enhanced" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="enhanced">Enhanced Analytics</TabsTrigger>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="insights">AI Insights</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="analytics" className="space-y-6">
+          <TabsContent value="enhanced" className="space-y-6">
+            <EnhancedAnalyticsDashboard assessmentId={id} />
+          </TabsContent>
+          
+          <TabsContent value="performance" className="space-y-6">
             <AssessmentAnalyticsDashboard assessmentId={id} />
           </TabsContent>
           

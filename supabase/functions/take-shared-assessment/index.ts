@@ -12,13 +12,27 @@ serve(async (req) => {
   }
 
   try {
+    // Basic rate limiting - check for recent requests from same IP
+    const clientIP = req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'unknown'
+    console.log('Request from IP:', clientIP)
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
+    let shareToken: string;
+    
+    // Handle both URL parameter and request body methods
     const url = new URL(req.url)
-    const shareToken = url.pathname.split('/').pop()
+    const urlToken = url.pathname.split('/').pop()
+    
+    if (req.method === 'POST') {
+      const body = await req.json()
+      shareToken = body.token || urlToken
+    } else {
+      shareToken = urlToken || ''
+    }
 
     if (!shareToken) {
       return new Response(

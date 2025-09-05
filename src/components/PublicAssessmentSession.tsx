@@ -75,10 +75,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setLoading(true);
       
       const { data, error } = await supabase.functions.invoke('take-shared-assessment', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        body: { token: shareToken },
       });
 
       if (error) {
