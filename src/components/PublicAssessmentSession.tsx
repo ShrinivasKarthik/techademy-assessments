@@ -179,11 +179,37 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         return;
       }
 
-      // Create proctoring session for anonymous user
+      // First create assessment instance for anonymous user
+      const { data: newInstance, error: instanceError } = await supabase
+        .from('assessment_instances')
+        .insert({
+          assessment_id: assessment.id,
+          participant_id: null, // Anonymous user
+          participant_name: participantInfo.name,
+          participant_email: participantInfo.email,
+          is_anonymous: true,
+          share_token: shareToken,
+          status: 'in_progress',
+          session_state: 'proctoring_check',
+          time_remaining_seconds: assessment.duration_minutes * 60,
+          current_question_index: 0
+        })
+        .select()
+        .single();
+
+      if (instanceError) {
+        console.error('Error creating assessment instance:', instanceError);
+        setError('Failed to create assessment instance');
+        return;
+      }
+
+      setInstance(newInstance);
+
+      // Now create proctoring session with the assessment instance ID
       const { data: newProctoringSession, error: proctoringError } = await supabase
         .from('proctoring_sessions')
         .insert({
-          assessment_instance_id: null, // Will be updated when instance is created
+          assessment_instance_id: newInstance.id,
           participant_id: anonymousParticipantId,
           status: 'initializing',
           permissions: {},
