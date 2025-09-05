@@ -150,7 +150,7 @@ export type Database = {
       assessments: {
         Row: {
           created_at: string
-          creator_id: string
+          creator_id: string | null
           description: string | null
           duration_minutes: number
           id: string
@@ -164,7 +164,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          creator_id: string
+          creator_id?: string | null
           description?: string | null
           duration_minutes?: number
           id?: string
@@ -178,7 +178,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          creator_id?: string
+          creator_id?: string | null
           description?: string | null
           duration_minutes?: number
           id?: string
@@ -190,15 +190,7 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_assessments_creator"
-            columns: ["creator_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
+        Relationships: []
       }
       collection_questions: {
         Row: {

@@ -211,7 +211,7 @@ const CreateAssessment = () => {
           status: assessment.status,
           proctoring_enabled: assessment.proctoring_enabled,
           proctoring_config: assessment.proctoring_config as any,
-          creator_id: '00000000-0000-0000-0000-000000000000' // Public creator ID
+          creator_id: null // No user association needed
         })
         .select()
         .single();
