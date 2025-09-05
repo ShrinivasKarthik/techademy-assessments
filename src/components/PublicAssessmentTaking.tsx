@@ -83,11 +83,11 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(new Set());
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Initialize assessment and load existing answers
   useEffect(() => {
-    fetchAssessmentData();
-    loadExistingAnswers();
+    initializeAssessment();
   }, [assessmentId]);
 
   // Timer effect
@@ -98,7 +98,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       setTimeRemaining((prev) => {
         const newTime = prev - 1;
         if (newTime <= 0) {
-          submitAssessment(true); // Auto-submit when time runs out
+          handleAutoSubmit();
           return 0;
         }
         return newTime;
@@ -111,15 +111,21 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   // Auto-save effect
   useEffect(() => {
     const autoSaveInterval = setInterval(() => {
-      autoSave();
+      if (Object.keys(answers).length > 0) {
+        saveProgress();
+      }
     }, 30000); // Auto-save every 30 seconds
 
     return () => clearInterval(autoSaveInterval);
   }, [answers, currentQuestionIndex, timeRemaining]);
 
-  const fetchAssessmentData = async () => {
+  const initializeAssessment = async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      setError(null);
+
+      // Fetch assessment with questions
+      const { data, error: fetchError } = await supabase
         .from('assessments')
         .select(`
           id, title, description, instructions, duration_minutes,
@@ -128,21 +134,22 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
         .eq('id', assessmentId)
         .single();
 
-      if (error) {
-        console.error('Error fetching assessment:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load assessment data.",
-          variant: "destructive",
-        });
+      if (fetchError) {
+        console.error('Error fetching assessment:', fetchError);
+        setError('Failed to load assessment data');
         return;
       }
 
       // Sort questions by order_index
       const sortedQuestions = data.questions?.sort((a: any, b: any) => a.order_index - b.order_index) || [];
       setAssessment({ ...data, questions: sortedQuestions });
-    } catch (err) {
-      console.error('Error:', err);
+
+      // Load existing answers
+      await loadExistingAnswers();
+
+    } catch (err: any) {
+      console.error('Error initializing assessment:', err);
+      setError('Failed to initialize assessment');
     } finally {
       setLoading(false);
     }
@@ -170,12 +177,6 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       console.error('Error loading answers:', err);
     }
   };
-
-  const autoSave = useCallback(async () => {
-    if (Object.keys(answers).length === 0) return;
-
-    await saveProgress();
-  }, [answers, currentQuestionIndex, timeRemaining]);
 
   const saveProgress = async () => {
     try {
@@ -229,7 +230,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
         });
       }
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error saving answer:', err);
     }
   };
 
@@ -252,6 +253,10 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
     }
     
     setFlaggedQuestions(newFlagged);
+  };
+
+  const handleAutoSubmit = () => {
+    submitAssessment(true);
   };
 
   const submitAssessment = async (isAutoSubmit = false) => {
@@ -318,7 +323,6 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
     const question = assessment.questions[currentQuestionIndex];
     const answer = answers[question.id];
 
-    // Create a compatible question object that matches the expected interfaces
     const compatibleQuestion = {
       ...question,
       question_text: question.question_text || question.title || '',
@@ -350,15 +354,33 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading assessment...</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading assessment...</p>
+        </div>
       </div>
     );
   }
 
-  if (!assessment) {
+  if (error || !assessment) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Assessment not found</p>
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Error Loading Assessment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              {error || 'Assessment could not be loaded'}
+            </p>
+            <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -420,6 +442,16 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Low time warning */}
+      {timeRemaining <= 300 && timeRemaining > 0 && (
+        <Alert variant="destructive" className="m-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Warning:</strong> Only {Math.floor(timeRemaining / 60)} minutes and {timeRemaining % 60} seconds remaining!
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
@@ -511,16 +543,6 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
-
-            {/* Low Time Warning */}
-            {timeRemaining <= 300 && timeRemaining > 0 && (
-              <Alert className="mt-4 border-destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  Warning: Only {Math.ceil(timeRemaining / 60)} minutes remaining!
-                </AlertDescription>
-              </Alert>
-            )}
           </div>
         </div>
       </div>

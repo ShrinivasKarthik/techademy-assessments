@@ -908,7 +908,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_or_create_anonymous_instance: {
+        Args: {
+          p_assessment_id: string
+          p_duration_minutes?: number
+          p_participant_email?: string
+          p_participant_name?: string
+          p_share_token: string
+        }
+        Returns: {
+          assessment_id: string
+          current_question_index: number | null
+          id: string
+          is_anonymous: boolean
+          max_possible_score: number | null
+          participant_email: string | null
+          participant_id: string | null
+          participant_name: string | null
+          proctoring_started_at: string | null
+          proctoring_violations: Json | null
+          session_state: string | null
+          share_token: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["submission_status"]
+          submitted_at: string | null
+          time_remaining_seconds: number | null
+          total_score: number | null
+        }
+      }
     }
     Enums: {
       assessment_status: "draft" | "published" | "archived"

@@ -12,7 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    // Basic rate limiting - check for recent requests from same IP
     const clientIP = req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'unknown'
     console.log('Request from IP:', clientIP)
 
@@ -30,102 +29,130 @@ serve(async (req) => {
     if (req.method === 'POST') {
       const body = await req.json()
       shareToken = body.token || urlToken
-      console.log('POST body received:', { token: shareToken, originalBody: body })
+      console.log('POST request with token:', shareToken)
     } else {
       shareToken = urlToken || ''
     }
 
-    if (!shareToken) {
-      console.log('No share token provided')
+    if (!shareToken || shareToken.length < 10) {
+      console.log('Invalid share token provided:', shareToken)
       return new Response(
-        JSON.stringify({ error: 'Share token is required' }),
+        JSON.stringify({ 
+          success: false,
+          error: 'Valid share token is required' 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
     console.log('Processing share token:', shareToken)
 
-    // First, get the share record
+    // Validate and fetch share record with enhanced error handling
     const { data: shareData, error: shareError } = await supabaseClient
       .from('assessment_shares')
       .select('*')
       .eq('share_token', shareToken)
       .eq('is_active', true)
-      .single()
+      .maybeSingle()
 
     if (shareError) {
-      console.error('Share query error:', shareError)
+      console.error('Database error fetching share:', shareError)
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Database error accessing share information' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
     }
 
     if (!shareData) {
-      console.log('No share data found for token:', shareToken)
+      console.log('No active share found for token:', shareToken)
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Invalid or expired share link' 
+          error: 'Invalid, expired, or inactive share link' 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       )
     }
 
-    console.log('Share record found:', { id: shareData.id, assessment_id: shareData.assessment_id })
+    console.log('Share record found:', { 
+      id: shareData.id, 
+      assessment_id: shareData.assessment_id,
+      access_count: shareData.access_count,
+      max_attempts: shareData.max_attempts
+    })
 
-    // Check if share has expired
-    if (shareData.expires_at && new Date(shareData.expires_at) < new Date()) {
-      console.log('Share has expired:', shareData.expires_at)
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: 'This share link has expired' 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+    // Enhanced expiration check
+    if (shareData.expires_at) {
+      const expiryDate = new Date(shareData.expires_at)
+      const now = new Date()
+      if (expiryDate < now) {
+        console.log('Share has expired:', shareData.expires_at, 'Current time:', now.toISOString())
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'This assessment link has expired',
+            expiredAt: shareData.expires_at
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 410 }
+        )
+      }
     }
 
-    // Check if max attempts reached
+    // Enhanced attempt limit check
     if (shareData.max_attempts && shareData.access_count >= shareData.max_attempts) {
       console.log('Max attempts reached:', shareData.access_count, '>=', shareData.max_attempts)
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Maximum number of attempts reached for this assessment' 
+          error: 'Maximum number of assessment attempts has been reached',
+          attemptsUsed: shareData.access_count,
+          maxAttempts: shareData.max_attempts
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
       )
     }
 
-    // Now get the assessment details
+    // Fetch assessment with enhanced validation
     const { data: assessment, error: assessmentError } = await supabaseClient
       .from('assessments')
       .select('*')
       .eq('id', shareData.assessment_id)
-      .single()
+      .eq('status', 'published')
+      .maybeSingle()
 
     if (assessmentError) {
-      console.error('Assessment query error:', assessmentError)
+      console.error('Database error fetching assessment:', assessmentError)
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Assessment not found' 
+          error: 'Database error accessing assessment' 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
     if (!assessment) {
-      console.log('No assessment found for ID:', shareData.assessment_id)
+      console.log('No published assessment found for ID:', shareData.assessment_id)
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Assessment not found' 
+          error: 'Assessment not found or not available' 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       )
     }
 
-    console.log('Assessment found:', { id: assessment.id, title: assessment.title })
+    console.log('Assessment found:', { 
+      id: assessment.id, 
+      title: assessment.title,
+      status: assessment.status,
+      duration: assessment.duration_minutes
+    })
 
-    // Get the questions for this assessment - be explicit about the relationship
+    // Fetch questions with enhanced validation
     const { data: questions, error: questionsError } = await supabaseClient
       .from('questions')
       .select('*')
@@ -134,19 +161,46 @@ serve(async (req) => {
       .order('order_index')
 
     if (questionsError) {
-      console.error('Error fetching questions:', questionsError)
+      console.error('Database error fetching questions:', questionsError)
       return new Response(
         JSON.stringify({ 
           success: false,
           error: 'Failed to load assessment questions' 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
-    console.log('Questions loaded:', questions?.length || 0)
+    if (!questions || questions.length === 0) {
+      console.log('No active questions found for assessment:', shareData.assessment_id)
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Assessment has no available questions' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 422 }
+      )
+    }
 
-    // Return the assessment data for public access
+    console.log('Questions loaded:', questions.length)
+
+    // Increment access count
+    try {
+      const { error: updateError } = await supabaseClient
+        .from('assessment_shares')
+        .update({ access_count: shareData.access_count + 1 })
+        .eq('id', shareData.id)
+
+      if (updateError) {
+        console.error('Error updating access count:', updateError)
+        // Don't fail the request for this
+      }
+    } catch (err) {
+      console.error('Error incrementing access count:', err)
+      // Don't fail the request for this
+    }
+
+    // Enhanced response data
     const responseData = {
       success: true,
       shareToken: shareToken,
@@ -156,19 +210,23 @@ serve(async (req) => {
         description: assessment.description,
         instructions: assessment.instructions,
         duration_minutes: assessment.duration_minutes,
-        proctoring_enabled: assessment.proctoring_enabled,
-        proctoring_config: assessment.proctoring_config,
-        question_count: questions?.length || 0,
-        questions: questions || []
+        proctoring_enabled: assessment.proctoring_enabled || false,
+        proctoring_config: assessment.proctoring_config || {},
+        question_count: questions.length,
+        questions: questions
       },
       shareConfig: {
-        requireName: shareData.require_name,
-        requireEmail: shareData.require_email,
-        allowAnonymous: shareData.allow_anonymous,
+        requireName: shareData.require_name || false,
+        requireEmail: shareData.require_email || false,
+        allowAnonymous: shareData.allow_anonymous !== false, // Default to true if null
         maxAttempts: shareData.max_attempts,
         expiresAt: shareData.expires_at,
-        accessCount: shareData.access_count,
-        completionCount: shareData.completion_count
+        accessCount: shareData.access_count + 1, // Include incremented count
+        completionCount: shareData.completion_count || 0
+      },
+      metadata: {
+        accessedAt: new Date().toISOString(),
+        remainingAttempts: shareData.max_attempts ? shareData.max_attempts - (shareData.access_count + 1) : null
       }
     }
 
@@ -176,11 +234,12 @@ serve(async (req) => {
       success: true,
       assessmentId: assessment.id,
       assessmentTitle: assessment.title,
-      questionCount: questions?.length || 0,
+      questionCount: questions.length,
       shareConfigSummary: {
         requireName: shareData.require_name,
         requireEmail: shareData.require_email,
-        allowAnonymous: shareData.allow_anonymous
+        allowAnonymous: shareData.allow_anonymous,
+        accessCount: shareData.access_count + 1
       }
     })
 
@@ -193,15 +252,16 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Unexpected error retrieving shared assessment:', error)
+    console.error('Unexpected error in take-shared-assessment:', error)
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: 'Failed to retrieve shared assessment: ' + error.message 
+        error: 'Internal server error occurred while processing request',
+        details: error.message
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+        status: 500
       }
     )
   }

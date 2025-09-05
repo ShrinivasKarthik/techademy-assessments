@@ -64,7 +64,6 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [proctoringSession, setProctoringSession] = useState<any>(null);
-  const [anonymousParticipantId, setAnonymousParticipantId] = useState<string | null>(null);
   const [securityViolations, setSecurityViolations] = useState<any[]>([]);
   const [participantInfo, setParticipantInfo] = useState({
     name: '',
@@ -76,21 +75,21 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   useEffect(() => {
     console.log('=== PUBLIC ASSESSMENT SESSION STARTING ===');
     console.log('Share token:', shareToken);
-    fetchSharedAssessment();
+    initializeSession();
   }, [shareToken]);
 
-  const fetchSharedAssessment = async () => {
+  const initializeSession = async () => {
     try {
-      console.log('=== FETCHING SHARED ASSESSMENT ===');
-      console.log('Making request to take-shared-assessment with token:', shareToken);
       setLoading(true);
+      setError(null);
       
-      const { data, error } = await supabase.functions.invoke('take-shared-assessment', {
+      // Step 1: Fetch assessment data
+      const { data, error: fetchError } = await supabase.functions.invoke('take-shared-assessment', {
         body: { token: shareToken },
       });
 
-      if (error) {
-        console.error('Error fetching shared assessment:', error);
+      if (fetchError) {
+        console.error('Error fetching shared assessment:', fetchError);
         setError('Failed to load assessment');
         return;
       }
@@ -103,30 +102,28 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
       
-      // Only proceed if we have valid assessment data
-      if (data.assessment && data.shareConfig) {
-        await checkExistingInstance(data.assessment);
-        // Finally set to ready state after everything is loaded
-        setSessionState('ready');
-      } else {
-        setError('Invalid assessment data received');
-      }
+      // Step 2: Check for existing instance
+      await checkExistingInstance(data.assessment.id);
+      
+      // Step 3: Set ready state
+      setSessionState('ready');
 
     } catch (err: any) {
-      console.error('Error:', err);
-      setError('Failed to load assessment');
+      console.error('Error initializing session:', err);
+      setError('Failed to initialize assessment session');
     } finally {
       setLoading(false);
     }
   };
 
-  const checkExistingInstance = async (validatedAssessment: Assessment) => {
+  const checkExistingInstance = async (assessmentId: string) => {
     try {
       const { data: instances, error } = await supabase
         .from('assessment_instances')
         .select('*')
         .eq('share_token', shareToken)
         .eq('is_anonymous', true)
+        .eq('assessment_id', assessmentId)
         .order('started_at', { ascending: false })
         .limit(1);
 
@@ -138,16 +135,11 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       if (instances && instances.length > 0) {
         const existingInstance = instances[0];
         setInstance(existingInstance);
-        setAnonymousParticipantId(existingInstance.participant_id || `anon_${Date.now()}`);
         
         if (existingInstance.status === 'submitted') {
-          // Don't change session state here - let the main function handle it
-          setAnonymousParticipantId(existingInstance.participant_id || `anon_${Date.now()}`);
-        } else if (validatedAssessment.proctoring_enabled && existingInstance.session_state) {
-          // Resume existing proctoring state
-          setAnonymousParticipantId(existingInstance.participant_id || `anon_${Date.now()}`);
-        } else {
-          // Will be handled by main function setting to 'ready'
+          setSessionState('submitted');
+        } else if (existingInstance.session_state === 'in_progress') {
+          setSessionState('in_progress');
         }
       }
     } catch (err) {
@@ -155,62 +147,89 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   };
 
-  const startProctoringSetup = () => {
-    // Double-check assessment is loaded before starting proctoring
+  const validateParticipantInfo = () => {
+    if (!shareConfig) return false;
+    
+    if (shareConfig.requireName && !participantInfo.name.trim()) {
+      setError('Name is required');
+      return false;
+    }
+
+    if (shareConfig.requireEmail && !participantInfo.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+
+    return true;
+  };
+
+  const startAssessment = async () => {
     if (!assessment || !shareConfig) {
-      setError('Assessment not properly loaded. Please refresh and try again.');
+      setError('Assessment data not loaded properly');
       return;
     }
-    
-    if (assessment.proctoring_enabled) {
-      const tempId = crypto.randomUUID(); // Generate proper UUID for anonymous participant
-      setAnonymousParticipantId(tempId);
-      setSessionState('proctoring_setup');
-    } else {
-      startAssessment();
+
+    if (!validateParticipantInfo()) {
+      return;
+    }
+
+    try {
+      setIsStarting(true);
+      setError(null);
+
+      // Use the database function to safely create or find instance
+      const { data: instanceData, error: instanceError } = await supabase
+        .rpc('find_or_create_anonymous_instance', {
+          p_assessment_id: assessment.id,
+          p_share_token: shareToken,
+          p_participant_name: participantInfo.name || null,
+          p_participant_email: participantInfo.email || null,
+          p_duration_minutes: assessment.duration_minutes
+        });
+
+      if (instanceError) {
+        console.error('Error creating/finding instance:', instanceError);
+        setError(`Failed to start assessment: ${instanceError.message}`);
+        return;
+      }
+
+      setInstance(instanceData);
+
+      if (assessment.proctoring_enabled) {
+        setSessionState('proctoring_setup');
+      } else {
+        setSessionState('in_progress');
+      }
+
+    } catch (error: any) {
+      console.error('Error starting assessment:', error);
+      setError(`Failed to start assessment: ${error.message}`);
+    } finally {
+      setIsStarting(false);
     }
   };
 
+  const startProctoringSetup = () => {
+    if (!assessment?.proctoring_enabled) {
+      startAssessment();
+      return;
+    }
+    setSessionState('proctoring_setup');
+  };
+
   const completeProctoringSetup = async () => {
+    if (!instance) {
+      setError('No assessment instance found');
+      return;
+    }
+
     try {
-      // Triple-check assessment exists before proctoring setup
-      if (!assessment || !shareConfig || !anonymousParticipantId) {
-        setError('Assessment data missing. Cannot start proctoring.');
-        return;
-      }
-
-      // First create assessment instance for anonymous user
-      const { data: newInstance, error: instanceError } = await supabase
-        .from('assessment_instances')
-        .insert({
-          assessment_id: assessment.id,
-          participant_id: null, // Anonymous user
-          participant_name: participantInfo.name,
-          participant_email: participantInfo.email,
-          is_anonymous: true,
-          share_token: shareToken,
-          status: 'in_progress',
-          session_state: 'proctoring_check',
-          time_remaining_seconds: assessment.duration_minutes * 60,
-          current_question_index: 0
-        })
-        .select()
-        .single();
-
-      if (instanceError) {
-        console.error('Error creating assessment instance:', instanceError);
-        setError('Failed to create assessment instance');
-        return;
-      }
-
-      setInstance(newInstance);
-
-      // Now create proctoring session with the assessment instance ID
+      // Create proctoring session
       const { data: newProctoringSession, error: proctoringError } = await supabase
         .from('proctoring_sessions')
         .insert({
-          assessment_instance_id: newInstance.id,
-          participant_id: null, // Allow null for anonymous users
+          assessment_instance_id: instance.id,
+          participant_id: null, // Anonymous user
           status: 'initializing',
           permissions: {},
           security_events: [],
@@ -220,18 +239,14 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         .single();
 
       if (proctoringError) {
-        console.error('=== PROCTORING SESSION ERROR ===');
-        console.error('Error details:', proctoringError);
-        console.error('Error code:', proctoringError.code);
-        console.error('Error message:', proctoringError.message);
-        console.error('Anonymous participant ID:', anonymousParticipantId);
-        setError(`Failed to initialize proctoring: ${proctoringError.message}`);
+        console.error('Error creating proctoring session:', proctoringError);
+        setError('Failed to initialize proctoring');
         return;
       }
 
       setProctoringSession(newProctoringSession);
       setSessionState('proctoring_check');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error setting up proctoring:', error);
       setError('Failed to setup proctoring');
     }
@@ -239,7 +254,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
   const handleProctoringStatusChange = async (status: 'active' | 'paused' | 'stopped') => {
     if (status === 'active' && sessionState === 'proctoring_check') {
-      await startAssessment();
+      setSessionState('in_progress');
     } else if (status === 'paused') {
       setSessionState('paused');
     }
@@ -253,77 +268,12 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   };
 
-  const startAssessment = async () => {
-    try {
-      // Final validation before starting assessment
-      if (!assessment || !shareConfig) {
-        setError('Assessment data not loaded properly. Please refresh and try again.');
-        return;
-      }
-
-      // Validate required participant information
-      if (shareConfig.requireName && !participantInfo.name.trim()) {
-        setError('Name is required');
-        return;
-      }
-
-      if (shareConfig.requireEmail && !participantInfo.email.trim()) {
-        setError('Email is required');
-        return;
-      }
-
-      setIsStarting(true);
-
-      // Create assessment instance
-      const instanceData = {
-        assessment_id: assessment.id,
-        share_token: shareToken,
-        participant_name: participantInfo.name || null,
-        participant_email: participantInfo.email || null,
-        participant_id: anonymousParticipantId || null,
-        is_anonymous: true,
-        time_remaining_seconds: assessment.duration_minutes * 60,
-        session_state: assessment.proctoring_enabled ? 'in_progress' : null,
-        status: 'in_progress' as const
-      };
-
-      const { data: newInstance, error: instanceError } = await supabase
-        .from('assessment_instances')
-        .insert(instanceData)
-        .select()
-        .single();
-
-      if (instanceError) {
-        console.error('Error creating assessment instance:', instanceError);
-        console.error('Instance data being inserted:', instanceData);
-        setError(`Failed to start assessment: ${instanceError.message || instanceError.details || 'Unknown error'}`);
-        return;
-      }
-
-      // Update proctoring session with instance ID if proctoring is enabled
-      if (assessment.proctoring_enabled && proctoringSession) {
-        await supabase
-          .from('proctoring_sessions')
-          .update({ assessment_instance_id: newInstance.id })
-          .eq('id', proctoringSession.id);
-      }
-
-      setInstance(newInstance);
-      setSessionState('in_progress');
-    } catch (error) {
-      console.error('Error starting assessment:', error);
-      setError(`Failed to start assessment: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsStarting(false);
-    }
-  };
-
   const handleSubmission = (submittedInstance: AssessmentInstance) => {
     setInstance(submittedInstance);
     setSessionState('submitted');
   };
 
-  // Show loading state
+  // Loading state
   if (loading || sessionState === 'loading') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -335,7 +285,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  // Show error state - STOP EVERYTHING if there's an error
+  // Error state
   if (error || !assessment || !shareConfig) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -347,21 +297,24 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mb-4">
               {error || 'Assessment could not be loaded. Please check the link and try again.'}
             </p>
+            <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Handle existing submitted instance
-  if (instance?.status === 'submitted') {
+  // Submitted state
+  if (sessionState === 'submitted' && instance) {
     return <PublicAssessmentResults instance={instance} assessment={assessment} />;
   }
 
-  // Show paused state
+  // Paused state
   if (sessionState === 'paused') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -386,8 +339,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  // Show proctoring setup ONLY after assessment is validated AND user clicked start
-  if (sessionState === 'proctoring_setup' && assessment && shareConfig && assessment.proctoring_enabled && anonymousParticipantId) {
+  // Proctoring setup
+  if (sessionState === 'proctoring_setup' && assessment.proctoring_enabled) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl">
@@ -423,8 +376,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  // Show proctoring check ONLY after assessment is validated
-  if (sessionState === 'proctoring_check' && assessment && shareConfig && assessment.proctoring_enabled && anonymousParticipantId) {
+  // Proctoring check
+  if (sessionState === 'proctoring_check' && assessment.proctoring_enabled) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-6xl mx-auto">
@@ -441,7 +394,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
           </Card>
           <AnonymousLiveProctoringSystem
             assessmentId={assessment.id}
-            participantId={anonymousParticipantId}
+            participantId={`anon_${Date.now()}`}
             config={assessment.proctoring_config || {}}
             onSecurityEvent={handleSecurityEvent}
             onStatusChange={handleProctoringStatusChange}
@@ -451,9 +404,9 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  // Show assessment taking interface if in progress
-  if (sessionState === 'in_progress' && instance && assessment) {
-    if (assessment.proctoring_enabled && anonymousParticipantId) {
+  // Assessment taking
+  if (sessionState === 'in_progress' && instance) {
+    if (assessment.proctoring_enabled) {
       return (
         <div className="min-h-screen bg-background">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
@@ -475,7 +428,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                 <CardContent>
                   <AnonymousLiveProctoringSystem
                     assessmentId={assessment.id}
-                    participantId={anonymousParticipantId}
+                    participantId={`anon_${Date.now()}`}
                     config={assessment.proctoring_config || {}}
                     onSecurityEvent={handleSecurityEvent}
                     onStatusChange={handleProctoringStatusChange}
@@ -497,154 +450,104 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   }
 
-  // Main assessment start screen - This should ONLY show when sessionState is 'ready'
-  if (sessionState !== 'ready') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="text-center p-6">
-            <p className="text-muted-foreground">Processing...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Initial assessment info screen
   return (
-    <div className="min-h-screen bg-background py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">{assessment.title}</CardTitle>
-            {assessment.description && (
-              <p className="text-muted-foreground mt-2">{assessment.description}</p>
-            )}
-          </CardHeader>
-          
-          <CardContent className="space-y-6">
-            {/* Assessment Details */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <Clock className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium">Duration</p>
-                  <p className="text-sm text-muted-foreground">{assessment.duration_minutes} minutes</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <FileText className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium">Questions</p>
-                  <p className="text-sm text-muted-foreground">{assessment.question_count} questions</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <Users className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium">Attempts</p>
-                  <p className="text-sm text-muted-foreground">
-                    {shareConfig.accessCount} taken
-                    {shareConfig.maxAttempts && ` / ${shareConfig.maxAttempts} max`}
-                  </p>
-                </div>
-              </div>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle className="text-2xl">{assessment.title}</CardTitle>
+          {assessment.description && (
+            <p className="text-muted-foreground">{assessment.description}</p>
+          )}
+        </CardHeader>
+        
+        <CardContent className="space-y-6">
+          {/* Assessment Details */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">{assessment.duration_minutes} minutes</span>
             </div>
-
-            {/* Proctoring Warning */}
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">{assessment.question_count} questions</span>
+            </div>
             {assessment.proctoring_enabled && (
-              <Alert className="border-yellow-200 bg-yellow-50">
-                <Shield className="h-4 w-4 text-yellow-600" />
-                <AlertDescription className="text-yellow-800">
-                  <strong>Proctored Assessment:</strong> This assessment includes live proctoring. 
-                  You will need to grant camera and microphone permissions and will be monitored throughout the assessment.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Instructions */}
-            {assessment.instructions && (
-              <Alert>
-                <AlertDescription>
-                  <strong>Instructions:</strong> {assessment.instructions}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Expiration Warning */}
-            {shareConfig.expiresAt && (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  This assessment expires on {new Date(shareConfig.expiresAt).toLocaleDateString()} at {new Date(shareConfig.expiresAt).toLocaleTimeString()}.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Participant Information Form */}
-            {(shareConfig.requireName || shareConfig.requireEmail) && (
-              <div className="space-y-4">
-                <h3 className="font-medium">Participant Information</h3>
-                
-                {shareConfig.requireName && (
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name *</Label>
-                    <Input
-                      id="name"
-                      placeholder="Enter your full name"
-                      value={participantInfo.name}
-                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, name: e.target.value }))}
-                      disabled={isStarting}
-                    />
-                  </div>
-                )}
-                
-                {shareConfig.requireEmail && (
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email address"
-                      value={participantInfo.email}
-                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, email: e.target.value }))}
-                      disabled={isStarting}
-                    />
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Proctored</span>
               </div>
             )}
+          </div>
 
-            {/* Start Button */}
-            <div className="text-center">
-              <Button
-                onClick={assessment.proctoring_enabled ? startProctoringSetup : startAssessment}
-                disabled={isStarting}
-                size="lg"
-                className="w-full md:w-auto"
-              >
-                {isStarting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Starting Assessment...
-                  </>
-                ) : (
-                  <>
-                    {assessment.proctoring_enabled ? (
-                      <>
-                        <Shield className="mr-2 h-4 w-4" />
-                        Start Proctored Assessment
-                      </>
-                    ) : (
-                      'Start Assessment'
-                    )}
-                  </>
-                )}
-              </Button>
+          {/* Instructions */}
+          {assessment.instructions && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Instructions:</strong> {assessment.instructions}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Participant Information */}
+          {(shareConfig.requireName || shareConfig.requireEmail) && (
+            <div className="space-y-4">
+              <h3 className="font-medium">Participant Information</h3>
+              
+              {shareConfig.requireName && (
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name *</Label>
+                  <Input
+                    id="name"
+                    value={participantInfo.name}
+                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter your full name"
+                  />
+                </div>
+              )}
+              
+              {shareConfig.requireEmail && (
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={participantInfo.email}
+                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="Enter your email address"
+                  />
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+
+          {/* Error display */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Start Button */}
+          <Button 
+            onClick={startAssessment} 
+            className="w-full" 
+            size="lg"
+            disabled={isStarting}
+          >
+            {isStarting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Starting Assessment...
+              </>
+            ) : (
+              assessment.proctoring_enabled ? 'Start Proctored Assessment' : 'Start Assessment'
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };
