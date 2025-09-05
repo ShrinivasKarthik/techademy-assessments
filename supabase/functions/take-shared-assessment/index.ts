@@ -125,11 +125,12 @@ serve(async (req) => {
 
     console.log('Assessment found:', { id: assessment.id, title: assessment.title })
 
-    // Get the questions for this assessment
+    // Get the questions for this assessment - be explicit about the relationship
     const { data: questions, error: questionsError } = await supabaseClient
       .from('questions')
       .select('*')
       .eq('assessment_id', shareData.assessment_id)
+      .eq('is_active', true)
       .order('order_index')
 
     if (questionsError) {
