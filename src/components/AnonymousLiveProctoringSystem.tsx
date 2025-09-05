@@ -55,76 +55,78 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
 
   // Face detection function
   const detectFace = () => {
-    console.log('Face detection running...', {
-      hasVideo: !!videoRef.current,
-      hasCanvas: !!canvasRef.current,
-      faceDetectionEnabled: config.faceDetection,
-      videoReady: videoRef.current ? videoRef.current.videoWidth > 0 : false
-    });
-    
-    if (!videoRef.current || !canvasRef.current || !config.faceDetection) return;
+    if (!videoRef.current || !canvasRef.current || !config.faceDetection) {
+      console.log('Missing refs or config:', { 
+        video: !!videoRef.current, 
+        canvas: !!canvasRef.current, 
+        config: config.faceDetection 
+      });
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) {
-      console.log('Video not ready yet');
+    if (!ctx) {
+      console.log('No canvas context');
       return;
     }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.log('Video not ready:', { width: video.videoWidth, height: video.videoHeight });
+      return;
+    }
 
-    // Much stricter face detection algorithm
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const brightness = calculateBrightness(imageData);
-    const centerBrightness = calculateCenterBrightness(imageData);
-    const edgeContrast = calculateEdgeContrast(imageData);
-    const imageVariance = calculateImageVariance(imageData);
-    
-    console.log('Face detection values:', { 
-      brightness, 
-      centerBrightness, 
-      edgeContrast,
-      imageVariance,
-      currentFaceDetected: faceDetected 
-    });
-    
-    // Very strict detection - require clear facial features and good image quality
-    const hasFacePattern = 
-      brightness >= 80 && brightness <= 180 && // Much stricter brightness range (your 127 would fail)
-      centerBrightness >= 90 && centerBrightness <= 170 && // Require clear center
-      edgeContrast >= 15 && // Strong edge contrast for clear features
-      imageVariance >= 500 && // Require good image variation (not blurry/covered)
-      centerBrightness > brightness * 0.85 && // Center should be well-lit
-      Math.abs(centerBrightness - brightness) <= 50; // Center shouldn't be too different from overall
-    
-    console.log('Face pattern check result:', hasFacePattern, {
-      brightnessOK: brightness >= 80 && brightness <= 180,
-      centerOK: centerBrightness >= 90 && centerBrightness <= 170,
-      edgeOK: edgeContrast >= 15,
-      varianceOK: imageVariance >= 500,
-      ratioOK: centerBrightness > brightness * 0.85,
-      diffOK: Math.abs(centerBrightness - brightness) <= 50
-    });
-    
-    if (hasFacePattern !== faceDetected) {
-      setFaceDetected(hasFacePattern);
+    try {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Get image data and process it
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const brightness = calculateBrightness(imageData);
+      const centerBrightness = calculateCenterBrightness(imageData);
       
-      if (!hasFacePattern && status === 'active') {
-        console.log('Creating face not detected violation');
-        const event: SecurityEvent = {
-          id: Date.now().toString(),
-          type: 'face_not_detected',
-          timestamp: new Date(),
-          severity: 'high',
-          description: 'Face not detected in camera view'
-        };
-        setViolations(prev => [event, ...prev].slice(0, 5));
-        onSecurityEvent(event);
+      console.log('Image processing successful:', { 
+        canvasSize: `${canvas.width}x${canvas.height}`,
+        dataLength: imageData.data.length,
+        brightness, 
+        centerBrightness,
+        currentFaceDetected: faceDetected 
+      });
+      
+      // REASONABLE face detection thresholds
+      const hasFacePattern = 
+        brightness >= 40 && brightness <= 220 && // Reasonable range
+        centerBrightness >= 30 && centerBrightness <= 200 && // Center content
+        centerBrightness > brightness * 0.6; // Center has some relative brightness
+      
+      console.log('Face detection result:', hasFacePattern, {
+        brightnessCheck: `${brightness} in [40-220]: ${brightness >= 40 && brightness <= 220}`,
+        centerCheck: `${centerBrightness} in [30-200]: ${centerBrightness >= 30 && centerBrightness <= 200}`,
+        ratioCheck: `${centerBrightness} > ${brightness * 0.6}: ${centerBrightness > brightness * 0.6}`
+      });
+      
+      if (hasFacePattern !== faceDetected) {
+        console.log('Updating face detection state from', faceDetected, 'to', hasFacePattern);
+        setFaceDetected(hasFacePattern);
+        
+        if (!hasFacePattern && status === 'active') {
+          console.log('Creating face not detected violation');
+          const event: SecurityEvent = {
+            id: Date.now().toString(),
+            type: 'face_not_detected',
+            timestamp: new Date(),
+            severity: 'high',
+            description: 'Face not detected in camera view'
+          };
+          setViolations(prev => [event, ...prev].slice(0, 5));
+          onSecurityEvent(event);
+        }
       }
+    } catch (error) {
+      console.error('Face detection error:', error);
     }
   };
 
@@ -512,7 +514,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
                 </Badge>
                 {config.faceDetection && (
                   <Badge variant={faceDetected ? "default" : "destructive"} className="text-xs">
-                    {faceDetected ? "FACE OK" : "NO FACE"} (B:{Math.round(calculateBrightness(canvasRef.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height) || new ImageData(1,1)))})
+                    {faceDetected ? "FACE OK" : "NO FACE"} (B:{Math.round(calculateBrightness(canvasRef.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current?.width || 1, canvasRef.current?.height || 1) || new ImageData(1,1)) || 0)})
                   </Badge>
                 )}
               </div>
