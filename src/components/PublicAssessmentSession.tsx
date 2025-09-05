@@ -163,7 +163,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
     
     if (assessment.proctoring_enabled) {
-      const tempId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const tempId = crypto.randomUUID(); // Generate proper UUID for anonymous participant
       setAnonymousParticipantId(tempId);
       setSessionState('proctoring_setup');
     } else {
