@@ -30,6 +30,7 @@ serve(async (req) => {
     if (req.method === 'POST') {
       const body = await req.json()
       shareToken = body.token || urlToken
+      console.log('POST body received:', { token: shareToken, originalBody: body })
     } else {
       shareToken = urlToken || ''
     }
@@ -42,7 +43,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Retrieving shared assessment with token:', shareToken)
+    console.log('Processing share token:', shareToken)
 
     // First, get the share record
     const { data: shareData, error: shareError } = await supabaseClient
@@ -52,22 +53,32 @@ serve(async (req) => {
       .eq('is_active', true)
       .single()
 
-    if (shareError || !shareData) {
-      console.error('Share not found or inactive:', shareError)
+    if (shareError) {
+      console.error('Share query error:', shareError)
+    }
+
+    if (!shareData) {
+      console.log('No share data found for token:', shareToken)
       return new Response(
-        JSON.stringify({ error: 'Invalid or expired share link' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        JSON.stringify({ 
+          success: false,
+          error: 'Invalid or expired share link' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
-    console.log('Share record found:', shareData.id)
+    console.log('Share record found:', { id: shareData.id, assessment_id: shareData.assessment_id })
 
     // Check if share has expired
     if (shareData.expires_at && new Date(shareData.expires_at) < new Date()) {
       console.log('Share has expired:', shareData.expires_at)
       return new Response(
-        JSON.stringify({ error: 'This share link has expired' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 410 }
+        JSON.stringify({ 
+          success: false,
+          error: 'This share link has expired' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
@@ -75,8 +86,11 @@ serve(async (req) => {
     if (shareData.max_attempts && shareData.access_count >= shareData.max_attempts) {
       console.log('Max attempts reached:', shareData.access_count, '>=', shareData.max_attempts)
       return new Response(
-        JSON.stringify({ error: 'Maximum number of attempts reached for this assessment' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+        JSON.stringify({ 
+          success: false,
+          error: 'Maximum number of attempts reached for this assessment' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
@@ -87,15 +101,29 @@ serve(async (req) => {
       .eq('id', shareData.assessment_id)
       .single()
 
-    if (assessmentError || !assessment) {
-      console.error('Assessment not found:', assessmentError)
+    if (assessmentError) {
+      console.error('Assessment query error:', assessmentError)
       return new Response(
-        JSON.stringify({ error: 'Assessment not found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        JSON.stringify({ 
+          success: false,
+          error: 'Assessment not found' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
-    console.log('Assessment found:', assessment.id, assessment.title)
+    if (!assessment) {
+      console.log('No assessment found for ID:', shareData.assessment_id)
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Assessment not found' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
+    }
+
+    console.log('Assessment found:', { id: assessment.id, title: assessment.title })
 
     // Get the questions for this assessment
     const { data: questions, error: questionsError } = await supabaseClient
@@ -107,8 +135,11 @@ serve(async (req) => {
     if (questionsError) {
       console.error('Error fetching questions:', questionsError)
       return new Response(
-        JSON.stringify({ error: 'Failed to load assessment questions' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to load assessment questions' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
@@ -140,7 +171,17 @@ serve(async (req) => {
       }
     }
 
-    console.log('Share retrieved successfully for assessment:', assessment.id)
+    console.log('Response prepared successfully:', {
+      success: true,
+      assessmentId: assessment.id,
+      assessmentTitle: assessment.title,
+      questionCount: questions?.length || 0,
+      shareConfigSummary: {
+        requireName: shareData.require_name,
+        requireEmail: shareData.require_email,
+        allowAnonymous: shareData.allow_anonymous
+      }
+    })
 
     return new Response(
       JSON.stringify(responseData),
@@ -151,12 +192,15 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error retrieving shared assessment:', error)
+    console.error('Unexpected error retrieving shared assessment:', error)
     return new Response(
-      JSON.stringify({ error: 'Failed to retrieve shared assessment: ' + error.message }),
+      JSON.stringify({ 
+        success: false,
+        error: 'Failed to retrieve shared assessment: ' + error.message 
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
+        status: 200
       }
     )
   }
