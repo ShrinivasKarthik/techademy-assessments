@@ -12,6 +12,7 @@ import {
   Maximize,
   Wifi
 } from 'lucide-react';
+import * as faceapi from '@vladmandic/face-api';
 
 interface SecurityEvent {
   id: string;
@@ -42,6 +43,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const faceDetectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const modelsLoadedRef = useRef<boolean>(false);
   
   const [status, setStatus] = useState<'initializing' | 'active' | 'paused' | 'stopped'>(isInAssessment ? 'active' : 'initializing');
   const [permissions, setPermissions] = useState({
@@ -51,68 +53,76 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [setupComplete, setSetupComplete] = useState(isInAssessment);
   const [violations, setViolations] = useState<SecurityEvent[]>([]);
-  const [faceDetected, setFaceDetected] = useState(false); // Start with false to be more accurate
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [modelsLoading, setModelsLoading] = useState(true);
 
-  // Face detection function
-  const detectFace = () => {
-    if (!videoRef.current || !canvasRef.current || !config.faceDetection) {
-      console.log('Missing refs or config:', { 
+  // Load face-api models
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        console.log('Loading face detection models...');
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@latest/model';
+        
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        
+        modelsLoadedRef.current = true;
+        setModelsLoading(false);
+        console.log('Face detection models loaded successfully');
+      } catch (error) {
+        console.error('Error loading face detection models:', error);
+        setModelsLoading(false);
+      }
+    };
+    
+    loadModels();
+  }, []);
+
+  // REAL face detection using face-api.js
+  const detectFace = async () => {
+    if (!videoRef.current || !modelsLoadedRef.current || !config.faceDetection) {
+      console.log('Face detection not ready:', { 
         video: !!videoRef.current, 
-        canvas: !!canvasRef.current, 
+        modelsLoaded: modelsLoadedRef.current, 
         config: config.faceDetection 
       });
       return;
     }
 
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
     
-    if (!ctx) {
-      console.log('No canvas context');
-      return;
-    }
-
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       console.log('Video not ready:', { width: video.videoWidth, height: video.videoHeight });
       return;
     }
 
     try {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Use face-api.js for REAL face detection
+      const detections = await faceapi
+        .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ 
+          inputSize: 224, 
+          scoreThreshold: 0.5 
+        }))
+        .withFaceLandmarks()
+        .withFaceDescriptors();
 
-      // Get image data and process it
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const brightness = calculateBrightness(imageData);
-      const centerBrightness = calculateCenterBrightness(imageData);
+      const hasFace = detections && detections.length > 0;
       
-      console.log('Image processing successful:', { 
-        canvasSize: `${canvas.width}x${canvas.height}`,
-        dataLength: imageData.data.length,
-        brightness, 
-        centerBrightness,
-        currentFaceDetected: faceDetected 
+      console.log('REAL Face detection result:', {
+        detectionsCount: detections?.length || 0,
+        hasFace,
+        currentState: faceDetected,
+        detectionScores: detections?.map(d => d.detection.score) || []
       });
       
-      // REASONABLE face detection thresholds
-      const hasFacePattern = 
-        brightness >= 40 && brightness <= 220 && // Reasonable range
-        centerBrightness >= 30 && centerBrightness <= 200 && // Center content
-        centerBrightness > brightness * 0.6; // Center has some relative brightness
-      
-      console.log('Face detection result:', hasFacePattern, {
-        brightnessCheck: `${brightness} in [40-220]: ${brightness >= 40 && brightness <= 220}`,
-        centerCheck: `${centerBrightness} in [30-200]: ${centerBrightness >= 30 && centerBrightness <= 200}`,
-        ratioCheck: `${centerBrightness} > ${brightness * 0.6}: ${centerBrightness > brightness * 0.6}`
-      });
-      
-      if (hasFacePattern !== faceDetected) {
-        console.log('Updating face detection state from', faceDetected, 'to', hasFacePattern);
-        setFaceDetected(hasFacePattern);
+      if (hasFace !== faceDetected) {
+        console.log('Updating face detection state from', faceDetected, 'to', hasFace);
+        setFaceDetected(hasFace);
         
-        if (!hasFacePattern && status === 'active') {
+        if (!hasFace && status === 'active') {
           console.log('Creating face not detected violation');
           const event: SecurityEvent = {
             id: Date.now().toString(),
@@ -345,12 +355,17 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
           // Ensure video starts playing
           await videoRef.current.play().catch(console.error);
           
-          // Start face detection if required
-          if (config.faceDetection) {
-            console.log('Starting face detection interval');
-            faceDetectionIntervalRef.current = setInterval(detectFace, 2000); // Check every 2 seconds
+          // Start REAL face detection if required
+          if (config.faceDetection && modelsLoadedRef.current) {
+            console.log('Starting REAL face detection interval');
+            faceDetectionIntervalRef.current = setInterval(() => {
+              detectFace(); // Now calls async function
+            }, 3000); // Check every 3 seconds for better performance
           } else {
-            console.log('Face detection not enabled in config:', config);
+            console.log('Face detection not started:', { 
+              enabled: config.faceDetection, 
+              modelsLoaded: modelsLoadedRef.current 
+            });
           }
         }
         
@@ -514,7 +529,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
                 </Badge>
                 {config.faceDetection && (
                   <Badge variant={faceDetected ? "default" : "destructive"} className="text-xs">
-                    {faceDetected ? "FACE OK" : "NO FACE"} (B:{Math.round(calculateBrightness(canvasRef.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current?.width || 1, canvasRef.current?.height || 1) || new ImageData(1,1)) || 0)})
+                    {modelsLoading ? "LOADING..." : (faceDetected ? "FACE DETECTED" : "NO FACE")}
                   </Badge>
                 )}
               </div>
