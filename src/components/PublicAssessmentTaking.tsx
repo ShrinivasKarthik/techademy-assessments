@@ -20,7 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 // Import question components
 import MCQQuestion from './questions/MCQQuestion';
 import SubjectiveQuestion from './questions/SubjectiveQuestion';
-import CodingQuestion from './questions/CodingQuestion';
+import EnhancedCodingQuestion from './questions/EnhancedCodingQuestion';
 import FileUploadQuestion from './questions/FileUploadQuestion';
 import AudioQuestion from './questions/AudioQuestion';
 
@@ -351,7 +351,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       case 'subjective':
         return <SubjectiveQuestion {...questionProps} />;
       case 'coding':
-        return <CodingQuestion {...questionProps} />;
+        return <EnhancedCodingQuestion {...questionProps} />;
       case 'file_upload':
         return <FileUploadQuestion {...questionProps} />;
       case 'audio':

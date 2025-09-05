@@ -468,6 +468,13 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Question Text */}
+      {question.question_text && (
+        <div className="p-4 bg-muted/30 rounded-lg">
+          <p className="text-sm leading-relaxed">{question.question_text}</p>
+        </div>
+      )}
+      
       {/* Header Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

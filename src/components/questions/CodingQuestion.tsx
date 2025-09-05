@@ -109,6 +109,13 @@ const CodingQuestion: React.FC<CodingQuestionProps> = ({
           <TTSButton text={question.question_text + '. ' + (question.title || '')} showLabel />
         </div>
         
+        {/* Question Text */}
+        {question.question_text && (
+          <div className="p-4 bg-muted/30 rounded-lg">
+            <p className="text-sm leading-relaxed">{question.question_text}</p>
+          </div>
+        )}
+        
         {/* Language Selection */}
       <div className="flex items-center gap-4">
         <label className="text-sm font-medium">Language:</label>
