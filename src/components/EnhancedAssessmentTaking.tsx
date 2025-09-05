@@ -83,8 +83,8 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   
   // Use ref to track pending saves to prevent race conditions
   const pendingSavesRef = useRef(new Set<string>());
-  // Mock participant ID for now
-  const mockParticipantId = '00000000-0000-0000-0000-000000000002';
+  // Mock participant ID for now - should match AssessmentSession default
+  const mockParticipantId = 'sample-participant';
 
   useEffect(() => {
     initializeAssessment();
@@ -165,7 +165,7 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
           description,
           instructions,
           duration_minutes,
-          questions(
+          questions!questions_assessment_id_fkey(
             id,
             title,
             question_text,

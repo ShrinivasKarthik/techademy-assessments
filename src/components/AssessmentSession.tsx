@@ -97,7 +97,10 @@ const AssessmentSession: React.FC<AssessmentSessionProps> = ({
         .select(`
           id, title, description, instructions, duration_minutes, 
           proctoring_enabled, proctoring_config,
-          questions (*)
+          questions!questions_assessment_id_fkey (
+            id, title, question_text, question_type, difficulty, 
+            points, order_index, config
+          )
         `)
         .eq('id', assessmentId)
         .single();
