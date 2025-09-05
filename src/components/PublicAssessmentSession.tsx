@@ -210,7 +210,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         .from('proctoring_sessions')
         .insert({
           assessment_instance_id: newInstance.id,
-          participant_id: anonymousParticipantId,
+          participant_id: null, // Anonymous users don't have participant records
           status: 'initializing',
           permissions: {},
           security_events: [],
