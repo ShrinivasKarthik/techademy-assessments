@@ -67,22 +67,17 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Balanced face detection algorithm
+    // More lenient face detection for real-world scenarios
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const brightness = calculateBrightness(imageData);
     const centerBrightness = calculateCenterBrightness(imageData);
-    const edgeContrast = calculateEdgeContrast(imageData);
     
-    // Balanced criteria for face detection
-    // 1. Not too dark (black screen) or too bright (white screen)  
-    // 2. Center area has reasonable brightness (face area)
-    // 3. Some edge contrast (facial features)
-    // 4. Overall brightness indicates content is present
+    // Simplified and more reliable detection
+    // Just check if there's reasonable content and not a black/white screen
     const hasFacePattern = 
-      brightness > 50 && brightness < 200 && // Avoid very dark or very bright
-      centerBrightness > 40 && // Center has decent content
-      edgeContrast > 10 && // Some facial features detected
-      centerBrightness > brightness * 0.7; // Center is reasonably bright relative to whole image
+      brightness > 25 && brightness < 250 && // Very broad range - avoid pure black/white
+      centerBrightness > 20 && // Some content in center area
+      centerBrightness < 240; // Not overexposed center
     
     if (hasFacePattern !== faceDetected) {
       setFaceDetected(hasFacePattern);
