@@ -194,8 +194,12 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         .single();
 
       if (proctoringError) {
-        console.error('Error creating proctoring session:', proctoringError);
-        setError('Failed to initialize proctoring');
+        console.error('=== PROCTORING SESSION ERROR ===');
+        console.error('Error details:', proctoringError);
+        console.error('Error code:', proctoringError.code);
+        console.error('Error message:', proctoringError.message);
+        console.error('Anonymous participant ID:', anonymousParticipantId);
+        setError(`Failed to initialize proctoring: ${proctoringError.message}`);
         return;
       }
 
