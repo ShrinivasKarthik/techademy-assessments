@@ -14,6 +14,7 @@ import EditAssessmentPage from "./pages/EditAssessmentPage";
 import AssessmentListPage from "./pages/AssessmentListPage";
 import TakeAssessmentPage from "./pages/TakeAssessmentPage";
 import AssessmentPreviewPage from "./pages/AssessmentPreviewPage";
+import PublicAssessmentPage from "./pages/PublicAssessmentPage";
 import AssessmentAnalyticsPage from "./pages/AssessmentAnalyticsPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import MonitoringPage from "./pages/MonitoringPage";
@@ -129,6 +130,8 @@ const App = () => (
                 <AIInsightsPage />
               </ProtectedRoute>
             } />
+            {/* Public assessment route - no authentication required */}
+            <Route path="/public/assessment/:token" element={<PublicAssessmentPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
