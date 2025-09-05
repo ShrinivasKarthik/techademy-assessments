@@ -71,7 +71,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     email: ''
   });
   const [isStarting, setIsStarting] = useState(false);
-  const [sessionState, setSessionState] = useState<'ready' | 'proctoring_setup' | 'proctoring_check' | 'in_progress' | 'submitted' | 'paused'>('ready');
+  const [sessionState, setSessionState] = useState<'loading' | 'ready' | 'proctoring_setup' | 'proctoring_check' | 'in_progress' | 'submitted' | 'paused'>('loading');
 
   useEffect(() => {
     fetchSharedAssessment();
@@ -99,9 +99,13 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
       
-      // Only check existing instance AFTER assessment is confirmed valid
+      // Only proceed if we have valid assessment data
       if (data.assessment && data.shareConfig) {
         await checkExistingInstance(data.assessment);
+        // Finally set to ready state after everything is loaded
+        setSessionState('ready');
+      } else {
+        setError('Invalid assessment data received');
       }
 
     } catch (err: any) {
@@ -133,11 +137,13 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         setAnonymousParticipantId(existingInstance.participant_id || `anon_${Date.now()}`);
         
         if (existingInstance.status === 'submitted') {
-          setSessionState('submitted');
-        } else if (validatedAssessment.proctoring_enabled) {
-          setSessionState((existingInstance.session_state || 'ready') as any);
+          // Don't change session state here - let the main function handle it
+          setAnonymousParticipantId(existingInstance.participant_id || `anon_${Date.now()}`);
+        } else if (validatedAssessment.proctoring_enabled && existingInstance.session_state) {
+          // Resume existing proctoring state
+          setAnonymousParticipantId(existingInstance.participant_id || `anon_${Date.now()}`);
         } else {
-          setSessionState('in_progress');
+          // Will be handled by main function setting to 'ready'
         }
       }
     } catch (err) {
@@ -282,7 +288,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     setSessionState('submitted');
   };
 
-  if (loading) {
+  // Show loading state
+  if (loading || sessionState === 'loading') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -293,7 +300,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  if (error) {
+  // Show error state - STOP EVERYTHING if there's an error
+  if (error || !assessment || !shareConfig) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
@@ -304,23 +312,17 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">{error}</p>
+            <p className="text-muted-foreground">
+              {error || 'Assessment could not be loaded. Please check the link and try again.'}
+            </p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (!assessment || !shareConfig) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Assessment not found</p>
-      </div>
-    );
-  }
-
-  // Show results if submitted
-  if (sessionState === 'submitted' && instance) {
+  // Handle existing submitted instance
+  if (instance?.status === 'submitted') {
     return <PublicAssessmentResults instance={instance} assessment={assessment} />;
   }
 
@@ -349,8 +351,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  // Show proctoring setup ONLY after assessment is validated
-  if (sessionState === 'proctoring_setup' && assessment && shareConfig && assessment.proctoring_enabled) {
+  // Show proctoring setup ONLY after assessment is validated AND user clicked start
+  if (sessionState === 'proctoring_setup' && assessment && shareConfig && assessment.proctoring_enabled && anonymousParticipantId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl">
@@ -460,20 +462,18 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   }
 
-  // Main assessment start screen - ONLY show when assessment is properly loaded
-  if (!assessment || !shareConfig) {
+  // Main assessment start screen - This should ONLY show when sessionState is 'ready'
+  if (sessionState !== 'ready') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="text-center p-6">
-            <p className="text-muted-foreground">Loading assessment details...</p>
+            <p className="text-muted-foreground">Processing...</p>
           </CardContent>
         </Card>
       </div>
     );
   }
-
-  // Show assessment info and start form
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
