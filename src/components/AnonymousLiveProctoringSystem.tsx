@@ -53,6 +53,15 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   const [violations, setViolations] = useState<SecurityEvent[]>([]);
   const [faceDetected, setFaceDetected] = useState(true);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Proctoring Status:', status, 'IsInAssessment:', isInAssessment);
+  }, [status, isInAssessment]);
+
+  useEffect(() => {
+    console.log('Fullscreen state:', isFullscreen, 'Config requires fullscreen:', config.fullscreenRequired);
+  }, [isFullscreen, config.fullscreenRequired]);
+
   // Face detection function
   const detectFace = () => {
     if (!videoRef.current || !canvasRef.current || !config.faceDetection) return;
@@ -160,6 +169,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   };
 
   useEffect(() => {
+    console.log('Setting up proctoring, isInAssessment:', isInAssessment);
     checkFullscreen();
     setupEventListeners();
     
@@ -168,10 +178,17 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       requestPermissions();
     }
     
+    // Ensure status is properly set for assessment mode
+    if (isInAssessment && status !== 'active') {
+      console.log('Forcing status to active for assessment mode');
+      setStatus('active');
+      onStatusChange('active');
+    }
+    
     return () => {
       cleanup();
     };
-  }, [isInAssessment]);
+  }, [isInAssessment, config.cameraRequired]);
 
   const checkFullscreen = () => {
     const isFullscreenActive = !!(
@@ -180,10 +197,19 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       (document as any).mozFullScreenElement ||
       (document as any).msFullscreenElement
     );
+    
+    console.log('Fullscreen check:', { 
+      isFullscreenActive, 
+      currentStatus: status, 
+      fullscreenRequired: config.fullscreenRequired,
+      wasFullscreen: isFullscreen 
+    });
+    
     setIsFullscreen(isFullscreenActive);
     
     // If fullscreen is exited while proctoring is active, create a violation
-    if (!isFullscreenActive && status === 'active' && config.fullscreenRequired) {
+    if (!isFullscreenActive && status === 'active' && config.fullscreenRequired && isFullscreen) {
+      console.log('Creating fullscreen violation');
       const event: SecurityEvent = {
         id: Date.now().toString(),
         type: 'fullscreen_exit',
@@ -211,7 +237,9 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   };
 
   const handleVisibilityChange = () => {
+    console.log('Visibility change:', { hidden: document.hidden, status });
     if (document.hidden && status === 'active') {
+      console.log('Creating tab switch violation');
       const event: SecurityEvent = {
         id: Date.now().toString(),
         type: 'tab_switch',
