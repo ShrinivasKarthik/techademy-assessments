@@ -54,6 +54,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   const [setupComplete, setSetupComplete] = useState(isInAssessment);
   const [violations, setViolations] = useState<SecurityEvent[]>([]);
   const [faceDetected, setFaceDetected] = useState(false);
+  const faceDetectedRef = useRef(false); // Add ref to track actual state
   const [detectionTimestamp, setDetectionTimestamp] = useState(Date.now());
   const [renderKey, setRenderKey] = useState(0);
   const [modelsLoading, setModelsLoading] = useState(true);
@@ -61,6 +62,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   // Debug effect to track faceDetected state changes
   useEffect(() => {
     console.log('🎯 RENDER: faceDetected state changed to:', faceDetected);
+    console.log('🎯 RENDER: faceDetectedRef current value:', faceDetectedRef.current);
   }, [faceDetected]);
 
   // Load face-api models
@@ -146,16 +148,17 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       
       console.log('✅ Face detection completed:', {
         previousState: faceDetected,
+        previousRef: faceDetectedRef.current,
         newState: hasFace,
-        stateChanged: hasFace !== faceDetected
+        stateChanged: hasFace !== faceDetectedRef.current
       });
       
-      if (hasFace !== faceDetected) {
-        console.log('🔄 UPDATING face detection state from', faceDetected, 'to', hasFace);
-        setFaceDetected(() => {
-          console.log('🔄 State setter called with:', hasFace);
-          return hasFace;
-        });
+      if (hasFace !== faceDetectedRef.current) {
+        console.log('🔄 UPDATING face detection state from', faceDetectedRef.current, 'to', hasFace);
+        
+        // Update both ref and state
+        faceDetectedRef.current = hasFace;
+        setFaceDetected(hasFace);
         setDetectionTimestamp(Date.now());
         setRenderKey(prev => prev + 1); // Force re-render
         
@@ -172,7 +175,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
           onSecurityEvent(event);
         }
       } else {
-        console.log('➡️ No state change needed - current:', faceDetected, 'detected:', hasFace);
+        console.log('➡️ No state change needed - current:', faceDetectedRef.current, 'detected:', hasFace);
         // Still update timestamp to show detection is working
         setDetectionTimestamp(Date.now());
         setRenderKey(prev => prev + 1); // Force re-render even without state change
@@ -576,10 +579,10 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
                 {config.faceDetection && (
                   <Badge 
                     key={renderKey} 
-                    variant={faceDetected ? "default" : "destructive"} 
+                    variant={faceDetectedRef.current ? "default" : "destructive"} 
                     className="text-xs"
                   >
-                    {modelsLoading ? "LOADING..." : (faceDetected ? "FACE DETECTED" : "NO FACE")} 
+                    {modelsLoading ? "LOADING..." : (faceDetectedRef.current ? "FACE DETECTED" : "NO FACE")} 
                     <span className="ml-1 text-xs opacity-70">
                       {modelsLoading ? "" : Math.floor((Date.now() - detectionTimestamp) / 1000)}s
                     </span>
