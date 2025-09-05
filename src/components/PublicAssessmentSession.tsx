@@ -133,7 +133,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         if (existingInstance.status === 'submitted') {
           setSessionState('submitted');
         } else if (assessment?.proctoring_enabled) {
-          setSessionState(existingInstance.session_state || 'proctoring_setup');
+          setSessionState((existingInstance.session_state || 'proctoring_setup') as any);
         } else {
           setSessionState('in_progress');
         }
@@ -308,7 +308,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
   // Show results if submitted
   if (sessionState === 'submitted' && instance) {
-    return <PublicAssessmentResults instanceId={instance.id} />;
+    return <PublicAssessmentResults instance={instance} assessment={assessment} />;
   }
 
   // Show paused state
@@ -409,9 +409,9 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
             <div className="lg:col-span-2">
               <PublicAssessmentTaking
-                assessment={assessment}
+                assessmentId={assessment.id}
                 instance={instance}
-                onSubmit={handleSubmission}
+                onSubmission={handleSubmission}
               />
             </div>
             <div className="lg:col-span-1">
@@ -439,9 +439,9 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     } else {
       return (
         <PublicAssessmentTaking
-          assessment={assessment}
+          assessmentId={assessment.id}
           instance={instance}
-          onSubmit={handleSubmission}
+          onSubmission={handleSubmission}
         />
       );
     }
