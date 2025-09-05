@@ -17,11 +17,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles,
   fallback 
 }) => {
-  // TESTING MODE: Authentication disabled
-  // Remove this block to re-enable authentication
-  return <>{children}</>;
-
-  /* ORIGINAL AUTHENTICATION CODE - COMMENTED OUT FOR TESTING
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -80,7 +75,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   return <>{children}</>;
-  */
 };
 
 export default ProtectedRoute;
