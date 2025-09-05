@@ -74,9 +74,13 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     try {
       setLoading(true);
       
+      console.log('Fetching shared assessment with token:', shareToken);
+      
       const { data, error } = await supabase.functions.invoke('take-shared-assessment', {
         body: { token: shareToken },
       });
+
+      console.log('Edge function response:', { data, error });
 
       if (error) {
         console.error('Error fetching shared assessment:', error);
@@ -84,10 +88,20 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         return;
       }
 
+      if (!data) {
+        console.error('No data received from edge function');
+        setError('No response from server');
+        return;
+      }
+
       if (!data.success) {
+        console.error('Edge function returned success=false:', data);
         setError(data.error || 'Assessment not available');
         return;
       }
+
+      console.log('Setting assessment data:', data.assessment);
+      console.log('Setting share config:', data.shareConfig);
 
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
