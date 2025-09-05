@@ -67,18 +67,26 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Basic face detection using image analysis
+    // More accurate face detection using multiple heuristics
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const brightness = calculateBrightness(imageData);
-    const hasMotion = detectMotion(imageData);
+    const centerBrightness = calculateCenterBrightness(imageData);
+    const edgeContrast = calculateEdgeContrast(imageData);
     
-    // Simple heuristic: if there's sufficient brightness and motion, assume face is present
-    const currentFaceDetected = brightness > 50 && hasMotion;
+    // More sophisticated heuristics for face detection
+    // A face typically has:
+    // 1. Moderate overall brightness (not too dark or too bright)
+    // 2. Higher brightness in center (face area) compared to edges
+    // 3. Good edge contrast (facial features)
+    const hasFacePattern = 
+      brightness > 60 && brightness < 200 && // Overall brightness range
+      centerBrightness > brightness * 1.1 && // Center brighter than average
+      edgeContrast > 30; // Sufficient edge contrast for facial features
     
-    if (currentFaceDetected !== faceDetected) {
-      setFaceDetected(currentFaceDetected);
+    if (hasFacePattern !== faceDetected) {
+      setFaceDetected(hasFacePattern);
       
-      if (!currentFaceDetected && status === 'active') {
+      if (!hasFacePattern && status === 'active') {
         const event: SecurityEvent = {
           id: Date.now().toString(),
           type: 'face_not_detected',
@@ -106,20 +114,54 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     return total / (data.length / 4);
   };
 
-  const detectMotion = (imageData: ImageData): boolean => {
-    // Simple motion detection - in a real implementation you'd compare frames
-    const { data } = imageData;
-    let variation = 0;
+  const calculateCenterBrightness = (imageData: ImageData): number => {
+    const { data, width, height } = imageData;
+    let total = 0;
+    let count = 0;
     
-    for (let i = 0; i < data.length; i += 40) { // Sample every 10th pixel
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const avg = (r + g + b) / 3;
-      variation += Math.abs(avg - 128); // Compare to neutral gray
+    // Calculate brightness in center quarter of image
+    const startX = Math.floor(width * 0.375);
+    const endX = Math.floor(width * 0.625);
+    const startY = Math.floor(height * 0.375);
+    const endY = Math.floor(height * 0.625);
+    
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        const i = (y * width + x) * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        total += (r + g + b) / 3;
+        count++;
+      }
     }
     
-    return variation > 1000; // Threshold for motion detection
+    return count > 0 ? total / count : 0;
+  };
+
+  const calculateEdgeContrast = (imageData: ImageData): number => {
+    const { data, width, height } = imageData;
+    let contrast = 0;
+    let count = 0;
+    
+    // Sample edge detection on a subset of pixels
+    for (let y = 1; y < height - 1; y += 4) {
+      for (let x = 1; x < width - 1; x += 4) {
+        const i = (y * width + x) * 4;
+        const current = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        
+        // Check adjacent pixels
+        const right = ((data[i + 4] + data[i + 5] + data[i + 6]) / 3);
+        const bottom = ((data[(y + 1) * width * 4 + x * 4] + 
+                        data[(y + 1) * width * 4 + x * 4 + 1] + 
+                        data[(y + 1) * width * 4 + x * 4 + 2]) / 3);
+        
+        contrast += Math.abs(current - right) + Math.abs(current - bottom);
+        count += 2;
+      }
+    }
+    
+    return count > 0 ? contrast / count : 0;
   };
 
   useEffect(() => {

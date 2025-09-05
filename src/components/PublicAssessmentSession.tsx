@@ -437,6 +437,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
             config={assessment.proctoring_config || {}}
             onSecurityEvent={handleSecurityEvent}
             onStatusChange={handleProctoringStatusChange}
+            isInAssessment={false}
           />
         </div>
       </div>
