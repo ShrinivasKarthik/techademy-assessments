@@ -133,17 +133,25 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
     - For coding questions: Include test cases and starter code
     - For subjective questions: Include rubric and word limits` : ''}
     
+    CRITICAL JSON FORMAT REQUIREMENTS:
+    - ALL object keys must be strings (wrapped in quotes)
+    - For test cases, use string keys like {"1": "a", "2": "b"} NOT {1: "a", 2: "b"}
+    - All JSON must be valid and parseable
+    
     Return a JSON array of questions with this exact structure:
     [
       {
         "title": "Question title",
-        "description": "Detailed description",
+        "description": "Detailed description", 
         "question_type": "${questionType || 'coding|mcq|subjective|file_upload|audio'}",
         "difficulty": "${difficulty}",
         "points": ${difficulty === 'beginner' ? 5 : difficulty === 'intermediate' ? 10 : 15},
         "skills": [${skills.map(s => `"${s}"`).join(', ')}],
         "tags": ["tag1", "tag2"],
         "config": {
+          ${questionType === 'coding' || !questionType ? `
+          // For coding: "function_name": "func_name", "test_cases": [{"input": [args], "output": result}]
+          // CRITICAL: In test cases, use string keys only: {"1": "a"} not {1: "a"}` : ''}
           ${questionType === 'mcq' || !questionType ? `
           // For MCQ: "options": [{"id": "1", "text": "answer", "isCorrect": true/false}], "allowMultiple": false` : ''}
           // Type-specific configuration based on question_type
@@ -179,9 +187,20 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
 
   try {
     const content = data.choices[0].message.content;
+    console.log('Raw AI response:', content);
+    
     const cleanedContent = extractJsonFromMarkdown(content);
-    let generatedQuestions = JSON.parse(cleanedContent);
+    console.log('Cleaned content for parsing:', cleanedContent);
+    
+    // Sanitize JSON to fix numeric keys
+    const sanitizedContent = sanitizeJsonKeys(cleanedContent);
+    console.log('Sanitized content:', sanitizedContent);
+    
+    let generatedQuestions = JSON.parse(sanitizedContent);
     generatedQuestions = Array.isArray(generatedQuestions) ? generatedQuestions : [generatedQuestions];
+    
+    // Validate generated questions
+    validateGeneratedQuestions(generatedQuestions);
 
     // Save the generated questions to the database
     const savedQuestions = [];
@@ -267,8 +286,9 @@ async function generateBulkQuestions(skills: string[], difficulty: string, count
     console.log(`Successfully saved ${savedQuestions.length} out of ${generatedQuestions.length} questions`);
     return savedQuestions;
   } catch (parseError) {
-    console.error('Failed to parse generated questions:', data.choices[0].message.content);
-    throw new Error('Failed to generate valid questions format');
+    console.error('Failed to parse generated questions. Parse error:', parseError);
+    console.error('Raw AI response that failed to parse:', data.choices[0].message.content);
+    throw new Error(`Failed to generate valid questions format: ${parseError.message}`);
   }
 }
 
@@ -368,8 +388,19 @@ async function generateSkillTargetedQuestion(skills: string[], difficulty: strin
 
   try {
     const content = data.choices[0].message.content;
+    console.log('Raw AI response for skill-targeted:', content);
+    
     const cleanedContent = extractJsonFromMarkdown(content);
-    const questionData = JSON.parse(cleanedContent);
+    console.log('Cleaned content for skill-targeted parsing:', cleanedContent);
+    
+    // Sanitize JSON to fix numeric keys  
+    const sanitizedContent = sanitizeJsonKeys(cleanedContent);
+    console.log('Sanitized content for skill-targeted:', sanitizedContent);
+    
+    const questionData = JSON.parse(sanitizedContent);
+    
+    // Validate generated question
+    validateGeneratedQuestions([questionData]);
 
     // Save the generated question to the database
     try {
@@ -451,8 +482,9 @@ async function generateSkillTargetedQuestion(skills: string[], difficulty: strin
       throw new Error('Failed to save generated question to database');
     }
   } catch (parseError) {
-    console.error('Failed to parse generated question:', data.choices[0].message.content);
-    throw new Error('Failed to generate valid question format');
+    console.error('Failed to parse generated question. Parse error:', parseError);
+    console.error('Raw AI response that failed to parse:', data.choices[0].message.content);
+    throw new Error(`Failed to generate valid question format: ${parseError.message}`);
   }
 }
 
@@ -609,4 +641,76 @@ function extractJsonFromMarkdown(content: string): string {
   }
   // Return original content if no markdown formatting found
   return content.trim();
+}
+
+// Helper function to sanitize JSON by converting numeric object keys to strings
+function sanitizeJsonKeys(jsonString: string): string {
+  try {
+    // Find and replace numeric object keys with string keys
+    // Pattern: {number: -> {"number":
+    const sanitized = jsonString.replace(/\{(\s*)(\d+)(\s*):/g, '{"$2":');
+    
+    // Also handle cases where there are multiple numeric keys in the same object
+    // Pattern: , number: -> , "number":
+    const fullySanitized = sanitized.replace(/,(\s*)(\d+)(\s*):/g, ', "$2":');
+    
+    return fullySanitized;
+  } catch (error) {
+    console.error('Error sanitizing JSON keys:', error);
+    return jsonString; // Return original if sanitization fails
+  }
+}
+
+// Helper function to validate generated questions structure
+function validateGeneratedQuestions(questions: any[]): void {
+  if (!Array.isArray(questions)) {
+    throw new Error('Generated questions must be an array');
+  }
+  
+  for (let i = 0; i < questions.length; i++) {
+    const question = questions[i];
+    
+    if (!question.title || typeof question.title !== 'string') {
+      throw new Error(`Question ${i + 1}: title is required and must be a string`);
+    }
+    
+    if (!question.description && !question.question_text) {
+      throw new Error(`Question ${i + 1}: description or question_text is required`);
+    }
+    
+    if (!question.question_type || typeof question.question_type !== 'string') {
+      throw new Error(`Question ${i + 1}: question_type is required and must be a string`);
+    }
+    
+    if (!question.difficulty || typeof question.difficulty !== 'string') {
+      throw new Error(`Question ${i + 1}: difficulty is required and must be a string`);
+    }
+    
+    if (typeof question.points !== 'number' || question.points <= 0) {
+      throw new Error(`Question ${i + 1}: points must be a positive number`);
+    }
+    
+    if (!question.config || typeof question.config !== 'object') {
+      throw new Error(`Question ${i + 1}: config is required and must be an object`);
+    }
+    
+    // Validate MCQ-specific structure
+    if (question.question_type === 'mcq') {
+      if (!question.config.options || !Array.isArray(question.config.options)) {
+        throw new Error(`Question ${i + 1}: MCQ questions must have options array in config`);
+      }
+      
+      const hasCorrectAnswer = question.config.options.some((opt: any) => opt.isCorrect === true);
+      if (!hasCorrectAnswer) {
+        throw new Error(`Question ${i + 1}: MCQ questions must have at least one correct answer`);
+      }
+    }
+    
+    // Validate coding-specific structure
+    if (question.question_type === 'coding') {
+      if (!question.config.test_cases || !Array.isArray(question.config.test_cases)) {
+        console.warn(`Question ${i + 1}: Coding questions should have test_cases array in config`);
+      }
+    }
+  }
 }
