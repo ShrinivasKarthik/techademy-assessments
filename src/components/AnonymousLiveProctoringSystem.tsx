@@ -55,13 +55,23 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
 
   // Face detection function
   const detectFace = () => {
+    console.log('Face detection running...', {
+      hasVideo: !!videoRef.current,
+      hasCanvas: !!canvasRef.current,
+      faceDetectionEnabled: config.faceDetection,
+      videoReady: videoRef.current ? videoRef.current.videoWidth > 0 : false
+    });
+    
     if (!videoRef.current || !canvasRef.current || !config.faceDetection) return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) return;
+    if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) {
+      console.log('Video not ready yet');
+      return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -72,6 +82,8 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
     const brightness = calculateBrightness(imageData);
     const centerBrightness = calculateCenterBrightness(imageData);
     
+    console.log('Face detection values:', { brightness, centerBrightness });
+    
     // Simplified and more reliable detection
     // Just check if there's reasonable content and not a black/white screen
     const hasFacePattern = 
@@ -79,10 +91,13 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       centerBrightness > 20 && // Some content in center area
       centerBrightness < 240; // Not overexposed center
     
+    console.log('Face detected:', hasFacePattern);
+    
     if (hasFacePattern !== faceDetected) {
       setFaceDetected(hasFacePattern);
       
       if (!hasFacePattern && status === 'active') {
+        console.log('Creating face not detected violation');
         const event: SecurityEvent = {
           id: Date.now().toString(),
           type: 'face_not_detected',
@@ -179,6 +194,10 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       
       if (config.cameraRequired) {
         requestPermissions();
+      } else if (config.faceDetection) {
+        // Start face detection even without camera permissions if already in assessment
+        console.log('Starting face detection for assessment mode');
+        faceDetectionIntervalRef.current = setInterval(detectFace, 2000);
       }
     }
     
@@ -285,7 +304,10 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
           
           // Start face detection if required
           if (config.faceDetection) {
+            console.log('Starting face detection interval');
             faceDetectionIntervalRef.current = setInterval(detectFace, 2000); // Check every 2 seconds
+          } else {
+            console.log('Face detection not enabled in config:', config);
           }
         }
         
