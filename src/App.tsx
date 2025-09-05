@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import CreateAssessmentPage from "./pages/CreateAssessmentPage";
+import EditAssessmentPage from "./pages/EditAssessmentPage";
 import AssessmentListPage from "./pages/AssessmentListPage";
 import TakeAssessmentPage from "./pages/TakeAssessmentPage";
 import AssessmentPreviewPage from "./pages/AssessmentPreviewPage";
@@ -46,6 +47,11 @@ const App = () => (
             <Route path="/assessments/create" element={
               <ProtectedRoute>
                 <CreateAssessmentPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments/:id/edit" element={
+              <ProtectedRoute>
+                <EditAssessmentPage />
               </ProtectedRoute>
             } />
             <Route path="/assessments" element={
