@@ -72,6 +72,19 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       (document as any).msFullscreenElement
     );
     setIsFullscreen(isFullscreenActive);
+    
+    // If fullscreen is exited while proctoring is active, create a violation
+    if (!isFullscreenActive && status === 'active' && config.fullscreenRequired) {
+      const event: SecurityEvent = {
+        id: Date.now().toString(),
+        type: 'fullscreen_exit',
+        timestamp: new Date(),
+        severity: 'high',
+        description: 'Fullscreen mode exited'
+      };
+      setViolations(prev => [event, ...prev].slice(0, 5));
+      onSecurityEvent(event);
+    }
   };
 
   const setupEventListeners = () => {
