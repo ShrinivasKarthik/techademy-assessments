@@ -48,6 +48,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [setupComplete, setSetupComplete] = useState(isInAssessment); // Skip setup if in assessment
+  const [violations, setViolations] = useState<SecurityEvent[]>([]);
 
   useEffect(() => {
     checkFullscreen();
@@ -96,6 +97,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
         severity: 'high',
         description: 'Tab switch or window minimized detected'
       };
+      setViolations(prev => [event, ...prev].slice(0, 5)); // Keep last 5 violations
       onSecurityEvent(event);
     }
   };
@@ -115,6 +117,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
         severity: 'medium',
         description: `Blocked shortcut: ${e.ctrlKey ? 'Ctrl+' : e.altKey ? 'Alt+' : ''}${e.key}`
       };
+      setViolations(prev => [event, ...prev].slice(0, 5)); // Keep last 5 violations
       onSecurityEvent(event);
     }
   };
@@ -283,6 +286,33 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
                 </Badge>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Security Violations Display */}
+      {violations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-destructive">Security Violations</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {violations.map((violation) => (
+              <Alert key={violation.id} variant={violation.severity === 'high' || violation.severity === 'critical' ? 'destructive' : 'default'}>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <div className="flex items-center justify-between">
+                    <span>{violation.description}</span>
+                    <Badge variant={violation.severity === 'high' || violation.severity === 'critical' ? 'destructive' : 'secondary'} className="text-xs">
+                      {violation.severity}
+                    </Badge>
+                  </div>
+                  <div className="text-muted-foreground mt-1">
+                    {violation.timestamp.toLocaleTimeString()}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            ))}
           </CardContent>
         </Card>
       )}
