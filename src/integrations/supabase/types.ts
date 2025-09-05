@@ -351,7 +351,7 @@ export type Database = {
           ended_at: string | null
           id: string
           monitoring_data: Json | null
-          participant_id: string
+          participant_id: string | null
           permissions: Json | null
           security_events: Json | null
           started_at: string | null
@@ -364,7 +364,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           monitoring_data?: Json | null
-          participant_id: string
+          participant_id?: string | null
           permissions?: Json | null
           security_events?: Json | null
           started_at?: string | null
@@ -377,7 +377,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           monitoring_data?: Json | null
-          participant_id?: string
+          participant_id?: string | null
           permissions?: Json | null
           security_events?: Json | null
           started_at?: string | null
