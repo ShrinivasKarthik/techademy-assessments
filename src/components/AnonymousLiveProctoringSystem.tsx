@@ -166,11 +166,19 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   };
 
   useEffect(() => {
+    console.log('Proctoring component mounted/updated:', {
+      isInAssessment,
+      status,
+      setupComplete,
+      permissions
+    });
+    
     checkFullscreen();
     setupEventListeners();
     
     // Force active status when in assessment mode
     if (isInAssessment) {
+      console.log('Setting status to active because isInAssessment is true');
       setStatus('active');
       onStatusChange('active');
       
@@ -186,7 +194,9 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
 
   // Ensure status stays active during assessment
   useEffect(() => {
+    console.log('Status check effect:', { isInAssessment, status });
     if (isInAssessment && status !== 'active') {
+      console.log('Forcing status to active');
       setStatus('active');
       onStatusChange('active');
     }
@@ -399,8 +409,9 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
               <Badge variant={status === 'active' ? 'default' : 'destructive'}>
                 {status === 'active' ? 'Proctoring Active' : 'Proctoring Inactive'}
               </Badge>
-              {/* Debug status */}
-              <span className="text-xs text-muted-foreground">({status})</span>
+              <span className="text-xs text-muted-foreground">
+                Status: {status} | InAssessment: {isInAssessment ? 'Yes' : 'No'}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               {(permissions.camera || isInAssessment) && (
