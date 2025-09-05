@@ -99,8 +99,10 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
       
-      // Check if there's already an instance for this session
-      await checkExistingInstance();
+      // Only check existing instance AFTER assessment is confirmed valid
+      if (data.assessment && data.shareConfig) {
+        await checkExistingInstance(data.assessment);
+      }
 
     } catch (err: any) {
       console.error('Error:', err);
@@ -110,7 +112,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   };
 
-  const checkExistingInstance = async () => {
+  const checkExistingInstance = async (validatedAssessment: Assessment) => {
     try {
       const { data: instances, error } = await supabase
         .from('assessment_instances')
@@ -132,8 +134,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         
         if (existingInstance.status === 'submitted') {
           setSessionState('submitted');
-        } else if (assessment?.proctoring_enabled) {
-          setSessionState((existingInstance.session_state || 'proctoring_setup') as any);
+        } else if (validatedAssessment.proctoring_enabled) {
+          setSessionState((existingInstance.session_state || 'ready') as any);
         } else {
           setSessionState('in_progress');
         }
@@ -144,7 +146,13 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   };
 
   const startProctoringSetup = () => {
-    if (assessment?.proctoring_enabled) {
+    // Double-check assessment is loaded before starting proctoring
+    if (!assessment || !shareConfig) {
+      setError('Assessment not properly loaded. Please refresh and try again.');
+      return;
+    }
+    
+    if (assessment.proctoring_enabled) {
       const tempId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       setAnonymousParticipantId(tempId);
       setSessionState('proctoring_setup');
@@ -155,7 +163,11 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
   const completeProctoringSetup = async () => {
     try {
-      if (!assessment || !anonymousParticipantId) return;
+      // Triple-check assessment exists before proctoring setup
+      if (!assessment || !shareConfig || !anonymousParticipantId) {
+        setError('Assessment data missing. Cannot start proctoring.');
+        return;
+      }
 
       // Create proctoring session for anonymous user
       const { data: newProctoringSession, error: proctoringError } = await supabase
@@ -203,8 +215,9 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
   const startAssessment = async () => {
     try {
+      // Final validation before starting assessment
       if (!assessment || !shareConfig) {
-        setError('Assessment data not loaded');
+        setError('Assessment data not loaded properly. Please refresh and try again.');
         return;
       }
 
@@ -336,8 +349,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  // Show proctoring setup
-  if (sessionState === 'proctoring_setup' && assessment?.proctoring_enabled) {
+  // Show proctoring setup ONLY after assessment is validated
+  if (sessionState === 'proctoring_setup' && assessment && shareConfig && assessment.proctoring_enabled) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl">
@@ -373,8 +386,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  // Show proctoring check
-  if (sessionState === 'proctoring_check' && assessment?.proctoring_enabled && anonymousParticipantId) {
+  // Show proctoring check ONLY after assessment is validated
+  if (sessionState === 'proctoring_check' && assessment && shareConfig && assessment.proctoring_enabled && anonymousParticipantId) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-6xl mx-auto">
@@ -445,6 +458,19 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         />
       );
     }
+  }
+
+  // Main assessment start screen - ONLY show when assessment is properly loaded
+  if (!assessment || !shareConfig) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="text-center p-6">
+            <p className="text-muted-foreground">Loading assessment details...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // Show assessment info and start form
