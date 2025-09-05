@@ -12,12 +12,23 @@ serve(async (req) => {
   }
 
   try {
+    // Get the authorization header
+    const authHeader = req.headers.get('authorization')
+    
+    if (!authHeader) {
+      console.error('No authorization header provided')
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
+          headers: { Authorization: authHeader },
         },
       }
     )
@@ -38,6 +49,7 @@ serve(async (req) => {
     console.log('Creating share for assessment:', { 
       assessmentId, 
       userId: user.id,
+      userEmail: user.email,
       expiresIn, 
       maxAttempts, 
       requireName, 
@@ -60,7 +72,9 @@ serve(async (req) => {
       )
     }
 
-    if (assessment.creator_id !== user.id) {
+    // Check ownership - if creator_id is null, allow for demo purposes, otherwise check ownership
+    if (assessment.creator_id && assessment.creator_id !== user.id) {
+      console.error('Permission denied - user:', user.id, 'creator:', assessment.creator_id)
       return new Response(
         JSON.stringify({ error: 'Insufficient permissions to share this assessment' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
