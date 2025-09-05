@@ -295,7 +295,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
       if (instanceError) {
         console.error('Error creating assessment instance:', instanceError);
-        setError('Failed to start assessment');
+        console.error('Instance data being inserted:', instanceData);
+        setError(`Failed to start assessment: ${instanceError.message || instanceError.details || 'Unknown error'}`);
         return;
       }
 
@@ -311,7 +312,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setSessionState('in_progress');
     } catch (error) {
       console.error('Error starting assessment:', error);
-      setError('Failed to start assessment');
+      setError(`Failed to start assessment: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsStarting(false);
     }
