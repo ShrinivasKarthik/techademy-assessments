@@ -471,7 +471,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
                 </Badge>
                 {config.faceDetection && (
                   <Badge variant={faceDetected ? "default" : "destructive"} className="text-xs">
-                    {faceDetected ? "FACE OK" : "NO FACE"}
+                    {faceDetected ? "FACE OK" : "NO FACE"} (B:{Math.round(calculateBrightness(canvasRef.current?.getContext('2d')?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height) || new ImageData(1,1)))})
                   </Badge>
                 )}
               </div>
