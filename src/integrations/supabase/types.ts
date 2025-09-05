@@ -85,7 +85,7 @@ export type Database = {
           is_anonymous: boolean
           max_possible_score: number | null
           participant_email: string | null
-          participant_id: string
+          participant_id: string | null
           participant_name: string | null
           proctoring_started_at: string | null
           proctoring_violations: Json | null
@@ -104,7 +104,7 @@ export type Database = {
           is_anonymous?: boolean
           max_possible_score?: number | null
           participant_email?: string | null
-          participant_id: string
+          participant_id?: string | null
           participant_name?: string | null
           proctoring_started_at?: string | null
           proctoring_violations?: Json | null
@@ -123,7 +123,7 @@ export type Database = {
           is_anonymous?: boolean
           max_possible_score?: number | null
           participant_email?: string | null
-          participant_id?: string
+          participant_id?: string | null
           participant_name?: string | null
           proctoring_started_at?: string | null
           proctoring_violations?: Json | null
