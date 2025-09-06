@@ -83,7 +83,7 @@ const HomePage = () => {
     {
       icon: GraduationCap,
       title: "Educational Institutions",
-      description: "Universities, colleges, and schools use AssessAI to create comprehensive exams, quizzes, and assessments.",
+      description: "Universities, colleges, and schools use Techademy Assessments to create comprehensive exams, quizzes, and assessments.",
       image: studentsAssessment
     },
     {
@@ -95,7 +95,7 @@ const HomePage = () => {
     {
       icon: Award,
       title: "Certification Bodies",
-      description: "Professional certification organizations trust AssessAI for secure, scalable, and reliable assessment delivery.",
+      description: "Professional certification organizations trust Techademy Assessments for secure, scalable, and reliable assessment delivery.",
       image: studentsAssessment
     }
   ];
@@ -103,7 +103,7 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section with Background Image */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative h-[80vh] flex items-center justify-center overflow-hidden">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0">
           <img 
@@ -118,7 +118,7 @@ const HomePage = () => {
         <div className="relative z-10 container mx-auto px-4 py-20 text-center text-white">
           <div className="max-w-4xl mx-auto space-y-8">
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight">
-              AssessAI Platform
+              Techademy Assessments
             </h1>
             
             <p className="text-xl md:text-2xl font-light opacity-90 max-w-3xl mx-auto">
@@ -299,7 +299,7 @@ const HomePage = () => {
             </h2>
             
             <p className="text-xl opacity-90 max-w-2xl mx-auto leading-relaxed">
-              Join thousands of educators and organizations who trust AssessAI 
+              Join thousands of educators and organizations who trust Techademy Assessments 
               for their assessment needs. Start your journey today.
             </p>
             

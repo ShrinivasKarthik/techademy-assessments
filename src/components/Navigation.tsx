@@ -219,7 +219,7 @@ const Navigation = () => {
           {/* Logo */}
           <Link to={user ? "/home" : "/"} className="flex items-center space-x-2">
             <Brain className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">AssessAI</span>
+            <span className="font-bold text-lg">Techademy Assessments</span>
           </Link>
 
           {/* Desktop Navigation */}
