@@ -365,9 +365,24 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
 
       if (error) throw error;
 
+      // Trigger immediate evaluation
+      try {
+        const { data: evaluationResult, error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
+          body: { instanceId: instance.id }
+        });
+
+        if (evalError) {
+          console.error('Error triggering evaluation:', evalError);
+        } else {
+          console.log('Evaluation triggered successfully:', evaluationResult);
+        }
+      } catch (evalErr) {
+        console.error('Failed to trigger evaluation:', evalErr);
+      }
+
       toast({
         title: isAutoSubmit ? "Assessment auto-submitted" : "Assessment submitted successfully!",
-        description: isAutoSubmit ? "Time has expired." : "Your responses have been saved."
+        description: isAutoSubmit ? "Time has expired. Evaluation in progress." : "Your responses have been saved and are being evaluated."
       });
 
       setInstance(prev => prev ? { ...prev, status: 'submitted' } : null);

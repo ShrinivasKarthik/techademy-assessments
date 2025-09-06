@@ -328,11 +328,26 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
         return;
       }
 
+      // Trigger immediate evaluation
+      try {
+        const { data: evaluationResult, error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
+          body: { instanceId: instance.id }
+        });
+
+        if (evalError) {
+          console.error('Error triggering evaluation:', evalError);
+        } else {
+          console.log('Evaluation triggered successfully:', evaluationResult);
+        }
+      } catch (evalErr) {
+        console.error('Failed to trigger evaluation:', evalErr);
+      }
+
       toast({
         title: "Assessment Submitted",
         description: isAutoSubmit 
-          ? "Time expired. Your assessment has been automatically submitted."
-          : "Your assessment has been submitted successfully.",
+          ? "Time expired. Your assessment has been automatically submitted and is being evaluated."
+          : "Your assessment has been submitted successfully and is being evaluated.",
       });
 
       onSubmission(updatedInstance);

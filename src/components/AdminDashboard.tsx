@@ -44,6 +44,7 @@ import AccessibilityControls from './AccessibilityControls';
 import ManualUserCreation from './ManualUserCreation';
 import UserCredentialsManager from './UserCredentialsManager';
 import UserManagement from './UserManagement';
+import AssessmentResultsView from './AssessmentResultsView';
 
 interface AdminStats {
   totalUsers: number;
@@ -404,14 +405,13 @@ const AdminDashboard: React.FC = () => {
 
       {/* Detailed Management */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
-          <TabsTrigger value="results">Results</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="proctoring">Proctoring</TabsTrigger>
-          <TabsTrigger value="accessibility">Accessibility</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -521,8 +521,9 @@ const AdminDashboard: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="results" className="space-y-4">
-          <AdminResultsDashboard />
+
+        <TabsContent value="reports" className="space-y-4">
+          <AssessmentResultsView />
         </TabsContent>
 
         <TabsContent value="proctoring">
@@ -543,12 +544,6 @@ const AdminDashboard: React.FC = () => {
             onSecurityEvent={(event) => console.log('Admin Security Event:', event)}
             onStatusChange={(status) => console.log('Admin Status Change:', status)}
           />
-        </TabsContent>
-
-        <TabsContent value="accessibility">
-          <div className="max-w-md">
-            <AccessibilityControls />
-          </div>
         </TabsContent>
       </Tabs>
       </div>
