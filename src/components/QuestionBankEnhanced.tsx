@@ -9,13 +9,37 @@ import QuestionBank from './QuestionBank';
 import BatchOperations from './BatchOperations';
 import AdvancedCollections from './AdvancedCollections';
 import { useQuestionBank } from '@/hooks/useQuestionBank';
+import { LoadingCard } from '@/components/ui/loading-spinner';
+import { ErrorMessage } from '@/components/ui/error-boundary';
 
 const QuestionBankEnhanced = () => {
   const [activeTab, setActiveTab] = useState('questions');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('');
-  const { questions, loading, error } = useQuestionBank();
+  const { questions, loading, error, fetchQuestions } = useQuestionBank();
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <LoadingCard 
+          title="Loading Question Bank..." 
+          description="Fetching your questions and analytics"
+        />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <ErrorMessage 
+          error={error} 
+          retry={fetchQuestions}
+        />
+      </div>
+    );
+  }
 
   const filteredQuestions = questions.filter(question => {
     const matchesSearch = question.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

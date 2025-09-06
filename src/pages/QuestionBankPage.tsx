@@ -1,6 +1,5 @@
 import Navigation from "@/components/Navigation";
 import QuestionBankEnhanced from "@/components/QuestionBankEnhanced";
-import { EnhancedQuestionBank } from "@/components/enhanced/EnhancedQuestionBank";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const QuestionBankPage = () => {
@@ -9,7 +8,7 @@ const QuestionBankPage = () => {
       <Navigation />
       <div className="container mx-auto py-6">
         <ErrorBoundary>
-          <EnhancedQuestionBank mode="manage" />
+          <QuestionBankEnhanced />
         </ErrorBoundary>
       </div>
     </div>
