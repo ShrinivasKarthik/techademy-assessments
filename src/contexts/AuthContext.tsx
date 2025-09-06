@@ -42,36 +42,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
-            try {
-              const { data: profileData, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('user_id', session.user.id)
-                .maybeSingle();
-              
-              if (error) {
-                console.error('Error fetching profile:', error);
-                setProfile(null);
-              } else if (profileData) {
-                setProfile(profileData);
-              } else {
-                console.log('No profile found for user:', session.user.id);
-                setProfile(null);
-              }
-            } catch (error) {
-              console.error('Unexpected error fetching profile:', error);
+          // Fetch user profile immediately
+          try {
+            const { data: profileData, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+            
+            if (error) {
+              console.error('Error fetching profile:', error);
               setProfile(null);
+            } else {
+              setProfile(profileData);
             }
-          }, 0);
+          } catch (error) {
+            console.error('Unexpected error fetching profile:', error);
+            setProfile(null);
+          }
         } else {
           setProfile(null);
           // Redirect to auth page when user signs out
@@ -84,12 +79,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      // Don't set loading false here - let the auth state change handler do it
+      if (!session) {
+        setLoading(false);
+      }
+    };
+    
+    getInitialSession();
 
     return () => subscription.unsubscribe();
   }, []);

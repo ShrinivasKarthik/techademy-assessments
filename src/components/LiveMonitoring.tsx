@@ -121,7 +121,7 @@ const LiveMonitoring: React.FC = () => {
 
   const loadActiveParticipants = async () => {
     try {
-      console.log('Loading active participants...');
+      // Remove console.log for production
       const { data: instances, error } = await supabase
         .from('assessment_instances')
         .select(`
@@ -148,10 +148,15 @@ const LiveMonitoring: React.FC = () => {
 
       if (error) throw error;
       
-      console.log('Found assessment instances:', instances?.length || 0, instances);
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Found assessment instances:', instances?.length || 0, instances);
+      }
 
       if (!instances || instances.length === 0) {
-        console.log('No in-progress assessment instances found');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('No in-progress assessment instances found');
+        }
         setParticipants([]);
         setStats({ total: 0, active: 0, flagged: 0, averageProgress: 0 });
         setSecurityAlerts([]);
