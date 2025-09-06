@@ -576,15 +576,21 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
     
     // Update proctoring session status
     if (proctoringSessionId) {
-      supabase
-        .from('proctoring_sessions')
-        .update({ 
-          status: 'stopped',
-          ended_at: new Date().toISOString()
-        })
-        .eq('id', proctoringSessionId)
-        .then(() => console.log('Proctoring session ended'))
-        .catch(error => console.error('Error ending proctoring session:', error));
+      const updateProctoringSession = async () => {
+        try {
+          await supabase
+            .from('proctoring_sessions')
+            .update({ 
+              status: 'stopped',
+              ended_at: new Date().toISOString()
+            })
+            .eq('id', proctoringSessionId);
+          console.log('Proctoring session ended');
+        } catch (error) {
+          console.error('Error ending proctoring session:', error);
+        }
+      };
+      updateProctoringSession();
     }
     
     document.removeEventListener('visibilitychange', handleVisibilityChange);

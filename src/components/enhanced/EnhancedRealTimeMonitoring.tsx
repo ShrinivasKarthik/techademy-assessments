@@ -123,7 +123,7 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
       subscribe({
         channel: 'assessment-monitoring',
         table: 'assessment_instances',
-        filter: 'status=in.("in_progress","proctoring_check")',
+        filter: 'status=eq.in_progress',
         callback: handleAssessmentUpdate
       });
 
@@ -188,7 +188,7 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
           proctoring_sessions(*)
         `)
         .eq('assessments.live_monitoring_enabled', true)
-        .in('status', ['in_progress', 'proctoring_check'])
+        .eq('status', 'in_progress')
         .order('started_at', { ascending: false });
 
       if (error) {
