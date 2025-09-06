@@ -82,45 +82,61 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     try {
       setLoading(true);
       setError(null);
+      console.log('=== INITIALIZING SESSION ===');
       
       // Optimized: Single API call that includes existing instance check
       const { data, error: fetchError } = await supabase.functions.invoke('take-shared-assessment', {
         body: { token: shareToken },
       });
 
+      console.log('API Response:', { data, fetchError });
+
       if (fetchError) {
         console.error('Error fetching shared assessment:', fetchError);
         setError('Failed to load assessment');
+        setSessionState('ready');
         return;
       }
 
       if (!data?.success) {
+        console.error('API returned error:', data?.error);
         setError(data?.error || 'Assessment not available');
+        setSessionState('ready');
         return;
       }
 
+      console.log('Setting assessment data:', data.assessment);
+      console.log('Setting share config:', data.shareConfig);
+      
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
       
       // Optimized: Handle existing instance from API response (no separate call needed)
       if (data.existingInstance) {
+        console.log('Found existing instance:', data.existingInstance);
         setInstance(data.existingInstance);
         
         if (data.existingInstance.status === 'submitted') {
+          console.log('Setting state to submitted');
           setSessionState('submitted');
         } else if (data.existingInstance.session_state === 'in_progress') {
+          console.log('Setting state to in_progress');
           setSessionState('in_progress');
         } else {
+          console.log('Setting state to ready (with existing instance)');
           setSessionState('ready');
         }
       } else {
+        console.log('No existing instance, setting state to ready');
         setSessionState('ready');
       }
 
     } catch (err: any) {
       console.error('Error initializing session:', err);
       setError('Failed to initialize assessment session');
+      setSessionState('ready');
     } finally {
+      console.log('Setting loading to false');
       setLoading(false);
     }
   };
