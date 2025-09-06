@@ -23,63 +23,60 @@ import {
   Code,
   GraduationCap,
   Building,
-  Award
+  Award,
+  Calendar,
+  Play
 } from 'lucide-react';
-import heroDashboard from '@/assets/hero-dashboard.jpg';
+import heroPeople from '@/assets/hero-people.jpg';
 import studentsAssessment from '@/assets/students-assessment.jpg';
 import analyticsDashboard from '@/assets/analytics-dashboard.jpg';
 
 const HomePage = () => {
+  const demoRoles = [
+    { name: "Student", icon: GraduationCap, description: "Access assessments, view progress, track performance" },
+    { name: "Faculty", icon: Users, description: "Create assessments, monitor students, generate reports" },
+    { name: "Admin", icon: Shield, description: "Manage platform, configure settings, oversee operations" },
+    { name: "Instructor", icon: BookOpen, description: "Design curricula, analyze outcomes, provide feedback" }
+  ];
+
   const features = [
     {
       icon: Brain,
       title: "AI-Powered Assessment Creation",
-      description: "Generate intelligent assessments with our advanced AI that understands your requirements and creates comprehensive tests.",
-      gradient: "from-purple-500 to-purple-600",
-      bgColor: "bg-purple-50 dark:bg-purple-950/20"
+      description: "Generate intelligent assessments with our advanced AI that understands your requirements and creates comprehensive tests."
     },
     {
       icon: Shield,
       title: "Advanced Proctoring System", 
-      description: "Ensure assessment integrity with real-time monitoring, face detection, and comprehensive fraud prevention.",
-      gradient: "from-green-500 to-emerald-600",
-      bgColor: "bg-green-50 dark:bg-green-950/20"
+      description: "Ensure assessment integrity with real-time monitoring, face detection, and comprehensive fraud prevention."
     },
     {
       icon: BarChart3,
       title: "Detailed Analytics & Insights",
-      description: "Get deep insights into performance patterns, skill gaps, and learning progress with advanced analytics.",
-      gradient: "from-orange-500 to-red-500",
-      bgColor: "bg-orange-50 dark:bg-orange-950/20"
+      description: "Get deep insights into performance patterns, skill gaps, and learning progress with advanced analytics."
     },
     {
       icon: Users,
       title: "Collaborative Assessment Design",
-      description: "Work together with your team to create, review, and improve assessments collaboratively.",
-      gradient: "from-blue-500 to-cyan-500",
-      bgColor: "bg-blue-50 dark:bg-blue-950/20"
+      description: "Work together with your team to create, review, and improve assessments collaboratively."
     },
     {
       icon: Zap,
       title: "Smart Assembly Engine",
-      description: "Automatically assemble assessments based on difficulty levels, topics, and learning objectives.",
-      gradient: "from-yellow-500 to-orange-500",
-      bgColor: "bg-yellow-50 dark:bg-yellow-950/20"
+      description: "Automatically assemble assessments based on difficulty levels, topics, and learning objectives."
     },
     {
       icon: Globe,
       title: "Multi-Language Support",
-      description: "Create and deliver assessments in multiple languages with automatic translation capabilities.",
-      gradient: "from-indigo-500 to-purple-500",
-      bgColor: "bg-indigo-50 dark:bg-indigo-950/20"
+      description: "Create and deliver assessments in multiple languages with automatic translation capabilities."
     }
   ];
 
   const stats = [
-    { label: "Assessments Created", value: "50K+", icon: BookOpen, color: "text-purple-600" },
-    { label: "Students Assessed", value: "100K+", icon: Users, color: "text-blue-600" },
-    { label: "Accuracy Rate", value: "99.5%", icon: Target, color: "text-green-600" },
-    { label: "Uptime", value: "99.9%", icon: Activity, color: "text-orange-600" }
+    { label: "Assessments Created", value: "50K+", icon: BookOpen },
+    { label: "Students Assessed", value: "100K+", icon: Users },
+    { label: "Accuracy Rate", value: "99.5%", icon: Target },
+    { label: "Uptime", value: "99.9%", icon: Activity }
   ];
 
   const useCases = [
@@ -87,118 +84,124 @@ const HomePage = () => {
       icon: GraduationCap,
       title: "Educational Institutions",
       description: "Universities, colleges, and schools use AssessAI to create comprehensive exams, quizzes, and assessments.",
-      image: studentsAssessment,
-      gradient: "from-blue-500 to-purple-600"
+      image: studentsAssessment
     },
     {
       icon: Building,
       title: "Corporate Training",
       description: "Companies leverage our platform for employee skill assessments, certification programs, and training evaluations.",
-      image: analyticsDashboard,
-      gradient: "from-orange-500 to-red-500"
+      image: analyticsDashboard
     },
     {
       icon: Award,
       title: "Certification Bodies",
       description: "Professional certification organizations trust AssessAI for secure, scalable, and reliable assessment delivery.",
-      image: heroDashboard,
-      gradient: "from-green-500 to-emerald-600"
+      image: studentsAssessment
     }
   ];
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Enhanced Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-orange-50 to-blue-50 dark:from-purple-950/20 dark:via-orange-950/20 dark:to-blue-950/20">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-        <div className="container mx-auto px-4 py-20 lg:py-32">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <Badge variant="secondary" className="text-sm px-4 py-2 bg-gradient-to-r from-purple-600 to-orange-500 text-white hover:from-purple-700 hover:to-orange-600">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Next-Generation Assessment Platform
+      {/* Hero Section with Background Image */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0">
+          <img 
+            src={heroPeople} 
+            alt="People collaborating" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-600/90 via-purple-700/85 to-orange-600/90"></div>
+        </div>
+        
+        {/* Content */}
+        <div className="relative z-10 container mx-auto px-4 py-20 text-center text-white">
+          <div className="max-w-4xl mx-auto space-y-8">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight">
+              AssessAI Platform
+            </h1>
+            
+            <p className="text-xl md:text-2xl font-light opacity-90 max-w-3xl mx-auto">
+              AI-Powered Assessment Creation and Delivery System for Modern Education
+            </p>
+            
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30 text-sm px-4 py-2">
+                AI-Powered
               </Badge>
-              
-              <h1 className="text-4xl md:text-6xl font-bold leading-tight">
-                Transform Your 
-                <span className="bg-gradient-to-r from-purple-600 to-orange-500 bg-clip-text text-transparent block lg:inline"> Assessment Process</span>
-              </h1>
-              
-              <p className="text-xl text-muted-foreground leading-relaxed">
-                Create, deliver, and analyze assessments with the power of artificial intelligence. 
-                Our platform combines advanced proctoring, intelligent question generation, and 
-                comprehensive analytics to revolutionize how you evaluate learning.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" asChild className="text-lg px-8 py-6 bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-700 hover:to-orange-600 shadow-lg hover:shadow-xl transition-all duration-300">
-                  <Link to="/auth">
-                    Get Started Free
-                    <ArrowRight className="ml-2 w-5 h-5" />
-                  </Link>
-                </Button>
-                <Button variant="outline" size="lg" asChild className="text-lg px-8 py-6 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-300">
-                  <Link to="/auth">
-                    Sign In
-                  </Link>
-                </Button>
-              </div>
+              <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30 text-sm px-4 py-2">
+                Secure Proctoring
+              </Badge>
+              <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30 text-sm px-4 py-2">
+                Advanced Analytics
+              </Badge>
             </div>
             
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 to-orange-400/20 rounded-3xl blur-3xl"></div>
-              <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl p-2 shadow-2xl">
-                <img 
-                  src={heroDashboard} 
-                  alt="AssessAI Dashboard" 
-                  className="w-full h-auto rounded-2xl shadow-lg"
-                />
-              </div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" asChild className="bg-orange-500 hover:bg-orange-600 text-white text-lg px-8 py-6 shadow-lg">
+                <Link to="/auth">
+                  <Play className="mr-2 w-5 h-5" />
+                  Get Started
+                </Link>
+              </Button>
+              <Button variant="outline" size="lg" className="border-2 border-white/30 text-white hover:bg-white/10 text-lg px-8 py-6">
+                <Calendar className="mr-2 w-5 h-5" />
+                Schedule Demo
+              </Button>
             </div>
           </div>
         </div>
-        
-        {/* Floating Elements */}
-        <div className="absolute top-20 left-10 w-20 h-20 bg-purple-200 rounded-full opacity-60 animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-32 h-32 bg-orange-200 rounded-full opacity-40 animate-pulse delay-300"></div>
-        <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-blue-200 rounded-full opacity-50 animate-pulse delay-700"></div>
       </section>
 
-      {/* Colorful Stats Section */}
-      <section className="py-16 px-4 bg-gradient-to-r from-purple-600 to-orange-500">
+      {/* Demo Section */}
+      <section className="py-20 px-4 bg-white">
         <div className="container mx-auto max-w-6xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
+          <div className="text-center space-y-4 mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+              Try Our Demo
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Experience the platform from different user perspectives. Click any role below to explore the dashboard.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {demoRoles.map((role, index) => {
+              const Icon = role.icon;
               return (
-                <div key={index} className="text-center space-y-2 text-white">
-                  <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Icon className="w-8 h-8" />
-                  </div>
-                  <div className="text-3xl font-bold">{stat.value}</div>
-                  <div className="text-white/80 text-sm">{stat.label}</div>
-                </div>
+                <Card key={index} className="group cursor-pointer hover:shadow-lg transition-all duration-300 border-2 hover:border-purple-200">
+                  <CardHeader className="text-center pb-4">
+                    <div className="w-16 h-16 mx-auto bg-purple-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-purple-200 transition-colors">
+                      <Icon className="w-8 h-8 text-purple-600" />
+                    </div>
+                    <CardTitle className="text-lg">{role.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-center">
+                    <Button variant="outline" size="sm" className="w-full mb-3" asChild>
+                      <Link to="/auth">Demo Login</Link>
+                    </Button>
+                    <p className="text-sm text-gray-600">{role.description}</p>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
+          
+          <p className="text-center text-gray-500 mt-8">
+            Each demo showcases role-specific features and permissions
+          </p>
         </div>
       </section>
 
-      {/* Enhanced Features Section */}
-      <section className="py-20 px-4 bg-gradient-to-b from-background to-purple-50/50 dark:to-purple-950/10">
+      {/* Features Section */}
+      <section className="py-20 px-4 bg-gray-50">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center space-y-4 mb-16">
-            <Badge variant="outline" className="text-sm px-4 py-2">
-              <Star className="w-4 h-4 mr-2" />
-              Powerful Features
-            </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Everything You Need for 
-              <span className="bg-gradient-to-r from-purple-600 to-orange-500 bg-clip-text text-transparent"> Modern Assessment</span>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+              Comprehensive Assessment Platform
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Discover the comprehensive toolkit that makes assessment creation, 
-              delivery, and analysis effortless and effective.
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Built specifically for modern education with advanced AI capabilities and security features
             </p>
           </div>
           
@@ -206,16 +209,15 @@ const HomePage = () => {
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <Card key={index} className={`group hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border-0 shadow-lg ${feature.bgColor} overflow-hidden relative`}>
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <CardHeader className="relative">
-                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                      <Icon className="w-7 h-7 text-white" />
+                <Card key={index} className="h-full hover:shadow-lg transition-shadow duration-300">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                      <Icon className="w-6 h-6 text-purple-600" />
                     </div>
-                    <CardTitle className="text-xl group-hover:text-purple-700 transition-colors duration-300">{feature.title}</CardTitle>
+                    <CardTitle className="text-xl text-gray-900">{feature.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="relative">
-                    <CardDescription className="text-base leading-relaxed">
+                  <CardContent>
+                    <CardDescription className="text-gray-600 leading-relaxed">
                       {feature.description}
                     </CardDescription>
                   </CardContent>
@@ -226,19 +228,34 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Enhanced Use Cases Section with Images */}
-      <section className="py-20 px-4 bg-gradient-to-br from-orange-50 to-purple-50 dark:from-orange-950/10 dark:to-purple-950/10">
+      {/* Stats Section */}
+      <section className="py-16 px-4 bg-purple-600">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <div key={index} className="text-center text-white">
+                  <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Icon className="w-8 h-8" />
+                  </div>
+                  <div className="text-3xl font-bold mb-2">{stat.value}</div>
+                  <div className="text-white/80">{stat.label}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Use Cases Section */}
+      <section className="py-20 px-4 bg-white">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center space-y-4 mb-16">
-            <Badge variant="outline" className="text-sm px-4 py-2">
-              <Users className="w-4 h-4 mr-2" />
-              Use Cases
-            </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Perfect for 
-              <span className="bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent"> Every Institution</span>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+              Perfect for Every Institution
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-lg text-gray-600">
               Trusted by educational institutions and corporations worldwide
             </p>
           </div>
@@ -247,23 +264,22 @@ const HomePage = () => {
             {useCases.map((useCase, index) => {
               const Icon = useCase.icon;
               return (
-                <Card key={index} className="group overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2">
-                  <div className="relative h-48 overflow-hidden">
-                    <div className={`absolute inset-0 bg-gradient-to-br ${useCase.gradient} opacity-20`}></div>
+                <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                  <div className="relative h-48">
                     <img 
                       src={useCase.image} 
                       alt={useCase.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      className="w-full h-full object-cover"
                     />
-                    <div className={`absolute top-4 right-4 w-12 h-12 rounded-xl bg-gradient-to-br ${useCase.gradient} flex items-center justify-center shadow-lg`}>
-                      <Icon className="w-6 h-6 text-white" />
+                    <div className="absolute top-4 right-4 w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-lg">
+                      <Icon className="w-6 h-6 text-purple-600" />
                     </div>
                   </div>
                   <CardHeader>
-                    <CardTitle className="text-xl">{useCase.title}</CardTitle>
+                    <CardTitle className="text-xl text-gray-900">{useCase.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-muted-foreground leading-relaxed">
+                    <p className="text-gray-600 leading-relaxed">
                       {useCase.description}
                     </p>
                   </CardContent>
@@ -274,38 +290,32 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Enhanced CTA Section */}
-      <section className="py-20 px-4 bg-gradient-to-br from-purple-600 via-purple-700 to-orange-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-        <div className="container mx-auto max-w-4xl text-center relative">
+      {/* CTA Section */}
+      <section className="py-20 px-4 bg-gradient-to-br from-purple-600 to-orange-600">
+        <div className="container mx-auto max-w-4xl text-center">
           <div className="space-y-8 text-white">
-            <Badge variant="secondary" className="text-sm px-4 py-2 bg-white/20 text-white hover:bg-white/30">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Start Your Journey Today
-            </Badge>
-            
             <h2 className="text-3xl md:text-5xl font-bold leading-tight">
               Ready to Transform Your Assessments?
             </h2>
             
             <p className="text-xl opacity-90 max-w-2xl mx-auto leading-relaxed">
               Join thousands of educators and organizations who trust AssessAI 
-              for their assessment needs. Start your free trial today.
+              for their assessment needs. Start your journey today.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" asChild className="text-lg px-8 py-6 bg-white text-purple-700 hover:bg-gray-100 shadow-lg hover:shadow-xl transition-all duration-300">
+              <Button size="lg" asChild className="bg-white text-purple-700 hover:bg-gray-100 text-lg px-8 py-6 shadow-lg">
                 <Link to="/auth">
                   Start Free Trial
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-2 border-white/30 text-white hover:bg-white/10 transition-all duration-300">
+              <Button variant="outline" size="lg" className="border-2 border-white/30 text-white hover:bg-white/10 text-lg px-8 py-6">
                 Contact Sales
               </Button>
             </div>
             
-            <div className="flex items-center justify-center space-x-8 text-sm opacity-80 pt-8">
+            <div className="flex flex-wrap justify-center gap-6 text-sm opacity-80 pt-8">
               <div className="flex items-center space-x-2">
                 <CheckCircle className="w-4 h-4" />
                 <span>No credit card required</span>
@@ -321,11 +331,6 @@ const HomePage = () => {
             </div>
           </div>
         </div>
-        
-        {/* Floating shapes */}
-        <div className="absolute top-10 left-10 w-24 h-24 bg-white/10 rounded-full animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-32 h-32 bg-orange-300/20 rounded-full animate-pulse delay-300"></div>
-        <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-purple-300/20 rounded-full animate-pulse delay-700"></div>
       </section>
     </div>
   );
