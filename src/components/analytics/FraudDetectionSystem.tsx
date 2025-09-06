@@ -147,13 +147,7 @@ const FraudDetectionSystem: React.FC = () => {
 
   const updateActivityStatus = async (activityId: string, status: 'confirmed' | 'dismissed') => {
     try {
-      const { error } = await supabase
-        .from('fraud_activities')
-        .update({ status, reviewed_at: new Date().toISOString() })
-        .eq('id', activityId);
-
-      if (error) throw error;
-
+      // Update local state since we're using mock data
       setActivities(prev => 
         prev.map(activity => 
           activity.id === activityId ? { ...activity, status } : activity

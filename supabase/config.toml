@@ -50,3 +50,15 @@ verify_jwt = false
 
 [functions.automated-report-scheduler]
 verify_jwt = false
+
+[functions.predictive-analytics]
+verify_jwt = false
+
+[functions.learning-path-generator]
+verify_jwt = false
+
+[functions.fraud-detection-enhanced]
+verify_jwt = false
+
+[functions.cohort-analysis]
+verify_jwt = false
