@@ -20,7 +20,12 @@ import {
   Brain,
   Zap,
   TrendingUp,
-  Database
+  Database,
+  Plus,
+  CheckCircle,
+  HelpCircle,
+  Accessibility,
+  MonitorSpeaker
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,61 +46,149 @@ interface NavigationSection {
 
 const MobileNavigationDrawer: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const location = useLocation();
   const isMobile = useIsMobile();
 
-  const navigationSections: NavigationSection[] = [
-    {
-      title: "Main",
-      items: [
-        { title: "Dashboard", href: "/", icon: Home },
-        { title: "Assessments", href: "/assessments", icon: FileText },
-        { title: "Question Bank", href: "/question-bank", icon: BookOpen },
-        { title: "Create Assessment", href: "/assessments/create", icon: Target }
-      ]
-    },
-    {
-      title: "Analytics & AI",
-      items: [
-        { title: "Advanced Analytics", href: "/advanced-analytics", icon: Brain },
-        { title: "Predictive Analytics", href: "/predictive-analytics", icon: TrendingUp, badge: "New" },
-        { title: "Learning Paths", href: "/learning-paths", icon: Target, badge: "New" },
-        { title: "Fraud Detection", href: "/fraud-detection", icon: Shield, badge: "New" },
-        { title: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3, badge: "New" },
-        { title: "Performance Metrics", href: "/performance-metrics", icon: Zap },
-        { title: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
-      ]
-    },
-    {
-      title: "Advanced Features",
-      items: [
-        { title: "Smart Assembly", href: "/smart-assembly", icon: Zap },
-        { title: "Advanced Builder", href: "/advanced-builder", icon: Settings },
-        { title: "Collaborative", href: "/collaborative", icon: Users },
-        { title: "Real-time Monitoring", href: "/monitoring/real-time", icon: Activity },
-        { title: "Queue Monitoring", href: "/queue-monitoring", icon: Database }
-      ]
-    },
-    {
-      title: "Quality & Reports",
-      items: [
-        { title: "Question Quality", href: "/question-quality", icon: Shield },
-        { title: "Advanced Reports", href: "/advanced-reports", icon: BarChart3 },
-        { title: "Comprehensive Reports", href: "/comprehensive-reports", icon: FileText },
-        { title: "Live Monitoring", href: "/monitoring", icon: Activity },
-        { title: "Proctoring", href: "/proctoring", icon: Shield }
-      ]
-    },
-    {
-      title: "Tools",
-      items: [
-        { title: "Question Templates", href: "/question-templates", icon: FileText },
-        { title: "Assessment Analytics", href: "/assessment-analytics", icon: BarChart3 },
-        { title: "Question Analytics", href: "/question-analytics", icon: Activity }
-      ]
+  const getNavigationSections = (): NavigationSection[] => {
+    const baseSections: NavigationSection[] = [
+      {
+        title: "Main",
+        items: [
+          { title: "Dashboard", href: "/", icon: Home },
+          { title: "Assessments", href: "/assessments", icon: BookOpen },
+          { title: "Question Bank", href: "/question-bank", icon: Brain }
+        ]
+      }
+    ];
+
+    const roleSpecificSections: NavigationSection[] = [];
+
+    switch (profile?.role) {
+      case 'admin':
+        roleSpecificSections.push(
+          {
+            title: "Assessment Tools",
+            items: [
+              { title: "Create Assessment", href: "/assessments/create", icon: Plus },
+              { title: "Smart Assembly", href: "/smart-assembly", icon: Brain },
+              { title: "Advanced Builder", href: "/advanced-builder", icon: Settings },
+              { title: "Collaborative", href: "/collaborative", icon: Users }
+            ]
+          },
+          {
+            title: "Analytics & AI",
+            items: [
+              { title: "Advanced Analytics", href: "/advanced-analytics", icon: BarChart3 },
+              { title: "Predictive Analytics", href: "/predictive-analytics", icon: TrendingUp, badge: "AI" },
+              { title: "Learning Paths", href: "/learning-paths", icon: Target, badge: "AI" },
+              { title: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3 },
+              { title: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
+            ]
+          },
+          {
+            title: "Monitoring",
+            items: [
+              { title: "Live Monitoring", href: "/monitoring", icon: MonitorSpeaker },
+              { title: "Real-time", href: "/monitoring/real-time", icon: Activity },
+              { title: "Queue Monitor", href: "/queue-monitoring", icon: Database },
+              { title: "Performance", href: "/performance-metrics", icon: TrendingUp },
+              { title: "DB Performance", href: "/performance", icon: Database }
+            ]
+          },
+          {
+            title: "Quality & Security",
+            items: [
+              { title: "Question Quality", href: "/question-quality", icon: CheckCircle },
+              { title: "Fraud Detection", href: "/fraud-detection", icon: Shield },
+              { title: "Proctoring", href: "/proctoring", icon: Shield }
+            ]
+          },
+          {
+            title: "Reports",
+            items: [
+              { title: "Reports", href: "/reports", icon: BarChart3 },
+              { title: "Comprehensive", href: "/comprehensive-reports", icon: FileText }
+            ]
+          },
+          {
+            title: "Administration",
+            items: [
+              { title: "Admin Dashboard", href: "/admin", icon: Settings },
+              { title: "Integrations", href: "/integrations", icon: Globe },
+              { title: "Accessibility", href: "/accessibility", icon: Accessibility },
+              { title: "Help", href: "/help", icon: HelpCircle }
+            ]
+          }
+        );
+        break;
+
+      case 'instructor':
+        roleSpecificSections.push(
+          {
+            title: "Assessment Tools",
+            items: [
+              { title: "Create Assessment", href: "/assessments/create", icon: Plus },
+              { title: "Smart Assembly", href: "/smart-assembly", icon: Brain },
+              { title: "Advanced Builder", href: "/advanced-builder", icon: Settings },
+              { title: "Collaborative", href: "/collaborative", icon: Users }
+            ]
+          },
+          {
+            title: "Analytics & AI",
+            items: [
+              { title: "Advanced Analytics", href: "/advanced-analytics", icon: BarChart3 },
+              { title: "Predictive Analytics", href: "/predictive-analytics", icon: TrendingUp, badge: "AI" },
+              { title: "Learning Paths", href: "/learning-paths", icon: Target, badge: "AI" },
+              { title: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3 },
+              { title: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
+            ]
+          },
+          {
+            title: "Monitoring & Quality",
+            items: [
+              { title: "Live Monitoring", href: "/monitoring", icon: MonitorSpeaker },
+              { title: "Real-time", href: "/monitoring/real-time", icon: Activity },
+              { title: "Question Quality", href: "/question-quality", icon: CheckCircle },
+              { title: "Fraud Detection", href: "/fraud-detection", icon: Shield },
+              { title: "Proctoring", href: "/proctoring", icon: Shield }
+            ]
+          },
+          {
+            title: "Reports & Help",
+            items: [
+              { title: "Reports", href: "/reports", icon: BarChart3 },
+              { title: "Comprehensive", href: "/comprehensive-reports", icon: FileText },
+              { title: "Performance", href: "/performance-metrics", icon: TrendingUp },
+              { title: "Help", href: "/help", icon: HelpCircle }
+            ]
+          }
+        );
+        break;
+
+      case 'student':
+        // Students get minimal navigation in mobile
+        break;
+
+      default:
+        // Simplified for demo
+        roleSpecificSections.push(
+          {
+            title: "Tools",
+            items: [
+              { title: "Create Assessment", href: "/assessments/create", icon: Plus },
+              { title: "Smart Assembly", href: "/smart-assembly", icon: Brain },
+              { title: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+              { title: "Help", href: "/help", icon: HelpCircle }
+            ]
+          }
+        );
     }
-  ];
+
+    return [...baseSections, ...roleSpecificSections];
+  };
+
+  const navigationSections = getNavigationSections();
 
   const isActiveRoute = (href: string) => {
     if (href === "/" && location.pathname === "/") return true;
@@ -118,17 +211,20 @@ const MobileNavigationDrawer: React.FC = () => {
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 overflow-y-auto">
+      <SheetContent side="left" className="w-80 overflow-y-auto bg-background/95 backdrop-blur">
         <SheetHeader className="pb-4">
-          <SheetTitle className="text-left">AssessAI</SheetTitle>
+          <SheetTitle className="text-left flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            AssessAI
+          </SheetTitle>
           {user && (
-            <div className="flex items-center gap-3 p-3 bg-secondary/20 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-accent/20 rounded-lg border">
               <div className="flex-shrink-0">
                 <User className="h-8 w-8 text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user.email}</p>
-                <p className="text-xs text-muted-foreground">Signed in</p>
+                <p className="text-sm font-medium truncate">{profile?.full_name || user.email}</p>
+                <p className="text-xs text-muted-foreground capitalize">{profile?.role || 'user'}</p>
               </div>
             </div>
           )}
