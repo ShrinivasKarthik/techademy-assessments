@@ -83,7 +83,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setLoading(true);
       setError(null);
       
-      // Step 1: Fetch assessment data
+      // Optimized: Single API call that includes existing instance check
       const { data, error: fetchError } = await supabase.functions.invoke('take-shared-assessment', {
         body: { token: shareToken },
       });
@@ -102,11 +102,20 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
       
-      // Step 2: Check for existing instance
-      await checkExistingInstance(data.assessment.id);
-      
-      // Step 3: Set ready state
-      setSessionState('ready');
+      // Optimized: Handle existing instance from API response (no separate call needed)
+      if (data.existingInstance) {
+        setInstance(data.existingInstance);
+        
+        if (data.existingInstance.status === 'submitted') {
+          setSessionState('submitted');
+        } else if (data.existingInstance.session_state === 'in_progress') {
+          setSessionState('in_progress');
+        } else {
+          setSessionState('ready');
+        }
+      } else {
+        setSessionState('ready');
+      }
 
     } catch (err: any) {
       console.error('Error initializing session:', err);
@@ -116,36 +125,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   };
 
-  const checkExistingInstance = async (assessmentId: string) => {
-    try {
-      const { data: instances, error } = await supabase
-        .from('assessment_instances')
-        .select('*')
-        .eq('share_token', shareToken)
-        .eq('is_anonymous', true)
-        .eq('assessment_id', assessmentId)
-        .order('started_at', { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.error('Error checking existing instance:', error);
-        return;
-      }
-
-      if (instances && instances.length > 0) {
-        const existingInstance = instances[0];
-        setInstance(existingInstance);
-        
-        if (existingInstance.status === 'submitted') {
-          setSessionState('submitted');
-        } else if (existingInstance.session_state === 'in_progress') {
-          setSessionState('in_progress');
-        }
-      }
-    } catch (err) {
-      console.error('Error checking existing instance:', err);
-    }
-  };
+  // Optimized: Removed redundant checkExistingInstance function
+  // Instance checking is now handled in the optimized initializeSession
 
   const validateParticipantInfo = () => {
     if (!shareConfig) return false;
