@@ -369,20 +369,35 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
 
       if (instances && instances.length > 0) {
         const instance = instances[0];
-        const currentViolations = instance.proctoring_violations || [];
-        const updatedViolations = [...currentViolations, securityEvent];
+        const currentViolations = Array.isArray(instance.proctoring_violations) 
+          ? instance.proctoring_violations 
+          : [];
+        
+        // Convert SecurityEvent to plain object for JSON storage
+        const violationObject = {
+          id: securityEvent.id,
+          type: securityEvent.type,
+          timestamp: securityEvent.timestamp.toISOString(),
+          severity: securityEvent.severity,
+          description: securityEvent.description,
+          evidence: securityEvent.evidence || null
+        };
+        
+        const updatedViolations = [...currentViolations, violationObject];
         
         // Calculate integrity score
-        const severityWeights = { low: 1, medium: 3, high: 7, critical: 15 };
-        const totalDeduction = updatedViolations.reduce((total, v) => 
-          total + (severityWeights[v.severity] || 3), 0
-        );
+        const severityWeights: Record<string, number> = { low: 1, medium: 3, high: 7, critical: 15 };
+        let totalDeduction = 0;
+        for (const violation of updatedViolations) {
+          const v = violation as any;
+          totalDeduction += severityWeights[v.severity] || 3;
+        }
         const newIntegrityScore = Math.max(0, 100 - totalDeduction);
 
         await supabase
           .from('assessment_instances')
           .update({
-            proctoring_violations: updatedViolations,
+            proctoring_violations: updatedViolations as any,
             integrity_score: newIntegrityScore
           })
           .eq('id', instance.id);
