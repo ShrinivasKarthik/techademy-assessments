@@ -232,181 +232,175 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <main className="min-h-screen hero-gradient">
+    <main className="min-h-screen bg-background">
       <div className="p-6 space-y-8">
-        {/* Enhanced Header */}
-        <div className="relative overflow-hidden rounded-2xl shadow-elevation">
-          <div className="glass-card p-8">
-            <div className="flex items-center justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-full bg-gradient-to-r from-primary to-accent shadow-glow">
-                    <Crown className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                      Admin Command Center
-                    </h1>
-                    <p className="text-muted-foreground text-lg">
-                      Complete control over your assessment platform
-                    </p>
-                  </div>
+        {/* Clean Professional Header */}
+        <div className="bg-white rounded-xl shadow-sm border p-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Crown className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+                  <p className="text-muted-foreground">
+                    Manage your assessment platform
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Button variant="outline" className="gap-2 shadow-md hover:shadow-lg transition-all duration-300">
-                  <Download className="w-4 h-4" />
-                  Export Report
-                </Button>
-                <Button className="gap-2 bg-gradient-to-r from-primary to-secondary shadow-lg hover:shadow-xl transition-all duration-300">
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </Button>
-              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" className="gap-2">
+                <Download className="w-4 h-4" />
+                Export Report
+              </Button>
+              <Button className="gap-2">
+                <Settings className="w-4 h-4" />
+                Settings
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* Enhanced Stats Overview */}
+        {/* Clean Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <GlassCard variant="primary" className="group cursor-pointer">
-            <div className="p-6">
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
-                    <Users className="h-5 w-5 text-white" />
+                  <div className="p-2 rounded-lg bg-blue-100">
+                    <Users className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Users</p>
-                    <div className="text-3xl font-bold">
+                    <div className="text-2xl font-bold text-foreground">
                       <AnimatedCounter value={stats.totalUsers} />
                     </div>
                   </div>
                 </div>
-                <ProgressRing progress={(stats.totalUsers / Math.max(stats.totalUsers, 50)) * 100} size={50} />
+                <ProgressRing progress={(stats.totalUsers / Math.max(stats.totalUsers, 50)) * 100} size={40} />
               </div>
               <div className="flex items-center gap-1">
                 <TrendingUp className="w-3 h-3 text-green-500" />
                 <span className="text-xs text-green-600">+12% this month</span>
               </div>
-            </div>
-          </GlassCard>
+            </CardContent>
+          </Card>
 
-          <GlassCard variant="secondary" className="group cursor-pointer">
-            <div className="p-6">
+          <Card className="border-green-200 bg-green-50/50">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-full bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
-                    <BookOpen className="h-5 w-5 text-white" />
+                  <div className="p-2 rounded-lg bg-green-100">
+                    <BookOpen className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Assessments</p>
-                    <div className="text-3xl font-bold">
+                    <div className="text-2xl font-bold text-foreground">
                       <AnimatedCounter value={stats.totalAssessments} />
                     </div>
                   </div>
                 </div>
-                <ProgressRing progress={(stats.totalAssessments / Math.max(stats.totalAssessments, 20)) * 100} size={50} />
+                <ProgressRing progress={(stats.totalAssessments / Math.max(stats.totalAssessments, 20)) * 100} size={40} />
               </div>
               <div className="flex items-center gap-1">
                 <TrendingUp className="w-3 h-3 text-green-500" />
                 <span className="text-xs text-green-600">+8% this month</span>
               </div>
-            </div>
-          </GlassCard>
+            </CardContent>
+          </Card>
 
-          <GlassCard className="group cursor-pointer">
-            <div className="p-6">
+          <Card className="border-purple-200 bg-purple-50/50">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
-                    <BarChart3 className="h-5 w-5 text-white" />
+                  <div className="p-2 rounded-lg bg-purple-100">
+                    <BarChart3 className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Submissions</p>
-                    <div className="text-3xl font-bold">
+                    <div className="text-2xl font-bold text-foreground">
                       <AnimatedCounter value={stats.totalSubmissions} />
                     </div>
                   </div>
                 </div>
-                <ProgressRing progress={(stats.totalSubmissions / Math.max(stats.totalSubmissions, 100)) * 100} size={50} />
+                <ProgressRing progress={(stats.totalSubmissions / Math.max(stats.totalSubmissions, 100)) * 100} size={40} />
               </div>
               <div className="flex items-center gap-1">
                 <TrendingUp className="w-3 h-3 text-green-500" />
                 <span className="text-xs text-green-600">+15% this month</span>
               </div>
-            </div>
-          </GlassCard>
+            </CardContent>
+          </Card>
 
-          <GlassCard className="group cursor-pointer">
-            <div className="p-6">
+          <Card className="border-orange-200 bg-orange-50/50">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg">
-                    <Activity className="h-5 w-5 text-white" />
+                  <div className="p-2 rounded-lg bg-orange-100">
+                    <Activity className="h-5 w-5 text-orange-600" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Avg Score</p>
-                    <div className="text-3xl font-bold">
+                    <div className="text-2xl font-bold text-foreground">
                       <AnimatedCounter value={Math.round(stats.averageScore)} suffix="%" />
                     </div>
                   </div>
                 </div>
-                <ProgressRing progress={stats.averageScore} size={50} showLabel />
+                <ProgressRing progress={stats.averageScore} size={40} showLabel />
               </div>
               <div className="flex items-center gap-1">
                 <TrendingUp className="w-3 h-3 text-green-500" />
                 <span className="text-xs text-green-600">+3% this month</span>
               </div>
-            </div>
-          </GlassCard>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Enhanced System Health */}
-        <GlassCard>
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-full bg-gradient-to-r from-primary to-accent">
-                <Zap className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">System Health</h2>
-                <p className="text-sm text-muted-foreground">
-                  Real-time monitoring of platform components
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 border border-green-200">
-                <div className="p-2 bg-green-500 rounded-full">
-                  <Database className="w-5 h-5 text-white" />
+        {/* Clean System Health */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              System Health
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Real-time monitoring of platform components
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3 p-4 rounded-lg border bg-green-50">
+                <div className="p-2 bg-green-500 rounded-lg">
+                  <Database className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="font-medium">Database</p>
+                  <p className="font-medium text-foreground">Database</p>
                   <p className="text-sm text-green-700">Healthy • 99.9% uptime</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
-                <div className="p-2 bg-blue-500 rounded-full">
-                  <Zap className="w-5 h-5 text-white" />
+              <div className="flex items-center gap-3 p-4 rounded-lg border bg-blue-50">
+                <div className="p-2 bg-blue-500 rounded-lg">
+                  <Zap className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="font-medium">Edge Functions</p>
+                  <p className="font-medium text-foreground">Edge Functions</p>
                   <p className="text-sm text-blue-700">All operational • 15ms avg</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200">
-                <div className="p-2 bg-purple-500 rounded-full">
-                  <Sparkles className="w-5 h-5 text-white" />
+              <div className="flex items-center gap-3 p-4 rounded-lg border bg-purple-50">
+                <div className="p-2 bg-purple-500 rounded-lg">
+                  <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="font-medium">AI Services</p>
+                  <p className="font-medium text-foreground">AI Services</p>
                   <p className="text-sm text-purple-700">Running smoothly • 2.1s avg</p>
                 </div>
               </div>
             </div>
-          </div>
-        </GlassCard>
+          </CardContent>
+        </Card>
 
       {/* Detailed Management */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
