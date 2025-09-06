@@ -290,7 +290,7 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
     return () => clearInterval(interval);
   };
 
-  const logSecurityEvent = (event: Omit<SecurityEvent, 'id' | 'timestamp'>) => {
+  const logSecurityEvent = async (event: Omit<SecurityEvent, 'id' | 'timestamp'>) => {
     const securityEvent: SecurityEvent = {
       id: Date.now().toString(),
       timestamp: new Date(),
@@ -300,14 +300,98 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
     setSecurityEvents(prev => [securityEvent, ...prev].slice(0, 50)); // Keep last 50 events
     onSecurityEvent(securityEvent);
 
-    // Send to backend
-    supabase.functions.invoke('realtime-proctoring', {
-      body: {
-        assessmentId,
-        participantId,
-        event: securityEvent
+    try {
+      // Send violation to WebSocket server for real-time broadcasting and database storage
+      const wsUrl = `wss://axdwgxtukqqzupboojmx.supabase.co/functions/v1/realtime-proctoring`;
+      const ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        // First authenticate
+        ws.send(JSON.stringify({
+          type: 'auth',
+          data: { userId: participantId },
+          timestamp: Date.now()
+        }));
+        
+        // Then send violation
+        setTimeout(() => {
+          ws.send(JSON.stringify({
+            type: 'violation_report',
+            data: {
+              assessmentId,
+              participantId,
+              event: securityEvent
+            },
+            timestamp: Date.now()
+          }));
+        }, 100);
+      };
+      
+      ws.onmessage = (event) => {
+        const response = JSON.parse(event.data);
+        if (response.type === 'violation_recorded') {
+          console.log('Violation recorded:', response.data);
+          if (!response.data.stored) {
+            console.warn('Violation not stored in database:', response.data.error);
+          }
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+      
+      // Close connection after 5 seconds
+      setTimeout(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Error sending violation via WebSocket:', error);
+      
+      // Fallback: store directly via Supabase
+      await storeViolationDirectly(securityEvent);
+    }
+  };
+
+  const storeViolationDirectly = async (securityEvent: SecurityEvent) => {
+    try {
+      // Find assessment instance
+      const { data: instances } = await supabase
+        .from('assessment_instances')
+        .select('id, proctoring_violations, integrity_score')
+        .eq('assessment_id', assessmentId)
+        .eq('participant_id', participantId)
+        .order('started_at', { ascending: false })
+        .limit(1);
+
+      if (instances && instances.length > 0) {
+        const instance = instances[0];
+        const currentViolations = instance.proctoring_violations || [];
+        const updatedViolations = [...currentViolations, securityEvent];
+        
+        // Calculate integrity score
+        const severityWeights = { low: 1, medium: 3, high: 7, critical: 15 };
+        const totalDeduction = updatedViolations.reduce((total, v) => 
+          total + (severityWeights[v.severity] || 3), 0
+        );
+        const newIntegrityScore = Math.max(0, 100 - totalDeduction);
+
+        await supabase
+          .from('assessment_instances')
+          .update({
+            proctoring_violations: updatedViolations,
+            integrity_score: newIntegrityScore
+          })
+          .eq('id', instance.id);
+
+        console.log('Violation stored directly in database');
       }
-    }).catch(console.error);
+    } catch (error) {
+      console.error('Error storing violation directly:', error);
+    }
   };
 
   const toggleRecording = () => {

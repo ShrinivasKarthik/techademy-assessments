@@ -1,9 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Initialize Supabase client
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
 
 // Store for active connections
 const connections = new Map<string, WebSocket>();
@@ -207,27 +214,53 @@ function handleParticipantActivity(connectionId: string, data: any, socket: WebS
   }, connectionId);
 }
 
-function handleViolationReport(connectionId: string, data: any, socket: WebSocket) {
+async function handleViolationReport(connectionId: string, data: any, socket: WebSocket) {
   console.log(`Violation report from ${connectionId}:`, data);
   
-  // Broadcast violation to all monitoring connections
-  broadcastToMonitors({
-    type: 'violation_detected',
-    data: {
-      participantId: data.participantId,
-      violation: data.violation,
-      severity: data.severity || 'medium',
-      evidence: data.evidence,
+  const violationId = crypto.randomUUID();
+  const violationData = {
+    id: violationId,
+    participantId: data.participantId,
+    assessmentId: data.assessmentId,
+    type: data.event?.type || data.violation?.type || 'unknown',
+    severity: data.event?.severity || data.severity || 'medium',
+    description: data.event?.description || data.violation?.description || 'Security violation detected',
+    evidence: data.evidence,
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    // Store violation in database
+    await storeViolationInDatabase(violationData);
+    
+    // Broadcast violation to all monitoring connections
+    broadcastToMonitors({
+      type: 'violation_detected',
+      data: violationData,
       timestamp: Date.now()
-    },
-    timestamp: Date.now()
-  }, connectionId);
-  
-  socket.send(JSON.stringify({
-    type: 'violation_recorded',
-    data: { violationId: crypto.randomUUID() },
-    timestamp: Date.now()
-  }));
+    }, connectionId);
+    
+    socket.send(JSON.stringify({
+      type: 'violation_recorded',
+      data: { violationId, stored: true },
+      timestamp: Date.now()
+    }));
+  } catch (error) {
+    console.error('Error storing violation:', error);
+    
+    // Still broadcast but mark as not stored
+    broadcastToMonitors({
+      type: 'violation_detected',
+      data: violationData,
+      timestamp: Date.now()
+    }, connectionId);
+    
+    socket.send(JSON.stringify({
+      type: 'violation_recorded',
+      data: { violationId, stored: false, error: error.message },
+      timestamp: Date.now()
+    }));
+  }
 }
 
 function broadcastToMonitors(message: any, excludeConnectionId?: string) {
@@ -344,6 +377,135 @@ function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSock
 
   // Start enhanced monitoring updates
   setTimeout(sendEnhancedUpdate, 1000);
+}
+
+async function storeViolationInDatabase(violationData: any) {
+  const { participantId, assessmentId, type, severity, description, evidence, timestamp } = violationData;
+  
+  // Find the assessment instance
+  const { data: instances, error: instanceError } = await supabase
+    .from('assessment_instances')
+    .select('id')
+    .eq('assessment_id', assessmentId)
+    .or(`participant_id.eq.${participantId},participant_id.is.null`)
+    .order('started_at', { ascending: false })
+    .limit(1);
+
+  if (instanceError) {
+    console.error('Error finding assessment instance:', instanceError);
+    throw instanceError;
+  }
+
+  if (!instances || instances.length === 0) {
+    console.error('No assessment instance found for participant:', participantId);
+    throw new Error('Assessment instance not found');
+  }
+
+  const instanceId = instances[0].id;
+
+  // Find or create proctoring session
+  let proctoringSessionId;
+  const { data: existingSessions, error: sessionFindError } = await supabase
+    .from('proctoring_sessions')
+    .select('id')
+    .eq('assessment_instance_id', instanceId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (sessionFindError) {
+    console.error('Error finding proctoring session:', sessionFindError);
+    throw sessionFindError;
+  }
+
+  if (existingSessions && existingSessions.length > 0) {
+    proctoringSessionId = existingSessions[0].id;
+  } else {
+    // Create new proctoring session
+    const { data: newSession, error: sessionCreateError } = await supabase
+      .from('proctoring_sessions')
+      .insert({
+        assessment_instance_id: instanceId,
+        participant_id: participantId,
+        status: 'active',
+        security_events: [],
+        monitoring_data: {}
+      })
+      .select('id')
+      .single();
+
+    if (sessionCreateError) {
+      console.error('Error creating proctoring session:', sessionCreateError);
+      throw sessionCreateError;
+    }
+
+    proctoringSessionId = newSession.id;
+  }
+
+  // Add violation to proctoring session
+  const { error: updateSessionError } = await supabase.rpc('update_proctoring_session_events', {
+    session_id: proctoringSessionId,
+    new_event: {
+      id: violationData.id,
+      type,
+      severity,
+      description,
+      evidence,
+      timestamp
+    }
+  });
+
+  if (updateSessionError) {
+    console.error('Error updating proctoring session:', updateSessionError);
+    
+    // Fallback: try direct update
+    const { data: currentSession } = await supabase
+      .from('proctoring_sessions')
+      .select('security_events')
+      .eq('id', proctoringSessionId)
+      .single();
+
+    const currentEvents = currentSession?.security_events || [];
+    const updatedEvents = [...currentEvents, {
+      id: violationData.id,
+      type,
+      severity,
+      description,
+      evidence,
+      timestamp
+    }];
+
+    await supabase
+      .from('proctoring_sessions')
+      .update({ security_events: updatedEvents })
+      .eq('id', proctoringSessionId);
+  }
+
+  // Update assessment instance violations and integrity score
+  const { data: currentInstance } = await supabase
+    .from('assessment_instances')
+    .select('proctoring_violations, integrity_score')
+    .eq('id', instanceId)
+    .single();
+
+  const currentViolations = currentInstance?.proctoring_violations || [];
+  const updatedViolations = [...currentViolations, violationData];
+  
+  // Calculate new integrity score
+  const severityWeights = { low: 1, medium: 3, high: 7, critical: 15 };
+  const totalDeduction = updatedViolations.reduce((total, v) => 
+    total + (severityWeights[v.severity] || 3), 0
+  );
+  const newIntegrityScore = Math.max(0, 100 - totalDeduction);
+
+  await supabase
+    .from('assessment_instances')
+    .update({
+      proctoring_violations: updatedViolations,
+      integrity_score: newIntegrityScore
+    })
+    .eq('id', instanceId);
+
+  console.log(`Violation stored successfully: ${type} (${severity}) for participant ${participantId}`);
 }
 
 console.log("Real-time proctoring WebSocket server started");
