@@ -1,11 +1,17 @@
 import Navigation from "@/components/Navigation";
 import QuestionBankEnhanced from "@/components/QuestionBankEnhanced";
+import { EnhancedQuestionBank } from "@/components/enhanced/EnhancedQuestionBank";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const QuestionBankPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <QuestionBankEnhanced />
+      <div className="container mx-auto py-6">
+        <ErrorBoundary>
+          <EnhancedQuestionBank mode="manage" />
+        </ErrorBoundary>
+      </div>
     </div>
   );
 };
