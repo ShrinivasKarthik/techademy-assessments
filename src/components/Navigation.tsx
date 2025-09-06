@@ -7,8 +7,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "./NotificationSystem";
 import { 
-  Menu, 
-  X, 
   BookOpen, 
   Plus, 
   Activity, 
@@ -25,9 +23,9 @@ import {
   Users
 } from "lucide-react";
 import AccessibilityControls from "./AccessibilityControls";
+import MobileNavigationDrawer from "./mobile/MobileNavigationDrawer";
 
 const Navigation = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   // Fixed: Restore real auth context
@@ -228,70 +226,10 @@ const Navigation = () => {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="md:hidden"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          {/* Mobile Navigation Drawer */}
+          <MobileNavigationDrawer />
         </div>
 
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className="md:hidden border-t py-4">
-            <nav className="flex flex-col space-y-2">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.name}
-                    to={link.href}
-                    className={`flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-md transition-colors hover:bg-accent ${
-                      isActive(link.href)
-                        ? "text-primary bg-accent"
-                        : "text-muted-foreground"
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {link.name}
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="justify-start gap-2">
-                    <Accessibility className="w-4 h-4" />
-                    Accessibility
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0" align="end">
-                  <AccessibilityControls />
-                </PopoverContent>
-              </Popover>
-              {user ? (
-                <Button variant="ghost" size="sm" className="justify-start" onClick={handleSignOut}>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
-              ) : (
-                <>
-                  <Button variant="ghost" size="sm" className="justify-start" onClick={() => navigate('/auth')}>
-                    Sign In
-                  </Button>
-                  <Button size="sm" className="justify-start" onClick={() => navigate('/auth')}>
-                    Get Started
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </header>
   );

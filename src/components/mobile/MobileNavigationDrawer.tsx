@@ -52,50 +52,47 @@ const MobileNavigationDrawer: React.FC = () => {
         { title: "Dashboard", href: "/", icon: Home },
         { title: "Assessments", href: "/assessments", icon: FileText },
         { title: "Question Bank", href: "/question-bank", icon: BookOpen },
-        { title: "Take Assessment", href: "/take-assessment", icon: Target }
+        { title: "Create Assessment", href: "/assessments/create", icon: Target }
       ]
     },
     {
-      title: "Analytics & Insights",
+      title: "Analytics & AI",
       items: [
-        { title: "Assessment Analytics", href: "/assessment-analytics", icon: BarChart3 },
-        { title: "Question Analytics", href: "/question-analytics", icon: Activity },
-        { title: "Skills Analytics", href: "/skill-analytics", icon: TrendingUp },
         { title: "Advanced Analytics", href: "/advanced-analytics", icon: Brain },
-        { title: "Performance Metrics", href: "/performance-metrics", icon: Zap, badge: "New" }
+        { title: "Predictive Analytics", href: "/predictive-analytics", icon: TrendingUp, badge: "New" },
+        { title: "Learning Paths", href: "/learning-paths", icon: Target, badge: "New" },
+        { title: "Fraud Detection", href: "/fraud-detection", icon: Shield, badge: "New" },
+        { title: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3, badge: "New" },
+        { title: "Performance Metrics", href: "/performance-metrics", icon: Zap },
+        { title: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
       ]
     },
     {
       title: "Advanced Features",
       items: [
-        { title: "AI Insights", href: "/ai-insights", icon: Brain },
         { title: "Smart Assembly", href: "/smart-assembly", icon: Zap },
+        { title: "Advanced Builder", href: "/advanced-builder", icon: Settings },
         { title: "Collaborative", href: "/collaborative", icon: Users },
-        { title: "Real-time Monitoring", href: "/real-time-monitoring", icon: Activity },
-        { title: "Queue Monitoring", href: "/queue-monitoring", icon: Database, badge: "New" }
+        { title: "Real-time Monitoring", href: "/monitoring/real-time", icon: Activity },
+        { title: "Queue Monitoring", href: "/queue-monitoring", icon: Database }
       ]
     },
     {
-      title: "Content Creation",
+      title: "Quality & Reports",
       items: [
-        { title: "Advanced Builder", href: "/advanced-question-builder", icon: Settings },
-        { title: "Question Templates", href: "/question-templates", icon: FileText },
-        { title: "Question Quality", href: "/question-quality", icon: Shield }
-      ]
-    },
-    {
-      title: "Reports & Monitoring",
-      items: [
+        { title: "Question Quality", href: "/question-quality", icon: Shield },
         { title: "Advanced Reports", href: "/advanced-reports", icon: BarChart3 },
-        { title: "Comprehensive Reports", href: "/comprehensive-reports", icon: FileText, badge: "New" },
+        { title: "Comprehensive Reports", href: "/comprehensive-reports", icon: FileText },
         { title: "Live Monitoring", href: "/monitoring", icon: Activity },
         { title: "Proctoring", href: "/proctoring", icon: Shield }
       ]
     },
     {
-      title: "Public Features",
+      title: "Tools",
       items: [
-        { title: "Public Assessment", href: "/public", icon: Globe }
+        { title: "Question Templates", href: "/question-templates", icon: FileText },
+        { title: "Assessment Analytics", href: "/assessment-analytics", icon: BarChart3 },
+        { title: "Question Analytics", href: "/question-analytics", icon: Activity }
       ]
     }
   ];
