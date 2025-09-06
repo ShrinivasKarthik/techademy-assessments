@@ -7,21 +7,32 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "./NotificationSystem";
 import { 
-  BookOpen, 
-  Plus, 
-  Activity, 
-  Shield, 
   BarChart3, 
-  Brain,
-  Home,
-  Settings,
-  Accessibility,
-  LogOut,
+  Users, 
+  Settings, 
+  FileText, 
+  Database, 
+  Activity, 
+  TrendingUp, 
+  Gauge, 
+  Clock, 
+  Shield, 
+  MessageSquare, 
+  Zap, 
+  Eye,
   User,
+  Bell,
+  LogOut,
+  Menu,
+  ChevronDown,
+  Brain,
+  HelpCircle,
+  Accessibility,
+  Plus,
   CheckCircle,
-  TrendingUp,
-  Users
-} from "lucide-react";
+  BookOpen,
+  Home
+} from 'lucide-react';
 import AccessibilityControls from "./AccessibilityControls";
 import MobileNavigationDrawer from "./mobile/MobileNavigationDrawer";
 
@@ -67,6 +78,7 @@ const Navigation = () => {
           { name: "Real-Time", href: "/monitoring/real-time", icon: Activity },
           { name: "Reports", href: "/reports", icon: BarChart3 },
           { name: "Performance", href: "/performance-metrics", icon: TrendingUp },
+          { name: "DB Performance", href: "/performance", icon: Activity },
           { name: "Comprehensive", href: "/comprehensive-reports", icon: BarChart3 },
           { name: "Queue Monitor", href: "/queue-monitoring", icon: Activity },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
@@ -77,6 +89,9 @@ const Navigation = () => {
           { name: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3 },
           { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
           { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp },
+          { name: "Integrations", href: "/integrations", icon: Settings },
+          { name: "Accessibility", href: "/accessibility", icon: Accessibility },
+          { name: "Help", href: "/help", icon: HelpCircle },
           { name: "Admin", href: "/admin", icon: Settings }
         );
         break;
@@ -99,7 +114,8 @@ const Navigation = () => {
           { name: "Fraud Detection", href: "/fraud-detection", icon: Shield },
           { name: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3 },
           { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
-          { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
+          { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp },
+          { name: "Help", href: "/help", icon: HelpCircle }
         );
         break;
 
@@ -119,6 +135,7 @@ const Navigation = () => {
           { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
           { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
           { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp },
+          { name: "Help", href: "/help", icon: HelpCircle },
           { name: "Admin", href: "/admin", icon: Settings }
         );
     }

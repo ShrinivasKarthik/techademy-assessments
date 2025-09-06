@@ -39,6 +39,10 @@ import PredictiveAnalyticsPage from "./pages/PredictiveAnalyticsPage";
 import LearningPathRecommendationsPage from "./pages/LearningPathRecommendationsPage";
 import FraudDetectionPage from "./pages/FraudDetectionPage";
 import CohortAnalysisPage from "./pages/CohortAnalysisPage";
+import IntegrationManagerPage from "./pages/IntegrationManagerPage";
+import PerformanceMonitorPage from "./pages/PerformanceMonitorPage";
+import AccessibilityManagerPage from "./pages/AccessibilityManagerPage";
+import ContextualHelpPage from "./pages/ContextualHelpPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -194,6 +198,26 @@ const App = () => (
             <Route path="/cohort-analysis" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                 <CohortAnalysisPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/integrations" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <IntegrationManagerPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/performance" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <PerformanceMonitorPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/accessibility" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AccessibilityManagerPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/help" element={
+              <ProtectedRoute>
+                <ContextualHelpPage />
               </ProtectedRoute>
             } />
             {/* Public assessment route - no authentication required */}
