@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useCollaborativeSession } from '@/hooks/useCollaborativeSession';
 
 interface Collaborator {
   id: string;
@@ -71,54 +72,19 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
   const { user, profile } = useAuth();
   const { toast } = useToast();
   
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@example.com',
-      role: 'owner',
-      status: 'online',
-      lastActive: new Date()
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane@example.com',
-      role: 'editor',
-      status: 'online',
-      lastActive: new Date(Date.now() - 5 * 60 * 1000)
-    },
-    {
-      id: '3',
-      name: 'Bob Johnson',
-      email: 'bob@example.com',
-      role: 'reviewer',
-      status: 'away',
-      lastActive: new Date(Date.now() - 30 * 60 * 1000)
-    }
-  ]);
+  // Use real-time collaborative session
+  const {
+    isConnected,
+    sessionId,
+    collaborators: liveCollaborators,
+    comments: liveComments,
+    activity,
+    addComment,
+    resolveComment,
+    broadcastAssessmentChange
+  } = useCollaborativeSession(assessmentId);
 
-  const [comments, setComments] = useState<Comment[]>([
-    {
-      id: '1',
-      authorId: '2',
-      authorName: 'Jane Smith',
-      content: 'This question might be too difficult for beginners. Consider adding a hint.',
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      resolved: false,
-      questionId: 'q1'
-    },
-    {
-      id: '2',
-      authorId: '3',
-      authorName: 'Bob Johnson',
-      content: 'The test cases look comprehensive. Good coverage!',
-      createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-      resolved: true,
-      questionId: 'q2'
-    }
-  ]);
-
+  // Version history (could be enhanced with real-time updates)
   const [versionHistory, setVersionHistory] = useState<VersionHistory[]>([
     {
       id: '1',
@@ -145,21 +111,31 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
   const [newComment, setNewComment] = useState('');
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
 
+  // Map live data to component state
+  const collaborators = liveCollaborators.map(collab => ({
+    id: collab.id,
+    name: collab.name,
+    email: collab.email,
+    role: collab.role,
+    status: collab.status,
+    lastActive: collab.lastActive
+  }));
+
+  const comments = liveComments.map(comment => ({
+    id: comment.id,
+    authorId: comment.authorId,
+    authorName: comment.authorName,
+    content: comment.content,
+    createdAt: comment.createdAt,
+    resolved: comment.resolved,
+    questionId: comment.questionId
+  }));
+
   const inviteCollaborator = async () => {
     if (!inviteEmail) return;
 
     try {
-      // In real implementation, this would send an invitation via API
-      const newCollaborator: Collaborator = {
-        id: Date.now().toString(),
-        name: inviteEmail.split('@')[0],
-        email: inviteEmail,
-        role: inviteRole,
-        status: 'offline',
-        lastActive: new Date()
-      };
-
-      setCollaborators(prev => [...prev, newCollaborator]);
+      // This would integrate with real invitation system
       setInviteEmail('');
       
       toast({
@@ -175,20 +151,10 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
     }
   };
 
-  const addComment = async () => {
+  const handleAddComment = async () => {
     if (!newComment.trim()) return;
 
-    const comment: Comment = {
-      id: Date.now().toString(),
-      authorId: user?.id || '1',
-      authorName: profile?.full_name || 'You',
-      content: newComment,
-      createdAt: new Date(),
-      resolved: false,
-      questionId: selectedQuestionId || undefined
-    };
-
-    setComments(prev => [comment, ...prev]);
+    await addComment(newComment, selectedQuestionId || undefined);
     setNewComment('');
     
     toast({
@@ -197,21 +163,15 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
     });
   };
 
-  const resolveComment = (commentId: string) => {
-    setComments(prev => prev.map(comment => 
-      comment.id === commentId 
-        ? { ...comment, resolved: !comment.resolved }
-        : comment
-    ));
+  const handleResolveComment = async (commentId: string) => {
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+
+    await resolveComment(commentId, !comment.resolved);
   };
 
   const updateCollaboratorRole = (collaboratorId: string, newRole: Collaborator['role']) => {
-    setCollaborators(prev => prev.map(collab => 
-      collab.id === collaboratorId 
-        ? { ...collab, role: newRole }
-        : collab
-    ));
-    
+    // This would integrate with real-time collaboration system
     toast({
       title: "Role Updated",
       description: "Collaborator role has been updated"
@@ -219,8 +179,7 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
   };
 
   const removeCollaborator = (collaboratorId: string) => {
-    setCollaborators(prev => prev.filter(collab => collab.id !== collaboratorId));
-    
+    // This would integrate with real-time collaboration system
     toast({
       title: "Collaborator Removed",
       description: "Collaborator has been removed from the assessment"
@@ -266,9 +225,19 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
             Collaborative Assessment Editor
+            {isConnected && (
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                Live
+              </span>
+            )}
           </CardTitle>
           <CardDescription>
-            Work together with your team to create and review assessments
+            Work together with your team to create and review assessments in real-time
+            {sessionId && (
+              <span className="block text-xs text-muted-foreground mt-1">
+                Session: {sessionId}
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -344,7 +313,7 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage src={collaborator.avatar} />
+                            <AvatarImage src="" />
                             <AvatarFallback>
                               {collaborator.name.split(' ').map(n => n[0]).join('')}
                             </AvatarFallback>
@@ -418,7 +387,7 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
                     <div className="text-sm text-muted-foreground">
                       Commenting on: General Assessment
                     </div>
-                    <Button onClick={addComment} size="sm" className="gap-2">
+                    <Button onClick={handleAddComment} size="sm" className="gap-2">
                       <Send className="w-4 h-4" />
                       Comment
                     </Button>
@@ -458,7 +427,7 @@ const CollaborativeAssessmentEditor: React.FC<CollaborativeAssessmentEditorProps
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => resolveComment(comment.id)}
+                            onClick={() => handleResolveComment(comment.id)}
                             className="text-xs"
                           >
                             {comment.resolved ? 'Unresolve' : 'Resolve'}

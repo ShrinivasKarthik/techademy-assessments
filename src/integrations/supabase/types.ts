@@ -317,6 +317,137 @@ export type Database = {
         }
         Relationships: []
       }
+      collaborative_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string
+          content: string
+          created_at: string
+          id: string
+          parent_id: string | null
+          question_id: string | null
+          resolved: boolean
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name: string
+          content: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          question_id?: string | null
+          resolved?: boolean
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string
+          content?: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          question_id?: string | null
+          resolved?: boolean
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborative_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "collaborative_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaborative_comments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "collaborative_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collaborative_sessions: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          session_data: Json | null
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          session_data?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          session_data?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      collaborators: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          joined_at: string
+          last_active: string | null
+          name: string | null
+          role: string
+          session_id: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          joined_at?: string
+          last_active?: string | null
+          name?: string | null
+          role?: string
+          session_id: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          joined_at?: string
+          last_active?: string | null
+          name?: string | null
+          role?: string
+          session_id?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborators_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "collaborative_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collection_questions: {
         Row: {
           added_at: string | null
@@ -847,6 +978,44 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_activity: {
+        Row: {
+          action_data: Json | null
+          action_type: string
+          created_at: string
+          id: string
+          session_id: string
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          action_data?: Json | null
+          action_type: string
+          created_at?: string
+          id?: string
+          session_id: string
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          action_data?: Json | null
+          action_type?: string
+          created_at?: string
+          id?: string
+          session_id?: string
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_activity_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "collaborative_sessions"
             referencedColumns: ["id"]
           },
         ]

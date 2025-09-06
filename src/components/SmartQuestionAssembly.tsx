@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useQuestionBank } from '@/hooks/useQuestionBank';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LearningObjective {
   id: string;
@@ -132,39 +133,52 @@ const SmartQuestionAssembly: React.FC<SmartQuestionAssemblyProps> = ({
     setAssemblyProgress(0);
 
     try {
-      // Simulate AI analysis and assembly process
-      const steps = [
-        { message: 'Analyzing learning objectives...', duration: 1000 },
-        { message: 'Evaluating question pool...', duration: 1500 },
-        { message: 'Calculating difficulty distribution...', duration: 1000 },
-        { message: 'Optimizing question selection...', duration: 2000 },
-        { message: 'Validating assessment quality...', duration: 1000 }
-      ];
-
       setAssemblyStatus('assembling');
 
-      for (let i = 0; i < steps.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, steps[i].duration));
-        setAssemblyProgress((i + 1) * 20);
+      // Call enhanced smart assembly edge function
+      const { data, error } = await supabase.functions.invoke('enhanced-smart-assembly', {
+        body: {
+          totalQuestions: config.totalQuestions,
+          targetSkills: config.learningObjectives.map(obj => obj.name),
+          difficulty: config.difficulty,
+          questionTypes: config.questionTypes,
+          assessmentContext: `${config.assessmentType} assessment for ${config.targetAudience}`,
+          learningObjectives: config.learningObjectives
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
 
-      // Mock smart assembly algorithm
-      const assembledQuestions = mockSmartAssembly(questions, config);
-      const quality = calculateAssemblyQuality(assembledQuestions);
+      // Update progress through assembly steps
+      const steps = [
+        'Analyzing learning objectives...',
+        'Evaluating question pool...',
+        'AI-powered question selection...',
+        'Optimizing difficulty distribution...',
+        'Validating assembly quality...'
+      ];
 
-      setRecommendedQuestions(assembledQuestions);
-      setQualityScore(quality);
+      for (let i = 0; i < steps.length; i++) {
+        setAssemblyProgress((i + 1) * 20);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      setRecommendedQuestions(data.questions || []);
+      setQualityScore(data.summary?.qualityScore || 0);
       setAssemblyStatus('complete');
 
       toast({
-        title: "Smart Assembly Complete!",
-        description: `Generated ${assembledQuestions.length} optimized questions with ${quality}% quality score.`
+        title: "AI Assembly Complete!",
+        description: `Generated ${data.summary?.totalSelected || 0} optimized questions with ${data.summary?.qualityScore || 0}% quality score.`
       });
 
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Smart assembly error:', error);
       toast({
         title: "Assembly Failed",
-        description: "Failed to complete smart assembly. Please try again.",
+        description: error.message || "Failed to complete smart assembly. Please try again.",
         variant: "destructive"
       });
       setAssemblyStatus('idle');
