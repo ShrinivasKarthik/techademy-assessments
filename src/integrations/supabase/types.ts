@@ -529,6 +529,48 @@ export type Database = {
           },
         ]
       }
+      external_integrations: {
+        Row: {
+          api_key_encrypted: string | null
+          configuration: Json | null
+          created_at: string
+          created_by: string | null
+          endpoint_url: string
+          id: string
+          integration_type: string
+          last_sync_at: string | null
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          configuration?: Json | null
+          created_at?: string
+          created_by?: string | null
+          endpoint_url: string
+          id?: string
+          integration_type: string
+          last_sync_at?: string | null
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          configuration?: Json | null
+          created_at?: string
+          created_by?: string | null
+          endpoint_url?: string
+          id?: string
+          integration_type?: string
+          last_sync_at?: string | null
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proctoring_sessions: {
         Row: {
           assessment_instance_id: string
@@ -1132,6 +1174,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      webhook_configurations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          events: string[]
+          id: string
+          is_active: boolean
+          name: string
+          secret: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          events?: string[]
+          id?: string
+          is_active?: boolean
+          name: string
+          secret?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          events?: string[]
+          id?: string
+          is_active?: boolean
+          name?: string
+          secret?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
       }
     }
     Views: {
