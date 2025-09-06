@@ -81,7 +81,8 @@ const ResultsPage = () => {
 
       const resultsData = (instances || []).filter(instance => {
         const assessments = instance.assessments;
-        return assessments && typeof assessments === 'object' && !('error' in assessments) && 'title' in assessments;
+        return assessments && typeof assessments === 'object' && assessments !== null && 
+               !Object.hasOwnProperty.call(assessments, 'error') && Object.hasOwnProperty.call(assessments, 'title');
       }) as unknown as AssessmentResult[];
       setResults(resultsData);
 

@@ -137,7 +137,8 @@ const AssessmentResultsPage = () => {
       
       // Filter out invalid data
       const assessments = instance?.assessments;
-      if (assessments && typeof assessments === 'object' && !('error' in assessments) && 'title' in assessments) {
+      if (assessments && typeof assessments === 'object' && assessments !== null && 
+          !Object.hasOwnProperty.call(assessments, 'error') && Object.hasOwnProperty.call(assessments, 'title')) {
         setResult(instance as unknown as DetailedResult);
       } else {
         throw new Error('Invalid assessment data');
