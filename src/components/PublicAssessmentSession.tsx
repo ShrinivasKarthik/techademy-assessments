@@ -310,12 +310,13 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   };
 
   // Loading state
-  if (loading || sessionState === 'loading') {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading assessment...</p>
+          <p className="text-xs text-muted-foreground mt-2">Session State: {sessionState}</p>
         </div>
       </div>
     );
