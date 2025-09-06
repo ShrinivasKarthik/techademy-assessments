@@ -61,40 +61,20 @@ const AssessmentWorkflow: React.FC<AssessmentWorkflowProps> = ({
     }
   };
 
-  const getAvailableActions = () => {
-    const actions = [];
+  const getStandardizedActions = () => {
+    const primaryActions = [];
+    const secondaryActions = [];
 
-    // Always available actions
-    actions.push({
-      label: 'Preview',
-      icon: Eye,
-      variant: 'outline' as const,
-      action: () => navigate(`/assessments/${assessment.id}/preview`)
-    });
-
-    actions.push({
-      label: 'Duplicate',
-      icon: Copy,
-      variant: 'outline' as const,
-      action: async () => {
-        const newId = await duplicateAssessment(assessment.id);
-        if (newId) {
-          navigate(`/assessments/create?duplicate=${newId}`);
-        }
-      }
-    });
-
-    // Status-specific actions
+    // Primary actions (always 2 buttons in top row)
     switch (assessment.status) {
       case 'draft':
-        actions.unshift({
+        primaryActions.push({
           label: 'Edit',
           icon: Edit,
           variant: 'default' as const,
           action: () => navigate(`/assessments/create?edit=${assessment.id}`)
         });
-        
-        actions.push({
+        primaryActions.push({
           label: 'Publish',
           icon: Play,
           variant: 'default' as const,
@@ -106,49 +86,78 @@ const AssessmentWorkflow: React.FC<AssessmentWorkflowProps> = ({
         break;
 
       case 'published':
-        actions.push({
+        primaryActions.push({
           label: 'Monitor',
           icon: Users,
           variant: 'default' as const,
           action: () => navigate(`/monitoring?assessment=${assessment.id}`)
         });
-        
-        actions.push({
+        primaryActions.push({
           label: 'Analytics',
           icon: BarChart3,
-          variant: 'outline' as const,
+          variant: 'default' as const,
           action: () => navigate(`/assessments/${assessment.id}/analytics`)
-        });
-        
-        actions.push({
-          label: 'Archive',
-          icon: Archive,
-          variant: 'outline' as const,
-          action: async () => {
-            const success = await archiveAssessment(assessment.id);
-            if (success) onStatusChange?.();
-          }
         });
         break;
 
       case 'archived':
-        actions.push({
+        primaryActions.push({
+          label: 'Preview',
+          icon: Eye,
+          variant: 'default' as const,
+          action: () => navigate(`/assessments/${assessment.id}/preview`)
+        });
+        primaryActions.push({
           label: 'Settings',
           icon: Settings,
-          variant: 'outline' as const,
+          variant: 'default' as const,
           action: () => navigate(`/assessments/${assessment.id}/settings`)
         });
         break;
     }
 
-    return actions;
+    // Secondary actions (always 2 buttons in bottom row)
+    secondaryActions.push({
+      label: 'Preview',
+      icon: Eye,
+      variant: 'outline' as const,
+      action: () => navigate(`/assessments/${assessment.id}/preview`),
+      hidden: assessment.status === 'archived' // Hide if already in primary
+    });
+
+    secondaryActions.push({
+      label: 'Duplicate',
+      icon: Copy,
+      variant: 'outline' as const,
+      action: async () => {
+        const newId = await duplicateAssessment(assessment.id);
+        if (newId) {
+          navigate(`/assessments/create?duplicate=${newId}`);
+        }
+      }
+    });
+
+    // Add status-specific secondary action
+    if (assessment.status === 'published') {
+      secondaryActions.push({
+        label: 'Archive',
+        icon: Archive,
+        variant: 'outline' as const,
+        action: async () => {
+          const success = await archiveAssessment(assessment.id);
+          if (success) onStatusChange?.();
+        }
+      });
+    }
+
+    return { primaryActions, secondaryActions };
   };
 
   const StatusIcon = getStatusIcon(assessment.status);
-  const actions = getAvailableActions();
+  const { primaryActions, secondaryActions } = getStandardizedActions();
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow h-full flex flex-col">
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -171,29 +180,55 @@ const AssessmentWorkflow: React.FC<AssessmentWorkflowProps> = ({
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
           <span>{assessment.duration_minutes} minutes</span>
           <span>Created {new Date(assessment.created_at).toLocaleDateString()}</span>
         </div>
         
-        <div className="flex flex-wrap gap-2">
-          {actions.map((action, index) => {
-            const Icon = action.icon;
-            return (
-              <Button
-                key={index}
-                variant={action.variant}
-                size="sm"
-                onClick={action.action}
-                disabled={loading}
-                className="flex items-center gap-1"
-              >
-                <Icon className="w-4 h-4" />
-                {action.label}
-              </Button>
-            );
-          })}
+        <div className="space-y-3">
+          {/* Primary Actions Row */}
+          <div className="grid grid-cols-2 gap-2">
+            {primaryActions.map((action, index) => {
+              const Icon = action.icon;
+              return (
+                <Button
+                  key={`primary-${index}`}
+                  variant={action.variant}
+                  size="sm"
+                  onClick={action.action}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-1 h-9"
+                >
+                  <Icon className="w-4 h-4" />
+                  {action.label}
+                </Button>
+              );
+            })}
+          </div>
+
+          {/* Secondary Actions Row */}
+          <div className="grid grid-cols-2 gap-2">
+            {secondaryActions
+              .filter(action => !action.hidden)
+              .slice(0, 2)
+              .map((action, index) => {
+                const Icon = action.icon;
+                return (
+                  <Button
+                    key={`secondary-${index}`}
+                    variant={action.variant}
+                    size="sm"
+                    onClick={action.action}
+                    disabled={loading}
+                    className="flex items-center justify-center gap-1 h-9"
+                  >
+                    <Icon className="w-4 h-4" />
+                    {action.label}
+                  </Button>
+                );
+              })}
+          </div>
         </div>
       </CardContent>
     </Card>
