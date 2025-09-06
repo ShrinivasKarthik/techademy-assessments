@@ -35,3 +35,18 @@ verify_jwt = false
 
 [functions.share-assessment]
 verify_jwt = false
+
+[functions.enhanced-monitoring-system]
+verify_jwt = false
+
+[functions.enhanced-performance-analytics]
+verify_jwt = false
+
+[functions.enhanced-report-generator]
+verify_jwt = false
+
+[functions.advanced-queue-manager]
+verify_jwt = false
+
+[functions.automated-report-scheduler]
+verify_jwt = false

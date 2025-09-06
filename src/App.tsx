@@ -32,6 +32,9 @@ import InstructorStudentsPage from "./pages/InstructorStudentsPage";
 import CollaborativePage from "./pages/CollaborativePage";
 import SmartAssemblyPage from "./pages/SmartAssemblyPage";
 import AdvancedQuestionBuilderPage from "./pages/AdvancedQuestionBuilderPage";
+import PerformanceMetricsPage from "./pages/PerformanceMetricsPage";
+import ComprehensiveReportsPage from "./pages/ComprehensiveReportsPage";
+import QueueMonitoringPage from "./pages/QueueMonitoringPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -152,6 +155,21 @@ const App = () => (
             <Route path="/assessments/:id/insights" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                 <AIInsightsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/performance-metrics" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <PerformanceMetricsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/comprehensive-reports" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <ComprehensiveReportsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/queue-monitoring" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <QueueMonitoringPage />
               </ProtectedRoute>
             } />
             {/* Public assessment route - no authentication required */}
