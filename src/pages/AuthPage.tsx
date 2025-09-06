@@ -30,7 +30,7 @@ const AuthPage = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate('/home');
     }
   }, [user, navigate]);
 
@@ -48,7 +48,7 @@ const AuthPage = () => {
         title: "Welcome back!",
         description: "You have been successfully signed in.",
       });
-      navigate('/');
+      navigate('/home');
     }
     
     setLoading(false);
@@ -67,7 +67,7 @@ const AuthPage = () => {
         title: `Welcome, ${role}!`,
         description: "You've been logged in with demo credentials.",
       });
-      navigate('/');
+      navigate('/home');
     }
     
     setLoading(false);
