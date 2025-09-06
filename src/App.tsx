@@ -28,6 +28,7 @@ import RealTimeMonitoringPage from "./pages/RealTimeMonitoringPage";
 import AdvancedReportsPage from "./pages/AdvancedReportsPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import QuestionAnalyticsPage from "./pages/QuestionAnalyticsPage";
+import InstructorStudentsPage from "./pages/InstructorStudentsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -83,6 +84,11 @@ const App = () => (
             <Route path="/admin" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/instructor/students" element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <InstructorStudentsPage />
               </ProtectedRoute>
             } />
             <Route path="/monitoring" element={

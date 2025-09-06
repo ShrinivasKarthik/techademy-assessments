@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Upload, File, X, Download, AlertCircle } from 'lucide-react';
+import FileUploadComponent from '@/components/FileUploadComponent';
+import { useFileUpload } from '@/hooks/useFileUpload';
 
 interface FileUploadQuestionProps {
   question: {
@@ -35,14 +37,24 @@ const FileUploadQuestion: React.FC<FileUploadQuestionProps> = ({
   onAnswerChange,
   disabled = false
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-
   const files = answer?.files || [];
   const maxFiles = question.config.maxFiles || 5;
   const maxSizeBytes = question.config.maxSizeBytes || 10 * 1024 * 1024; // 10MB default
   const allowedTypes = question.config.allowedTypes || ['*'];
+
+  const handleFileUploaded = (uploadedFile: any) => {
+    const newFile = {
+      name: uploadedFile.fileName,
+      size: uploadedFile.fileSize,
+      type: uploadedFile.contentType,
+      url: uploadedFile.publicUrl,
+      uploadedAt: new Date().toISOString()
+    };
+
+    onAnswerChange({
+      files: [...files, newFile]
+    });
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -52,73 +64,6 @@ const FileUploadQuestion: React.FC<FileUploadQuestionProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const isFileTypeAllowed = (fileType: string) => {
-    if (allowedTypes.includes('*')) return true;
-    return allowedTypes.some(type => {
-      if (type.startsWith('.')) {
-        return fileType.endsWith(type);
-      }
-      return fileType.includes(type);
-    });
-  };
-
-  const handleFileSelect = async (selectedFiles: FileList) => {
-    if (disabled) return;
-
-    const validFiles = [];
-    const errors = [];
-
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      
-      // Check file count limit
-      if (files.length + validFiles.length >= maxFiles) {
-        errors.push(`Maximum ${maxFiles} files allowed`);
-        break;
-      }
-
-      // Check file size
-      if (file.size > maxSizeBytes) {
-        errors.push(`${file.name} is too large (max: ${formatFileSize(maxSizeBytes)})`);
-        continue;
-      }
-
-      // Check file type
-      if (!isFileTypeAllowed(file.type) && !isFileTypeAllowed(file.name)) {
-        errors.push(`${file.name} has an unsupported file type`);
-        continue;
-      }
-
-      validFiles.push(file);
-    }
-
-    if (validFiles.length > 0) {
-      setUploading(true);
-      
-      // Simulate file upload
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const newFiles = validFiles.map(file => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        url: URL.createObjectURL(file), // In real implementation, this would be the uploaded URL
-        uploadedAt: new Date().toISOString()
-      }));
-
-      onAnswerChange({
-        files: [...files, ...newFiles]
-      });
-      
-      setUploading(false);
-    }
-
-    if (errors.length > 0) {
-      // In real implementation, show these errors in a toast or alert
-      console.warn('File upload errors:', errors);
-    }
-  };
-
   const removeFile = (index: number) => {
     if (disabled) return;
     
@@ -126,24 +71,6 @@ const FileUploadQuestion: React.FC<FileUploadQuestionProps> = ({
     onAnswerChange({
       files: newFiles
     });
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (!disabled && e.dataTransfer.files) {
-      handleFileSelect(e.dataTransfer.files);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
   };
 
   return (
@@ -162,45 +89,14 @@ const FileUploadQuestion: React.FC<FileUploadQuestionProps> = ({
 
       {/* Upload Area */}
       {files.length < maxFiles && !disabled && (
-        <Card
-          className={`border-2 border-dashed transition-colors cursor-pointer ${
-            dragOver 
-              ? 'border-primary bg-primary/5' 
-              : 'border-muted-foreground/25 hover:border-primary/50'
-          }`}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <CardContent className="p-8 text-center">
-            <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <div className="space-y-2">
-              <p className="text-sm font-medium">
-                {uploading ? 'Uploading files...' : 'Click to upload or drag files here'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Max {maxFiles} files, up to {formatFileSize(maxSizeBytes)} each
-              </p>
-              {allowedTypes.length > 0 && !allowedTypes.includes('*') && (
-                <p className="text-xs text-muted-foreground">
-                  Allowed types: {allowedTypes.join(', ')}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <FileUploadComponent
+          onFileUploaded={handleFileUploaded}
+          questionId={question.id}
+          maxFiles={maxFiles - files.length}
+          acceptedTypes={allowedTypes.includes('*') ? undefined : allowedTypes}
+          className="mb-4"
+        />
       )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
-        accept={allowedTypes.includes('*') ? undefined : allowedTypes.join(',')}
-        disabled={disabled || uploading}
-      />
 
       {/* Uploaded Files */}
       {files.length > 0 && (

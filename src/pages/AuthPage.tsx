@@ -9,6 +9,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Mail, Lock, User, Zap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import RoleSelector from '@/components/RoleSelector';
+import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator';
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ const AuthPage = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'user' | 'student' | 'instructor' | 'admin'>('user');
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -87,7 +90,7 @@ const AuthPage = () => {
       return;
     }
 
-    const { error } = await signUp(email, password, fullName);
+    const { error } = await signUp(email, password, fullName, selectedRole);
     
     if (error) {
       setError(error.message);
@@ -281,24 +284,34 @@ const AuthPage = () => {
                         required
                         minLength={6}
                       />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        placeholder="Confirm your password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
+                     </div>
+                     <PasswordStrengthIndicator password={password} />
+                   </div>
+                   
+                   <div className="space-y-2">
+                     <Label htmlFor="confirm-password">Confirm Password</Label>
+                     <div className="relative">
+                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                       <Input
+                         id="confirm-password"
+                         type="password"
+                         placeholder="Confirm your password"
+                         value={confirmPassword}
+                         onChange={(e) => setConfirmPassword(e.target.value)}
+                         className="pl-10"
+                         required
+                       />
+                     </div>
+                   </div>
+
+                   <div className="space-y-2">
+                     <Label>Select Your Role</Label>
+                     <RoleSelector
+                       selectedRole={selectedRole}
+                       onRoleSelect={(role) => setSelectedRole(role as any)}
+                       disabled={loading}
+                     />
+                   </div>
                   
                   <Button
                     type="submit"

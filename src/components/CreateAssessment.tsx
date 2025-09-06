@@ -9,11 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Sparkles, Plus, Eye, Save, Trash2, Edit, Library, Shield, Camera, Monitor, X, Mic, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EnhancedQuestionBuilders from './EnhancedQuestionBuilders';
 import EnhancedAIGenerator from "./EnhancedAIGenerator";
 import AssessmentQualityAssurance from './AssessmentQualityAssurance';
+import AssessmentQualityGates from './AssessmentQualityGates';
 import QuestionBrowser from "./QuestionBrowser";
 import { Question as QuestionBankQuestion } from "@/hooks/useQuestionBank";
 
@@ -107,6 +109,8 @@ const CreateAssessment = () => {
   const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [showQuestionBrowser, setShowQuestionBrowser] = useState(false);
   const [showQualityAssurance, setShowQualityAssurance] = useState(false);
+  const [showQualityGates, setShowQualityGates] = useState(false);
+  const [assessmentId, setAssessmentId] = useState<string | null>(null);
 
   const questionTypes = [
     { value: 'coding', label: 'Coding Challenge' },
@@ -217,6 +221,8 @@ const CreateAssessment = () => {
         .single();
 
       if (assessmentError) throw assessmentError;
+      
+      setAssessmentId(assessmentData.id);
 
       if (assessment.questions.length > 0) {
         const questionsData = assessment.questions.map(q => ({
@@ -285,6 +291,16 @@ const CreateAssessment = () => {
             <Eye className="w-4 h-4 mr-2" />
             Preview
           </Button>
+          {assessmentId && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowQualityGates(true)}
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Quality Check
+            </Button>
+          )}
           <Button onClick={saveAssessment} size="sm">
             <Save className="w-4 h-4 mr-2" />
             Save Assessment
@@ -780,6 +796,31 @@ const CreateAssessment = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Quality Gates Modal */}
+      {showQualityGates && assessmentId && (
+        <Dialog open={showQualityGates} onOpenChange={setShowQualityGates}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Assessment Quality Check</DialogTitle>
+            </DialogHeader>
+            <AssessmentQualityGates
+              assessmentId={assessmentId}
+              onPublish={() => {
+                setShowQualityGates(false);
+                toast({
+                  title: "Assessment Published!",
+                  description: "Your assessment has been published successfully.",
+                });
+              }}
+              onPreview={() => {
+                setShowQualityGates(false);
+                // Implement preview logic
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
