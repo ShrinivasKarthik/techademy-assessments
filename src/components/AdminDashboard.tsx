@@ -44,7 +44,7 @@ import AccessibilityControls from './AccessibilityControls';
 import ManualUserCreation from './ManualUserCreation';
 import UserCredentialsManager from './UserCredentialsManager';
 import UserManagement from './UserManagement';
-import AssessmentResultsView from './AssessmentResultsView';
+
 
 interface AdminStats {
   totalUsers: number;
@@ -405,12 +405,11 @@ const AdminDashboard: React.FC = () => {
 
       {/* Detailed Management */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="proctoring">Proctoring</TabsTrigger>
         </TabsList>
 
@@ -522,9 +521,6 @@ const AdminDashboard: React.FC = () => {
         </TabsContent>
 
 
-        <TabsContent value="reports" className="space-y-4">
-          <AssessmentResultsView />
-        </TabsContent>
 
         <TabsContent value="proctoring">
           <LiveProctoringSystem 

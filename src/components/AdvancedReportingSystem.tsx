@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import AssessmentResultsView from './AssessmentResultsView';
 
 interface ReportConfig {
   format: 'pdf' | 'csv' | 'excel' | 'json';
@@ -292,6 +293,7 @@ const AdvancedReportingSystem: React.FC<AdvancedReportingSystemProps> = ({ asses
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="generate">Generate Report</TabsTrigger>
+          <TabsTrigger value="results">Assessment Results</TabsTrigger>
           <TabsTrigger value="scheduled">Scheduled Reports</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -459,6 +461,10 @@ const AdvancedReportingSystem: React.FC<AdvancedReportingSystemProps> = ({ asses
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="results" className="space-y-6">
+          <AssessmentResultsView />
         </TabsContent>
 
         <TabsContent value="scheduled" className="space-y-6">
