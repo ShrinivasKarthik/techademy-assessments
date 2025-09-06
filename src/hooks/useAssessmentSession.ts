@@ -206,7 +206,7 @@ export const useAssessmentSession = ({ assessmentId, participantId }: UseAssessm
   // Submit assessment
   const submitAssessment = useCallback(async () => {
     try {
-      const { error } = await supabase
+      const { data: instance, error } = await supabase
         .from('assessment_instances')
         .update({
           session_state: 'submitted',
@@ -214,14 +214,26 @@ export const useAssessmentSession = ({ assessmentId, participantId }: UseAssessm
           status: 'submitted'
         })
         .eq('assessment_id', assessmentId)
-        .eq('participant_id', participantId);
+        .eq('participant_id', participantId)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Trigger automatic evaluation
+      try {
+        await supabase.functions.invoke('auto-evaluate-assessment', {
+          body: { instanceId: instance.id }
+        });
+      } catch (evalError) {
+        console.error('Error triggering evaluation:', evalError);
+        // Don't fail submission if evaluation fails
+      }
 
       setSessionState('submitted');
       toast({
         title: "Assessment Submitted",
-        description: "Your assessment has been successfully submitted.",
+        description: "Your assessment has been successfully submitted and is being evaluated.",
       });
       return true;
     } catch (error) {

@@ -188,7 +188,8 @@ const Navigation = () => {
         break;
 
       case 'student':
-        // Students only see basic navigation
+        // Students see basic navigation plus results
+        baseLinks.push({ name: "My Results", href: "/results", icon: CheckCircle });
         break;
 
       default:

@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.cohort-analysis]
 verify_jwt = false
+
+[functions.auto-evaluate-assessment]
+verify_jwt = false

@@ -151,6 +151,51 @@ const StudentDashboard = () => {
           </Card>
         </div>
 
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="w-5 h-5" />
+                View Results
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Check your completed assessments and performance analytics
+              </p>
+              <Button 
+                onClick={() => navigate('/results')}
+                className="w-full gap-2"
+              >
+                <Trophy className="w-4 h-4" />
+                View My Results
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5" />
+                Browse Assessments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Explore all available assessments from your instructors
+              </p>
+              <Button 
+                onClick={() => navigate('/assessments')}
+                variant="outline"
+                className="w-full gap-2"
+              >
+                <BookOpen className="w-4 h-4" />
+                Browse All
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Available Assessments */}
         <Card>
           <CardHeader>

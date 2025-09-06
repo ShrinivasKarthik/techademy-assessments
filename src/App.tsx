@@ -43,6 +43,8 @@ import IntegrationManagerPage from "./pages/IntegrationManagerPage";
 import PerformanceMonitorPage from "./pages/PerformanceMonitorPage";
 import AccessibilityManagerPage from "./pages/AccessibilityManagerPage";
 import ContextualHelpPage from "./pages/ContextualHelpPage";
+import ResultsPage from "./pages/ResultsPage";
+import AssessmentResultsPage from "./pages/AssessmentResultsPage";
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 
@@ -224,6 +226,16 @@ const App = () => (
             <Route path="/help" element={
               <ProtectedRoute>
                 <ContextualHelpPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/results" element={
+              <ProtectedRoute allowedRoles={['student', 'admin', 'instructor']}>
+                <ResultsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments/:assessmentId/results/:instanceId" element={
+              <ProtectedRoute allowedRoles={['student', 'admin', 'instructor']}>
+                <AssessmentResultsPage />
               </ProtectedRoute>
             } />
             {/* Public assessment route - no authentication required */}

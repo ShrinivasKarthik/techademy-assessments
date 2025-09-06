@@ -143,12 +143,14 @@ export type Database = {
           assessment_id: string
           current_question_index: number | null
           id: string
+          integrity_score: number | null
           is_anonymous: boolean
           max_possible_score: number | null
           participant_email: string | null
           participant_id: string | null
           participant_name: string | null
           proctoring_started_at: string | null
+          proctoring_summary: Json | null
           proctoring_violations: Json | null
           session_state: string | null
           share_token: string | null
@@ -162,12 +164,14 @@ export type Database = {
           assessment_id: string
           current_question_index?: number | null
           id?: string
+          integrity_score?: number | null
           is_anonymous?: boolean
           max_possible_score?: number | null
           participant_email?: string | null
           participant_id?: string | null
           participant_name?: string | null
           proctoring_started_at?: string | null
+          proctoring_summary?: Json | null
           proctoring_violations?: Json | null
           session_state?: string | null
           share_token?: string | null
@@ -181,12 +185,14 @@ export type Database = {
           assessment_id?: string
           current_question_index?: number | null
           id?: string
+          integrity_score?: number | null
           is_anonymous?: boolean
           max_possible_score?: number | null
           participant_email?: string | null
           participant_id?: string | null
           participant_name?: string | null
           proctoring_started_at?: string | null
+          proctoring_summary?: Json | null
           proctoring_violations?: Json | null
           session_state?: string | null
           share_token?: string | null
@@ -488,7 +494,9 @@ export type Database = {
           evaluator_type: string | null
           feedback: string | null
           id: string
+          integrity_score: number | null
           max_score: number
+          proctoring_notes: string | null
           score: number
           submission_id: string
         }
@@ -498,7 +506,9 @@ export type Database = {
           evaluator_type?: string | null
           feedback?: string | null
           id?: string
+          integrity_score?: number | null
           max_score: number
+          proctoring_notes?: string | null
           score: number
           submission_id: string
         }
@@ -508,7 +518,9 @@ export type Database = {
           evaluator_type?: string | null
           feedback?: string | null
           id?: string
+          integrity_score?: number | null
           max_score?: number
+          proctoring_notes?: string | null
           score?: number
           submission_id?: string
         }
@@ -568,6 +580,48 @@ export type Database = {
           name?: string
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      proctoring_reports: {
+        Row: {
+          assessment_id: string
+          assessment_instance_id: string
+          created_at: string | null
+          id: string
+          integrity_score: number | null
+          participant_id: string | null
+          recommendations: string | null
+          report_data: Json
+          status: string | null
+          updated_at: string | null
+          violations_summary: Json | null
+        }
+        Insert: {
+          assessment_id: string
+          assessment_instance_id: string
+          created_at?: string | null
+          id?: string
+          integrity_score?: number | null
+          participant_id?: string | null
+          recommendations?: string | null
+          report_data?: Json
+          status?: string | null
+          updated_at?: string | null
+          violations_summary?: Json | null
+        }
+        Update: {
+          assessment_id?: string
+          assessment_instance_id?: string
+          created_at?: string | null
+          id?: string
+          integrity_score?: number | null
+          participant_id?: string | null
+          recommendations?: string | null
+          report_data?: Json
+          status?: string | null
+          updated_at?: string | null
+          violations_summary?: Json | null
         }
         Relationships: []
       }
@@ -1228,12 +1282,14 @@ export type Database = {
           assessment_id: string
           current_question_index: number | null
           id: string
+          integrity_score: number | null
           is_anonymous: boolean
           max_possible_score: number | null
           participant_email: string | null
           participant_id: string | null
           participant_name: string | null
           proctoring_started_at: string | null
+          proctoring_summary: Json | null
           proctoring_violations: Json | null
           session_state: string | null
           share_token: string | null
