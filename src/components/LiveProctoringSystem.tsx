@@ -82,6 +82,8 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline' | 'unstable'>('online');
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const [recording, setRecording] = useState(false);
+  const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
+  const [proctoringSessionId, setProctoringSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     initializeProctoring();
@@ -94,10 +96,17 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
 
   const initializeProctoring = async () => {
     try {
+      console.log('Initializing proctoring system...');
       await requestPermissions();
       await setupDeviceMonitoring();
+      await initializeWebSocketConnection();
+      await createOrUpdateProctoringSession();
+      
       setStatus('active');
       onStatusChange('active');
+      
+      // Start periodic status updates
+      startPeriodicStatusUpdates();
       
       toast({
         title: "Proctoring Active",
@@ -111,6 +120,151 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
         variant: "destructive"
       });
     }
+  };
+
+  const initializeWebSocketConnection = () => {
+    return new Promise<void>((resolve, reject) => {
+      try {
+        const wsUrl = `wss://axdwgxtukqqzupboojmx.functions.supabase.co/functions/v1/realtime-proctoring`;
+        const ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+          console.log('Proctoring WebSocket connected');
+          setWsConnection(ws);
+          
+          // Authenticate immediately
+          ws.send(JSON.stringify({
+            type: 'auth',
+            data: { userId: participantId },
+            timestamp: Date.now()
+          }));
+          
+          resolve();
+        };
+        
+        ws.onmessage = (event) => {
+          const response = JSON.parse(event.data);
+          console.log('Proctoring WebSocket response:', response);
+          
+          if (response.type === 'violation_recorded') {
+            console.log('Violation recorded:', response.data);
+          }
+        };
+        
+        ws.onerror = (error) => {
+          console.error('Proctoring WebSocket error:', error);
+          reject(error);
+        };
+        
+        ws.onclose = () => {
+          console.log('Proctoring WebSocket disconnected');
+          setWsConnection(null);
+        };
+        
+      } catch (error) {
+        console.error('Error creating proctoring WebSocket:', error);
+        reject(error);
+      }
+    });
+  };
+
+  const createOrUpdateProctoringSession = async () => {
+    try {
+      // Find or create assessment instance
+      const { data: instances } = await supabase
+        .from('assessment_instances')
+        .select('id')
+        .eq('assessment_id', assessmentId)
+        .eq('participant_id', participantId)
+        .order('started_at', { ascending: false })
+        .limit(1);
+
+      if (!instances || instances.length === 0) {
+        console.error('No assessment instance found');
+        return;
+      }
+
+      const instanceId = instances[0].id;
+
+      // Find or create proctoring session
+      const { data: existingSessions } = await supabase
+        .from('proctoring_sessions')
+        .select('id')
+        .eq('assessment_instance_id', instanceId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let sessionId;
+      if (existingSessions && existingSessions.length > 0) {
+        sessionId = existingSessions[0].id;
+        
+        // Update existing session to active
+        await supabase
+          .from('proctoring_sessions')
+          .update({ 
+            status: 'active',
+            started_at: new Date().toISOString(),
+            monitoring_data: {
+              camera_active: permissions.camera,
+              microphone_active: permissions.microphone,
+              last_updated: new Date().toISOString()
+            }
+          })
+          .eq('id', sessionId);
+      } else {
+        // Create new session
+        const { data: newSession } = await supabase
+          .from('proctoring_sessions')
+          .insert({
+            assessment_instance_id: instanceId,
+            participant_id: participantId,
+            status: 'active',
+            started_at: new Date().toISOString(),
+            security_events: [],
+            monitoring_data: {
+              camera_active: permissions.camera,
+              microphone_active: permissions.microphone,
+              last_updated: new Date().toISOString()
+            }
+          })
+          .select('id')
+          .single();
+        
+        sessionId = newSession?.id;
+      }
+
+      setProctoringSessionId(sessionId);
+      console.log('Proctoring session initialized:', sessionId);
+    } catch (error) {
+      console.error('Error creating/updating proctoring session:', error);
+    }
+  };
+
+  const startPeriodicStatusUpdates = () => {
+    const updateInterval = setInterval(async () => {
+      if (status === 'active' && proctoringSessionId) {
+        try {
+          await supabase
+            .from('proctoring_sessions')
+            .update({
+              monitoring_data: {
+                camera_active: permissions.camera,
+                microphone_active: permissions.microphone,
+                face_detected: faceDetected,
+                fullscreen: isFullscreen,
+                network_status: networkStatus,
+                battery_level: batteryLevel,
+                last_updated: new Date().toISOString()
+              }
+            })
+            .eq('id', proctoringSessionId);
+        } catch (error) {
+          console.error('Error updating monitoring data:', error);
+        }
+      }
+    }, 5000); // Update every 5 seconds
+
+    return () => clearInterval(updateInterval);
   };
 
   const requestPermissions = async () => {
@@ -300,56 +454,27 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
     setSecurityEvents(prev => [securityEvent, ...prev].slice(0, 50)); // Keep last 50 events
     onSecurityEvent(securityEvent);
 
+    console.log('Logging security event:', securityEvent);
+
     try {
-      // Send violation to WebSocket server for real-time broadcasting and database storage
-      const wsUrl = `wss://axdwgxtukqqzupboojmx.supabase.co/functions/v1/realtime-proctoring`;
-      const ws = new WebSocket(wsUrl);
-      
-      ws.onopen = () => {
-        // First authenticate
-        ws.send(JSON.stringify({
-          type: 'auth',
-          data: { userId: participantId },
+      // Use existing WebSocket connection if available
+      if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+        console.log('Sending violation via existing WebSocket connection');
+        wsConnection.send(JSON.stringify({
+          type: 'violation_report',
+          data: {
+            assessmentId,
+            participantId,
+            event: securityEvent
+          },
           timestamp: Date.now()
         }));
-        
-        // Then send violation
-        setTimeout(() => {
-          ws.send(JSON.stringify({
-            type: 'violation_report',
-            data: {
-              assessmentId,
-              participantId,
-              event: securityEvent
-            },
-            timestamp: Date.now()
-          }));
-        }, 100);
-      };
-      
-      ws.onmessage = (event) => {
-        const response = JSON.parse(event.data);
-        if (response.type === 'violation_recorded') {
-          console.log('Violation recorded:', response.data);
-          if (!response.data.stored) {
-            console.warn('Violation not stored in database:', response.data.error);
-          }
-        }
-      };
-      
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-      
-      // Close connection after 5 seconds
-      setTimeout(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.close();
-        }
-      }, 5000);
-      
+      } else {
+        console.log('WebSocket not available, storing violation directly');
+        await storeViolationDirectly(securityEvent);
+      }
     } catch (error) {
-      console.error('Error sending violation via WebSocket:', error);
+      console.error('Error sending violation:', error);
       
       // Fallback: store directly via Supabase
       await storeViolationDirectly(securityEvent);
@@ -438,8 +563,28 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
   };
 
   const cleanup = () => {
+    console.log('Cleaning up proctoring system...');
+    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
+    if (wsConnection) {
+      wsConnection.close();
+      setWsConnection(null);
+    }
+    
+    // Update proctoring session status
+    if (proctoringSessionId) {
+      supabase
+        .from('proctoring_sessions')
+        .update({ 
+          status: 'stopped',
+          ended_at: new Date().toISOString()
+        })
+        .eq('id', proctoringSessionId)
+        .then(() => console.log('Proctoring session ended'))
+        .catch(error => console.error('Error ending proctoring session:', error));
     }
     
     document.removeEventListener('visibilitychange', handleVisibilityChange);

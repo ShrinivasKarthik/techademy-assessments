@@ -127,13 +127,24 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
         callback: handleAssessmentUpdate
       });
 
-      // Subscribe to proctoring sessions
+      // Subscribe to proctoring sessions with more comprehensive filtering
       subscribe({
         channel: 'proctoring-monitoring', 
         table: 'proctoring_sessions',
-        filter: 'status=eq.active',
+        filter: 'status=in.("active","initializing")',
         callback: handleProctoringUpdate
       });
+
+      // Send monitoring start message via WebSocket
+      if (isConnected) {
+        sendMessage({
+          type: 'start_monitoring',
+          data: {
+            monitoringType: 'live_assessment',
+            timestamp: Date.now()
+          }
+        });
+      }
 
       // Load initial data
       await loadInitialSessions();
@@ -165,77 +176,135 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
   }, [disconnect, unsubscribe]);
 
   const loadInitialSessions = async () => {
-    // Load active sessions with enhanced data
-    const { data: instances } = await supabase
-      .from('assessment_instances')
-      .select(`
-        *,
-        assessments(title),
-        proctoring_sessions(*)
-      `)
-      .in('status', ['in_progress']);
+    try {
+      console.log('Loading initial assessment sessions...');
+      
+      // Load active sessions with enhanced data, including those where monitoring is enabled
+      const { data: instances, error } = await supabase
+        .from('assessment_instances')
+        .select(`
+          *,
+          assessments!inner(id, title, live_monitoring_enabled),
+          proctoring_sessions(*)
+        `)
+        .eq('assessments.live_monitoring_enabled', true)
+        .in('status', ['in_progress', 'proctoring_check'])
+        .order('started_at', { ascending: false });
 
-    if (instances) {
-      const enhancedSessions = instances.map(instance => 
-        enhanceSessionData(instance)
-      );
-      setSessions(enhancedSessions);
-      updateStats(enhancedSessions);
+      if (error) {
+        console.error('Error loading sessions:', error);
+        return;
+      }
+
+      console.log('Loaded assessment instances:', instances?.length || 0);
+
+      if (instances) {
+        const enhancedSessions = instances.map(instance => 
+          enhanceSessionData(instance)
+        );
+        setSessions(enhancedSessions);
+        updateStats(enhancedSessions);
+        
+        console.log('Enhanced sessions created:', enhancedSessions.length);
+      }
+    } catch (error) {
+      console.error('Error in loadInitialSessions:', error);
     }
   };
 
-  const enhanceSessionData = (instance: any): EnhancedParticipantSession => ({
-    id: instance.id,
-    participantName: instance.participant_name || 'Anonymous',
-    participantId: instance.participant_id,
-    assessmentTitle: instance.assessments?.title || 'Unknown Assessment',
-    assessmentId: instance.assessment_id,
-    status: determineSessionStatus(instance),
-    timeRemaining: instance.time_remaining_seconds || 0,
-    totalTime: 3600, // Default 1 hour
-    currentQuestion: instance.current_question_index || 0,
-    totalQuestions: 10, // This would come from assessment data
-    score: 0, // Would be calculated from submissions
-    connectionStatus: Math.random() > 0.3 ? 'stable' : 'unstable',
-    location: {
-      lat: 40.7128 + (Math.random() - 0.5) * 0.1,
-      lng: -74.0060 + (Math.random() - 0.5) * 0.1,
-      city: 'New York'
-    },
-    device: {
-      type: Math.random() > 0.5 ? 'desktop' : 'mobile',
-      browser: ['Chrome', 'Firefox', 'Safari'][Math.floor(Math.random() * 3)],
-      os: ['Windows', 'macOS', 'Linux'][Math.floor(Math.random() * 3)]
-    },
-    networkInfo: {
-      speed: `${Math.floor(Math.random() * 100 + 50)} Mbps`,
-      latency: Math.floor(Math.random() * 100 + 20),
-      stability: Math.floor(Math.random() * 30 + 70)
-    },
-    proctoring: {
-      cameraActive: Math.random() > 0.2,
-      microphoneActive: Math.random() > 0.5,
-      screenRecording: Math.random() > 0.1,
-      tabSwitches: Math.floor(Math.random() * 10),
-      suspiciousActivity: [],
-      faceDetection: Math.random() > 0.3,
-      environmentCheck: Math.random() > 0.4,
-      batteryLevel: Math.floor(Math.random() * 60 + 40)
-    },
-    performance: {
-      keystrokePattern: Math.random() > 0.8 ? 'suspicious' : 'normal',
-      typingSpeed: Math.floor(Math.random() * 60 + 40),
-      mouseMovement: Math.random() > 0.9 ? 'bot-like' : 'human',
-      focusLoss: Math.floor(Math.random() * 5),
-      idleTime: Math.floor(Math.random() * 300)
-    },
-    startedAt: instance.started_at,
-    lastActivity: new Date().toISOString()
-  });
+  const enhanceSessionData = (instance: any): EnhancedParticipantSession => {
+    console.log('Enhancing session data for instance:', instance.id);
+    
+    // Get latest proctoring session data
+    const latestProctoringSession = instance.proctoring_sessions?.[0];
+    const monitoringData = latestProctoringSession?.monitoring_data || {};
+    const securityEvents = latestProctoringSession?.security_events || [];
+    
+    // Calculate real tab switches from security events
+    const tabSwitches = securityEvents.filter((event: any) => 
+      event.type === 'tab_switch' || event.type === 'tab-switch'
+    ).length;
+    
+    return {
+      id: instance.id,
+      participantName: instance.participant_name || instance.participant_email || 'Anonymous',
+      participantId: instance.participant_id || 'anonymous',
+      assessmentTitle: instance.assessments?.title || 'Unknown Assessment',
+      assessmentId: instance.assessment_id,
+      status: determineSessionStatus(instance),
+      timeRemaining: instance.time_remaining_seconds || 0,
+      totalTime: 3600, // Default 1 hour
+      currentQuestion: instance.current_question_index || 0,
+      totalQuestions: 10, // This would come from assessment data
+      score: instance.total_score || 0,
+      connectionStatus: determineConnectionStatus(monitoringData),
+      location: {
+        lat: 40.7128 + (Math.random() - 0.5) * 0.1,
+        lng: -74.0060 + (Math.random() - 0.5) * 0.1,
+        city: 'New York'
+      },
+      device: {
+        type: Math.random() > 0.5 ? 'desktop' : 'mobile',
+        browser: ['Chrome', 'Firefox', 'Safari'][Math.floor(Math.random() * 3)],
+        os: ['Windows', 'macOS', 'Linux'][Math.floor(Math.random() * 3)]
+      },
+      networkInfo: {
+        speed: monitoringData.network_speed || `${Math.floor(Math.random() * 100 + 50)} Mbps`,
+        latency: monitoringData.latency || Math.floor(Math.random() * 100 + 20),
+        stability: monitoringData.stability || Math.floor(Math.random() * 30 + 70)
+      },
+      proctoring: {
+        cameraActive: monitoringData.camera_active ?? true,
+        microphoneActive: monitoringData.microphone_active ?? true,
+        screenRecording: monitoringData.screen_recording ?? false,
+        tabSwitches: tabSwitches,
+        suspiciousActivity: securityEvents.map((event: any) => ({
+          id: event.id,
+          type: event.type,
+          timestamp: event.timestamp,
+          severity: event.severity,
+          description: event.description,
+          autoHandled: false
+        })),
+        faceDetection: monitoringData.face_detected ?? true,
+        environmentCheck: monitoringData.environment_check ?? true,
+        batteryLevel: monitoringData.battery_level || Math.floor(Math.random() * 60 + 40)
+      },
+      performance: {
+        keystrokePattern: Math.random() > 0.8 ? 'suspicious' : 'normal',
+        typingSpeed: Math.floor(Math.random() * 60 + 40),
+        mouseMovement: Math.random() > 0.9 ? 'bot-like' : 'human',
+        focusLoss: Math.floor(Math.random() * 5),
+        idleTime: Math.floor(Math.random() * 300)
+      },
+      startedAt: instance.started_at,
+      lastActivity: monitoringData.last_updated || new Date().toISOString()
+    };
+  };
+  
+  const determineConnectionStatus = (monitoringData: any) => {
+    if (!monitoringData.last_updated) return 'disconnected';
+    
+    const lastUpdate = new Date(monitoringData.last_updated);
+    const now = new Date();
+    const timeDiff = now.getTime() - lastUpdate.getTime();
+    
+    if (timeDiff < 30000) return 'stable'; // Updated within 30 seconds
+    if (timeDiff < 120000) return 'unstable'; // Updated within 2 minutes
+    return 'disconnected';
+  };
 
   const determineSessionStatus = (instance: any) => {
     if (instance.status === 'submitted') return 'completed';
-    if (instance.proctoring_violations?.length > 3) return 'flagged';
+    if (instance.session_state === 'paused') return 'paused';
+    
+    // Check proctoring violations
+    const violations = instance.proctoring_violations || [];
+    const criticalViolations = violations.filter((v: any) => v.severity === 'critical').length;
+    
+    if (criticalViolations > 0 || violations.length > 5) return 'flagged';
+    if (instance.status === 'in_progress') return 'active';
+    
     return 'active';
   };
 
