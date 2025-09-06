@@ -646,12 +646,12 @@ const AdvancedQuestionBuilder: React.FC<AdvancedQuestionBuilderProps> = ({
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="mediaType">Media Type</Label>
-                  <Select value={config.mediaType || ''} onValueChange={(value: any) => updateConfig({ mediaType: value || undefined })}>
+                  <Select value={config.mediaType || 'none'} onValueChange={(value: any) => updateConfig({ mediaType: value === 'none' ? undefined : value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Media</SelectItem>
+                      <SelectItem value="none">No Media</SelectItem>
                       <SelectItem value="image">
                         <div className="flex items-center gap-2">
                           <Image className="w-4 h-4" />
