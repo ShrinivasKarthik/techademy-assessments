@@ -29,6 +29,9 @@ import AdvancedReportsPage from "./pages/AdvancedReportsPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import QuestionAnalyticsPage from "./pages/QuestionAnalyticsPage";
 import InstructorStudentsPage from "./pages/InstructorStudentsPage";
+import CollaborativePage from "./pages/CollaborativePage";
+import SmartAssemblyPage from "./pages/SmartAssemblyPage";
+import AdvancedQuestionBuilderPage from "./pages/AdvancedQuestionBuilderPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -129,6 +132,21 @@ const App = () => (
             <Route path="/skills-analytics" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                 <SkillAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/collaborative" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <CollaborativePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/smart-assembly" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <SmartAssemblyPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/advanced-builder" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <AdvancedQuestionBuilderPage />
               </ProtectedRoute>
             } />
             <Route path="/assessments/:id/insights" element={

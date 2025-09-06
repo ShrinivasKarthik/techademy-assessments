@@ -21,7 +21,8 @@ import {
   LogOut,
   User,
   CheckCircle,
-  TrendingUp
+  TrendingUp,
+  Users
 } from "lucide-react";
 import AccessibilityControls from "./AccessibilityControls";
 
@@ -78,6 +79,9 @@ const Navigation = () => {
       case 'instructor':
         roleSpecificLinks.push(
           { name: "Create", href: "/assessments/create", icon: Plus },
+          { name: "Smart Assembly", href: "/smart-assembly", icon: Brain },
+          { name: "Advanced Builder", href: "/advanced-builder", icon: Settings },
+          { name: "Collaborative", href: "/collaborative", icon: Users },
           { name: "Monitor", href: "/monitoring", icon: Activity },
           { name: "Real-Time", href: "/monitoring/real-time", icon: Activity },
           { name: "Reports", href: "/reports", icon: BarChart3 },
@@ -96,6 +100,9 @@ const Navigation = () => {
         // Show all for demo purposes when no specific role
         roleSpecificLinks.push(
           { name: "Create", href: "/assessments/create", icon: Plus },
+          { name: "Smart Assembly", href: "/smart-assembly", icon: Brain },
+          { name: "Advanced Builder", href: "/advanced-builder", icon: Settings },
+          { name: "Collaborative", href: "/collaborative", icon: Users },
           { name: "Monitor", href: "/monitoring", icon: Activity },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
           { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
