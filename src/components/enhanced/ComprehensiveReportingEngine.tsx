@@ -206,18 +206,19 @@ const ComprehensiveReportingEngine: React.FC = () => {
 
     setLoading(true);
     
-    try {
-      // Create execution record
-      const executionId = crypto.randomUUID();
-      const newExecution: ReportExecution = {
-        id: executionId,
-        reportId: `manual-${Date.now()}`,
-        status: 'processing',
-        startedAt: new Date(),
-        progress: 0
-      };
+    // Create execution record
+    const executionId = crypto.randomUUID();
+    const newExecution: ReportExecution = {
+      id: executionId,
+      reportId: `manual-${Date.now()}`,
+      status: 'processing',
+      startedAt: new Date(),
+      progress: 0
+    };
 
-      setExecutions(prev => [newExecution, ...prev]);
+    setExecutions(prev => [newExecution, ...prev]);
+
+    try {
 
       // Simulate report generation with progress updates
       const template = templates.find(t => t.id === selectedTemplate);
@@ -281,7 +282,7 @@ const ComprehensiveReportingEngine: React.FC = () => {
       // Mark execution as failed
       setExecutions(prev => 
         prev.map(exec => 
-          exec.id === newExecution.id 
+          exec.id === newExecution.id
             ? { 
                 ...exec, 
                 status: 'failed',
