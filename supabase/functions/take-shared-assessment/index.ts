@@ -47,23 +47,13 @@ serve(async (req) => {
 
     console.log('Processing share token:', shareToken)
 
-    // Validate and fetch share record with enhanced error handling and timeout protection
-    const shareQueryPromise = supabaseClient
+    // Validate and fetch share record with enhanced error handling
+    const { data: shareData, error: shareError } = await supabaseClient
       .from('assessment_shares')
       .select('*')
       .eq('share_token', shareToken)
       .eq('is_active', true)
-      .maybeSingle();
-
-    // Add timeout to prevent blocking when monitoring is active
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Share query timeout')), 5000)
-    );
-
-    const { data: shareData, error: shareError } = await Promise.race([
-      shareQueryPromise,
-      timeoutPromise
-    ]) as any;
+      .maybeSingle()
 
     if (shareError) {
       console.error('Database error fetching share:', shareError)
@@ -125,22 +115,13 @@ serve(async (req) => {
       )
     }
 
-    // Fetch assessment with enhanced validation and resource isolation
-    const assessmentQueryPromise = supabaseClient
+    // Fetch assessment with enhanced validation
+    const { data: assessment, error: assessmentError } = await supabaseClient
       .from('assessments')
       .select('*')
       .eq('id', shareData.assessment_id)
       .eq('status', 'published')
-      .maybeSingle();
-
-    const assessmentTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Assessment query timeout')), 4000)
-    );
-
-    const { data: assessment, error: assessmentError } = await Promise.race([
-      assessmentQueryPromise,
-      assessmentTimeoutPromise
-    ]) as any;
+      .maybeSingle()
 
     if (assessmentError) {
       console.error('Database error fetching assessment:', assessmentError)
@@ -203,29 +184,20 @@ serve(async (req) => {
 
     console.log('Questions loaded:', questions.length)
 
-    // Increment access count with timeout protection
+    // Increment access count
     try {
-      const updatePromise = supabaseClient
+      const { error: updateError } = await supabaseClient
         .from('assessment_shares')
         .update({ access_count: shareData.access_count + 1 })
-        .eq('id', shareData.id);
-
-      const updateTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Update timeout')), 3000)
-      );
-
-      const { error: updateError } = await Promise.race([
-        updatePromise,
-        updateTimeoutPromise
-      ]) as any;
+        .eq('id', shareData.id)
 
       if (updateError) {
         console.error('Error updating access count:', updateError)
-        // Don't fail the request for this - it's not critical
+        // Don't fail the request for this
       }
     } catch (err) {
-      console.error('Error incrementing access count (timeout or other):', err)
-      // Don't fail the request for this - continue with assessment loading
+      console.error('Error incrementing access count:', err)
+      // Don't fail the request for this
     }
 
     // Enhanced response data

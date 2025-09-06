@@ -1,16 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Initialize Supabase client
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
 
 // Store for active connections
 const connections = new Map<string, WebSocket>();
@@ -143,7 +136,7 @@ function handleAuth(connectionId: string, data: any, socket: WebSocket) {
   }));
 }
 
-async function handleStartMonitoring(connectionId: string, data: any, socket: WebSocket) {
+function handleStartMonitoring(connectionId: string, data: any, socket: WebSocket) {
   console.log(`Starting monitoring for ${connectionId}:`, data);
   
   const session = monitoringSessions.get(connectionId);
@@ -156,26 +149,11 @@ async function handleStartMonitoring(connectionId: string, data: any, socket: We
     return;
   }
 
-  // Check for active public sessions to determine monitoring mode
-  const { data: publicSessions, error } = await supabase
-    .from('assessment_instances')
-    .select('id, assessment_id')
-    .eq('is_anonymous', true)
-    .eq('status', 'in_progress')
-    .not('share_token', 'is', null);
-
-  const publicSessionCount = publicSessions?.length || 0;
-  const monitoringMode = data.mode || (publicSessionCount > 0 ? 'resource_safe' : 'normal');
-  
-  console.log(`Monitoring mode determined: ${monitoringMode} (${publicSessionCount} public sessions active)`);
-
-  // Update session with monitoring info and resource coordination
+  // Update session with monitoring info
   session.isMonitoring = true;
   session.assessmentIds = data.assessmentIds || [data.assessmentId];
   session.monitoringType = data.monitoringType || 'standard';
-  session.monitoringMode = monitoringMode;
   session.monitoringStartedAt = Date.now();
-  session.publicSessionCount = publicSessionCount;
   
   monitoringSessions.set(connectionId, session);
   
@@ -184,18 +162,16 @@ async function handleStartMonitoring(connectionId: string, data: any, socket: We
     data: { 
       assessmentIds: session.assessmentIds,
       monitoringType: session.monitoringType,
-      monitoringMode: monitoringMode,
-      publicSessionsDetected: publicSessionCount,
       startedAt: session.monitoringStartedAt
     },
     timestamp: Date.now()
   }));
 
-  // Adjust monitoring intensity based on mode
+  // Simulate enhanced monitoring data for live assessments
   if (session.monitoringType === 'live_assessment') {
-    simulateEnhancedMonitoringUpdates(connectionId, socket, monitoringMode);
+    simulateEnhancedMonitoringUpdates(connectionId, socket);
   } else {
-    simulateActivityUpdates(connectionId, socket, monitoringMode);
+    simulateActivityUpdates(connectionId, socket);
   }
 }
 
@@ -231,53 +207,27 @@ function handleParticipantActivity(connectionId: string, data: any, socket: WebS
   }, connectionId);
 }
 
-async function handleViolationReport(connectionId: string, data: any, socket: WebSocket) {
+function handleViolationReport(connectionId: string, data: any, socket: WebSocket) {
   console.log(`Violation report from ${connectionId}:`, data);
   
-  const violationId = crypto.randomUUID();
-  const violationData = {
-    id: violationId,
-    participantId: data.participantId,
-    assessmentId: data.assessmentId,
-    type: data.event?.type || data.violation?.type || 'unknown',
-    severity: data.event?.severity || data.severity || 'medium',
-    description: data.event?.description || data.violation?.description || 'Security violation detected',
-    evidence: data.evidence,
-    timestamp: new Date().toISOString()
-  };
-
-  try {
-    // Store violation in database
-    await storeViolationInDatabase(violationData);
-    
-    // Broadcast violation to all monitoring connections
-    broadcastToMonitors({
-      type: 'violation_detected',
-      data: violationData,
+  // Broadcast violation to all monitoring connections
+  broadcastToMonitors({
+    type: 'violation_detected',
+    data: {
+      participantId: data.participantId,
+      violation: data.violation,
+      severity: data.severity || 'medium',
+      evidence: data.evidence,
       timestamp: Date.now()
-    }, connectionId);
-    
-    socket.send(JSON.stringify({
-      type: 'violation_recorded',
-      data: { violationId, stored: true },
-      timestamp: Date.now()
-    }));
-  } catch (error) {
-    console.error('Error storing violation:', error);
-    
-    // Still broadcast but mark as not stored
-    broadcastToMonitors({
-      type: 'violation_detected',
-      data: violationData,
-      timestamp: Date.now()
-    }, connectionId);
-    
-    socket.send(JSON.stringify({
-      type: 'violation_recorded',
-      data: { violationId, stored: false, error: error.message },
-      timestamp: Date.now()
-    }));
-  }
+    },
+    timestamp: Date.now()
+  }, connectionId);
+  
+  socket.send(JSON.stringify({
+    type: 'violation_recorded',
+    data: { violationId: crypto.randomUUID() },
+    timestamp: Date.now()
+  }));
 }
 
 function broadcastToMonitors(message: any, excludeConnectionId?: string) {
@@ -292,18 +242,14 @@ function broadcastToMonitors(message: any, excludeConnectionId?: string) {
   });
 }
 
-function simulateActivityUpdates(connectionId: string, socket: WebSocket, mode: string = 'normal') {
+function simulateActivityUpdates(connectionId: string, socket: WebSocket) {
   const session = monitoringSessions.get(connectionId);
   if (!session || !session.isMonitoring) return;
-
-  // Adjust update frequency based on monitoring mode
-  const baseInterval = mode === 'minimal' ? 20000 : mode === 'resource_safe' ? 15000 : 10000;
-  const varianceMs = mode === 'minimal' ? 15000 : mode === 'resource_safe' ? 10000 : 5000;
 
   // Simulate random activity updates
   const activities = [
     'question_answered',
-    'tab_focus_lost', 
+    'tab_focus_lost',
     'tab_focus_gained',
     'mouse_activity',
     'keyboard_activity',
@@ -322,54 +268,40 @@ function simulateActivityUpdates(connectionId: string, socket: WebSocket, mode: 
       data: {
         participantId,
         activity,
-        details: `Simulated ${activity} event (${mode} mode)`,
+        details: `Simulated ${activity} event`,
         timestamp: Date.now()
       },
       timestamp: Date.now()
     }));
     
-    // Schedule next update with mode-appropriate interval
-    const nextInterval = baseInterval + (Math.random() * varianceMs);
-    setTimeout(sendRandomActivity, nextInterval);
+    // Schedule next update
+    setTimeout(sendRandomActivity, Math.random() * 10000 + 5000); // 5-15 seconds
   };
 
-  // Start after initial delay
-  const initialDelay = mode === 'minimal' ? 10000 : mode === 'resource_safe' ? 5000 : 2000;
-  setTimeout(sendRandomActivity, initialDelay);
+  // Start after 2 seconds
+  setTimeout(sendRandomActivity, 2000);
 }
 
-function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSocket, mode: string = 'normal') {
+function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSocket) {
   const session = monitoringSessions.get(connectionId);
   if (!session || !session.isMonitoring) return;
 
-  // Adjust monitoring intensity based on mode
-  const updateInterval = mode === 'minimal' ? 30000 : mode === 'resource_safe' ? 15000 : 8000;
-  const variance = mode === 'minimal' ? 20000 : mode === 'resource_safe' ? 10000 : 5000;
-
   const enhancedEvents = [
     'progress_update',
-    'security_check', 
+    'security_check',
     'network_status',
     'device_info',
     'proctoring_status'
   ];
 
-  // Reduce event types in resource-safe modes
-  const availableEvents = mode === 'minimal' 
-    ? ['progress_update', 'security_check']
-    : mode === 'resource_safe'
-    ? ['progress_update', 'security_check', 'network_status']
-    : enhancedEvents;
-
   const sendEnhancedUpdate = () => {
     if (!session.isMonitoring) return;
     
-    const eventType = availableEvents[Math.floor(Math.random() * availableEvents.length)];
+    const eventType = enhancedEvents[Math.floor(Math.random() * enhancedEvents.length)];
     const assessmentId = session.assessmentIds[Math.floor(Math.random() * session.assessmentIds.length)];
     
     let eventData = {
       assessmentId,
-      monitoringMode: mode,
       timestamp: Date.now()
     };
 
@@ -385,9 +317,9 @@ function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSock
       case 'security_check':
         eventData = {
           ...eventData,
-          securityStatus: Math.random() > 0.9 ? 'violation' : 'normal', // Reduced false positives in safe mode
-          cameraStatus: Math.random() > 0.05,
-          microphoneStatus: Math.random() > 0.05
+          securityStatus: Math.random() > 0.8 ? 'violation' : 'normal',
+          cameraStatus: Math.random() > 0.1,
+          microphoneStatus: Math.random() > 0.1
         };
         break;
       case 'network_status':
@@ -406,143 +338,12 @@ function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSock
       timestamp: Date.now()
     }));
     
-    // Schedule next update with mode-appropriate timing
-    const nextInterval = updateInterval + (Math.random() * variance);
-    setTimeout(sendEnhancedUpdate, nextInterval);
+    // Schedule next update
+    setTimeout(sendEnhancedUpdate, Math.random() * 8000 + 3000); // 3-11 seconds
   };
 
-  // Start enhanced monitoring updates with initial delay
-  const initialDelay = mode === 'minimal' ? 5000 : mode === 'resource_safe' ? 3000 : 1000;
-  setTimeout(sendEnhancedUpdate, initialDelay);
-}
-
-async function storeViolationInDatabase(violationData: any) {
-  const { participantId, assessmentId, type, severity, description, evidence, timestamp } = violationData;
-  
-  // Find the assessment instance
-  const { data: instances, error: instanceError } = await supabase
-    .from('assessment_instances')
-    .select('id')
-    .eq('assessment_id', assessmentId)
-    .or(`participant_id.eq.${participantId},participant_id.is.null`)
-    .order('started_at', { ascending: false })
-    .limit(1);
-
-  if (instanceError) {
-    console.error('Error finding assessment instance:', instanceError);
-    throw instanceError;
-  }
-
-  if (!instances || instances.length === 0) {
-    console.error('No assessment instance found for participant:', participantId);
-    throw new Error('Assessment instance not found');
-  }
-
-  const instanceId = instances[0].id;
-
-  // Find or create proctoring session
-  let proctoringSessionId;
-  const { data: existingSessions, error: sessionFindError } = await supabase
-    .from('proctoring_sessions')
-    .select('id')
-    .eq('assessment_instance_id', instanceId)
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  if (sessionFindError) {
-    console.error('Error finding proctoring session:', sessionFindError);
-    throw sessionFindError;
-  }
-
-  if (existingSessions && existingSessions.length > 0) {
-    proctoringSessionId = existingSessions[0].id;
-  } else {
-    // Create new proctoring session
-    const { data: newSession, error: sessionCreateError } = await supabase
-      .from('proctoring_sessions')
-      .insert({
-        assessment_instance_id: instanceId,
-        participant_id: participantId,
-        status: 'active',
-        security_events: [],
-        monitoring_data: {}
-      })
-      .select('id')
-      .single();
-
-    if (sessionCreateError) {
-      console.error('Error creating proctoring session:', sessionCreateError);
-      throw sessionCreateError;
-    }
-
-    proctoringSessionId = newSession.id;
-  }
-
-  // Add violation to proctoring session
-  const { error: updateSessionError } = await supabase.rpc('update_proctoring_session_events', {
-    session_id: proctoringSessionId,
-    new_event: {
-      id: violationData.id,
-      type,
-      severity,
-      description,
-      evidence,
-      timestamp
-    }
-  });
-
-  if (updateSessionError) {
-    console.error('Error updating proctoring session:', updateSessionError);
-    
-    // Fallback: try direct update
-    const { data: currentSession } = await supabase
-      .from('proctoring_sessions')
-      .select('security_events')
-      .eq('id', proctoringSessionId)
-      .single();
-
-    const currentEvents = currentSession?.security_events || [];
-    const updatedEvents = [...currentEvents, {
-      id: violationData.id,
-      type,
-      severity,
-      description,
-      evidence,
-      timestamp
-    }];
-
-    await supabase
-      .from('proctoring_sessions')
-      .update({ security_events: updatedEvents })
-      .eq('id', proctoringSessionId);
-  }
-
-  // Update assessment instance violations and integrity score
-  const { data: currentInstance } = await supabase
-    .from('assessment_instances')
-    .select('proctoring_violations, integrity_score')
-    .eq('id', instanceId)
-    .single();
-
-  const currentViolations = currentInstance?.proctoring_violations || [];
-  const updatedViolations = [...currentViolations, violationData];
-  
-  // Calculate new integrity score
-  const severityWeights = { low: 1, medium: 3, high: 7, critical: 15 };
-  const totalDeduction = updatedViolations.reduce((total, v) => 
-    total + (severityWeights[v.severity] || 3), 0
-  );
-  const newIntegrityScore = Math.max(0, 100 - totalDeduction);
-
-  await supabase
-    .from('assessment_instances')
-    .update({
-      proctoring_violations: updatedViolations,
-      integrity_score: newIntegrityScore
-    })
-    .eq('id', instanceId);
-
-  console.log(`Violation stored successfully: ${type} (${severity}) for participant ${participantId}`);
+  // Start enhanced monitoring updates
+  setTimeout(sendEnhancedUpdate, 1000);
 }
 
 console.log("Real-time proctoring WebSocket server started");

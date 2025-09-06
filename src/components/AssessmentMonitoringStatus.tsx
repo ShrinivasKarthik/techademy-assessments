@@ -40,13 +40,11 @@ const AssessmentMonitoringStatus: React.FC<MonitoringStatusProps> = ({ onSelectA
 
       // Get active participants count for each assessment
       const assessmentsWithCounts = await Promise.all((assessmentData || []).map(async (assessment) => {
-        // Count instances that are currently active (in_progress) or recently active (within last hour)
         const { count } = await supabase
           .from('assessment_instances')
           .select('*', { count: 'exact', head: true })
           .eq('assessment_id', assessment.id)
-          .in('status', ['in_progress'])
-          .gte('started_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()); // Last hour
+          .eq('status', 'in_progress');
 
         return {
           ...assessment,
