@@ -59,7 +59,11 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor', 'student']}>
+                <Index />
+              </ProtectedRoute>
+            } />
             <Route path="/assessments/create" element={
               <ProtectedRoute>
                 <CreateAssessmentPage />
