@@ -215,99 +215,13 @@ const Navigation = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
-        <div className="flex h-14 items-center justify-between">
+        {/* Top row with logo and actions */}
+        <div className="flex h-12 items-center justify-between">
           {/* Logo */}
           <Link to={user ? "/home" : "/"} className="flex items-center space-x-2">
             <Brain className="h-6 w-6 text-primary" />
             <span className="font-bold text-lg">Techademy Assessments</span>
           </Link>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-0.5 overflow-x-hidden">
-            {/* Base Links */}
-            {baseLinks.map((link) => {
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.name}
-                  to={link.href}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                    isActive(link.href)
-                      ? "text-primary bg-primary/10 shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
-                  }`}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate">{link.name}</span>
-                </Link>
-              );
-            })}
-
-            {/* Grouped Navigation Dropdowns */}
-            {navigationGroups.map((group) => {
-              if (group.href) {
-                // Single link group
-                const Icon = group.icon;
-                return (
-                  <Link
-                    key={group.name}
-                    to={group.href}
-                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                      isActive(group.href)
-                        ? "text-primary bg-primary/10 shadow-sm"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{group.name}</span>
-                  </Link>
-                );
-              }
-
-              // Dropdown group
-              const Icon = group.icon;
-              const hasActiveItem = group.items.some(item => isActive(item.href));
-              
-              return (
-                <DropdownMenu key={group.name}>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap min-w-0 ${
-                        hasActiveItem
-                          ? "text-primary bg-primary/10 shadow-sm"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{group.name}</span>
-                      <ChevronDown className="w-3 h-3 flex-shrink-0 opacity-60" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56 bg-background border shadow-lg z-50">
-                    {group.items.map((item) => {
-                      const ItemIcon = item.icon;
-                      return (
-                        <DropdownMenuItem key={item.href} asChild>
-                          <Link
-                            to={item.href}
-                            className={`flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer rounded-md transition-colors ${
-                              isActive(item.href)
-                                ? "bg-primary/10 text-primary font-medium"
-                                : "hover:bg-accent/60"
-                            }`}
-                          >
-                            <ItemIcon className="w-4 h-4 flex-shrink-0" />
-                            <span className="truncate">{item.name}</span>
-                          </Link>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              );
-            })}
-          </nav>
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-2">
@@ -379,6 +293,94 @@ const Navigation = () => {
           <MobileNavigationDrawer />
         </div>
 
+        {/* Second row with navigation menu */}
+        <div className="border-t border-border/40">
+          <nav className="hidden lg:flex items-center justify-center py-2 space-x-1">
+            {/* Base Links */}
+            {baseLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    isActive(link.href)
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {link.name}
+                </Link>
+              );
+            })}
+
+            {/* Grouped Navigation Dropdowns */}
+            {navigationGroups.map((group) => {
+              if (group.href) {
+                // Single link group
+                const Icon = group.icon;
+                return (
+                  <Link
+                    key={group.name}
+                    to={group.href}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      isActive(group.href)
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {group.name}
+                  </Link>
+                );
+              }
+
+              // Dropdown group
+              const Icon = group.icon;
+              const hasActiveItem = group.items.some(item => isActive(item.href));
+              
+              return (
+                <DropdownMenu key={group.name}>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        hasActiveItem
+                          ? "text-primary bg-primary/10"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {group.name}
+                      <ChevronDown className="w-3 h-3 opacity-60" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 bg-background border shadow-lg z-50">
+                    {group.items.map((item) => {
+                      const ItemIcon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.href} asChild>
+                          <Link
+                            to={item.href}
+                            className={`flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer rounded-md transition-colors ${
+                              isActive(item.href)
+                                ? "bg-primary/10 text-primary font-medium"
+                                : "hover:bg-accent/60"
+                            }`}
+                          >
+                            <ItemIcon className="w-4 h-4" />
+                            {item.name}
+                          </Link>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })}
+          </nav>
+        </div>
       </div>
     </header>
   );
