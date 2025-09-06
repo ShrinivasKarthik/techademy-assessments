@@ -223,7 +223,7 @@ const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-1 overflow-x-hidden">
+          <nav className="hidden lg:flex items-center space-x-0.5 overflow-x-hidden">
             {/* Base Links */}
             {baseLinks.map((link) => {
               const Icon = link.icon;
@@ -231,14 +231,14 @@ const Navigation = () => {
                 <Link
                   key={link.name}
                   to={link.href}
-                  className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:text-primary hover:bg-accent/50 ${
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
                     isActive(link.href)
-                      ? "text-primary bg-accent"
-                      : "text-muted-foreground"
+                      ? "text-primary bg-primary/10 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {link.name}
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{link.name}</span>
                 </Link>
               );
             })}
@@ -252,14 +252,14 @@ const Navigation = () => {
                   <Link
                     key={group.name}
                     to={group.href}
-                    className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:text-primary hover:bg-accent/50 ${
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
                       isActive(group.href)
-                        ? "text-primary bg-accent"
-                        : "text-muted-foreground"
+                        ? "text-primary bg-primary/10 shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
-                    {group.name}
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{group.name}</span>
                   </Link>
                 );
               }
@@ -273,32 +273,32 @@ const Navigation = () => {
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="ghost" 
-                      className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:text-primary hover:bg-accent/50 ${
+                      className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap min-w-0 ${
                         hasActiveItem
-                          ? "text-primary bg-accent"
-                          : "text-muted-foreground"
+                          ? "text-primary bg-primary/10 shadow-sm"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
-                      {group.name}
-                      <ChevronDown className="w-3 h-3" />
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{group.name}</span>
+                      <ChevronDown className="w-3 h-3 flex-shrink-0 opacity-60" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56 bg-background/95 backdrop-blur border shadow-lg">
+                  <DropdownMenuContent align="start" className="w-56 bg-background border shadow-lg z-50">
                     {group.items.map((item) => {
                       const ItemIcon = item.icon;
                       return (
                         <DropdownMenuItem key={item.href} asChild>
                           <Link
                             to={item.href}
-                            className={`flex items-center gap-3 px-3 py-2 text-sm cursor-pointer ${
+                            className={`flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer rounded-md transition-colors ${
                               isActive(item.href)
-                                ? "bg-accent text-accent-foreground"
-                                : ""
+                                ? "bg-primary/10 text-primary font-medium"
+                                : "hover:bg-accent/60"
                             }`}
                           >
-                            <ItemIcon className="w-4 h-4" />
-                            {item.name}
+                            <ItemIcon className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{item.name}</span>
                           </Link>
                         </DropdownMenuItem>
                       );
