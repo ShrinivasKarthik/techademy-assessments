@@ -46,8 +46,14 @@ const Navigation = () => {
   const { user, profile, signOut } = useAuth();
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
+    try {
+      await signOut();
+      // The navigation will be handled by the auth state change in AuthContext
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Force navigation on error
+      navigate('/auth');
+    }
   };
 
   const isActive = (path: string) => {
