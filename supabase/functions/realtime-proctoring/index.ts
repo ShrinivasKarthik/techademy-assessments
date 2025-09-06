@@ -151,7 +151,8 @@ function handleStartMonitoring(connectionId: string, data: any, socket: WebSocke
 
   // Update session with monitoring info
   session.isMonitoring = true;
-  session.assessmentId = data.assessmentId;
+  session.assessmentIds = data.assessmentIds || [data.assessmentId];
+  session.monitoringType = data.monitoringType || 'standard';
   session.monitoringStartedAt = Date.now();
   
   monitoringSessions.set(connectionId, session);
@@ -159,14 +160,19 @@ function handleStartMonitoring(connectionId: string, data: any, socket: WebSocke
   socket.send(JSON.stringify({
     type: 'monitoring_started',
     data: { 
-      assessmentId: data.assessmentId,
+      assessmentIds: session.assessmentIds,
+      monitoringType: session.monitoringType,
       startedAt: session.monitoringStartedAt
     },
     timestamp: Date.now()
   }));
 
-  // Simulate periodic activity updates
-  simulateActivityUpdates(connectionId, socket);
+  // Simulate enhanced monitoring data for live assessments
+  if (session.monitoringType === 'live_assessment') {
+    simulateEnhancedMonitoringUpdates(connectionId, socket);
+  } else {
+    simulateActivityUpdates(connectionId, socket);
+  }
 }
 
 function handleStopMonitoring(connectionId: string, socket: WebSocket) {
@@ -274,6 +280,70 @@ function simulateActivityUpdates(connectionId: string, socket: WebSocket) {
 
   // Start after 2 seconds
   setTimeout(sendRandomActivity, 2000);
+}
+
+function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSocket) {
+  const session = monitoringSessions.get(connectionId);
+  if (!session || !session.isMonitoring) return;
+
+  const enhancedEvents = [
+    'progress_update',
+    'security_check',
+    'network_status',
+    'device_info',
+    'proctoring_status'
+  ];
+
+  const sendEnhancedUpdate = () => {
+    if (!session.isMonitoring) return;
+    
+    const eventType = enhancedEvents[Math.floor(Math.random() * enhancedEvents.length)];
+    const assessmentId = session.assessmentIds[Math.floor(Math.random() * session.assessmentIds.length)];
+    
+    let eventData = {
+      assessmentId,
+      timestamp: Date.now()
+    };
+
+    switch (eventType) {
+      case 'progress_update':
+        eventData = {
+          ...eventData,
+          participantProgress: Math.floor(Math.random() * 100),
+          currentQuestion: Math.floor(Math.random() * 10) + 1,
+          timeRemaining: Math.floor(Math.random() * 3600)
+        };
+        break;
+      case 'security_check':
+        eventData = {
+          ...eventData,
+          securityStatus: Math.random() > 0.8 ? 'violation' : 'normal',
+          cameraStatus: Math.random() > 0.1,
+          microphoneStatus: Math.random() > 0.1
+        };
+        break;
+      case 'network_status':
+        eventData = {
+          ...eventData,
+          connectionQuality: ['excellent', 'good', 'poor'][Math.floor(Math.random() * 3)],
+          latency: Math.floor(Math.random() * 100) + 20
+        };
+        break;
+    }
+    
+    socket.send(JSON.stringify({
+      type: 'enhanced_monitoring_update',
+      eventType,
+      data: eventData,
+      timestamp: Date.now()
+    }));
+    
+    // Schedule next update
+    setTimeout(sendEnhancedUpdate, Math.random() * 8000 + 3000); // 3-11 seconds
+  };
+
+  // Start enhanced monitoring updates
+  setTimeout(sendEnhancedUpdate, 1000);
 }
 
 console.log("Real-time proctoring WebSocket server started");

@@ -55,6 +55,7 @@ interface Assessment {
   max_attempts: number;
   status: 'draft' | 'published';
   proctoring_enabled: boolean;
+  live_monitoring_enabled: boolean;
   proctoring_config: ProctoringConfig;
   questions: Question[];
 }
@@ -69,6 +70,7 @@ const CreateAssessment = () => {
     max_attempts: 1,
     status: 'draft',
     proctoring_enabled: false,
+    live_monitoring_enabled: false,
     proctoring_config: {
       cameraRequired: true,
       microphoneRequired: true,
@@ -214,6 +216,7 @@ const CreateAssessment = () => {
           max_attempts: assessment.max_attempts,
           status: assessment.status,
           proctoring_enabled: assessment.proctoring_enabled,
+          live_monitoring_enabled: assessment.live_monitoring_enabled,
           proctoring_config: assessment.proctoring_config as any,
           creator_id: null
         })
@@ -257,6 +260,7 @@ const CreateAssessment = () => {
         max_attempts: 1,
         status: 'draft',
         proctoring_enabled: false,
+        live_monitoring_enabled: false,
         proctoring_config: {
           cameraRequired: true,
           microphoneRequired: true,
@@ -401,6 +405,22 @@ const CreateAssessment = () => {
               id="proctoring-enabled"
               checked={assessment.proctoring_enabled}
               onCheckedChange={(checked) => setAssessment(prev => ({ ...prev, proctoring_enabled: checked }))}
+            />
+          </div>
+
+          <Separator />
+          
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="live-monitoring-enabled">Enable Live Monitoring</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow administrators to monitor participants in real-time during assessments
+              </p>
+            </div>
+            <Switch
+              id="live-monitoring-enabled"
+              checked={assessment.live_monitoring_enabled}
+              onCheckedChange={(checked) => setAssessment(prev => ({ ...prev, live_monitoring_enabled: checked }))}
             />
           </div>
 

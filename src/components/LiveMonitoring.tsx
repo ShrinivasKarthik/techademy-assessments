@@ -24,6 +24,9 @@ import {
 import { useRealtime } from '@/hooks/useRealtime';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import AssessmentMonitoringStatus from './AssessmentMonitoringStatus';
 
 interface ParticipantSession {
   id: string;
@@ -53,8 +56,14 @@ interface MonitoringStats {
 
 const LiveMonitoring = () => {
   const { user, profile } = useAuth();
+  const { toast } = useToast();
   const { isConnected, subscribe, unsubscribe } = useRealtime();
-  const { sendMessage, lastMessage, connect: connectWS, isConnected: wsConnected } = useWebSocket();
+  const { sendMessage, lastMessage, connect: connectWS, isConnected: wsConnected } = useWebSocket(
+    `wss://axdwgxtukqqzupboojmx.supabase.co/functions/v1/realtime-proctoring`
+  );
+
+  // Check if user has monitoring permissions
+  const hasMonitoringPermissions = profile?.role === 'admin' || profile?.role === 'instructor';
   
   const [participants, setParticipants] = useState<ParticipantSession[]>([]);
   const [stats, setStats] = useState<MonitoringStats>({
@@ -66,90 +75,177 @@ const LiveMonitoring = () => {
   });
   const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const [availableAssessments, setAvailableAssessments] = useState<any[]>([]);
 
-  // Mock data for demonstration
+  // Load assessments with live monitoring enabled
   useEffect(() => {
-    const mockParticipants: ParticipantSession[] = [
-      {
-        id: '1',
-        userId: 'user1',
-        userName: 'John Doe',
-        assessmentId: 'assessment1',
-        startedAt: new Date().toISOString(),
-        currentQuestion: 3,
-        totalQuestions: 10,
-        status: 'active',
-        violations: [],
-        lastActivity: new Date().toISOString(),
-        isRecording: true,
-        screenShare: true,
-        cameraEnabled: true,
-        micEnabled: false
-      },
-      {
-        id: '2',
-        userId: 'user2',
-        userName: 'Jane Smith',
-        assessmentId: 'assessment1',
-        startedAt: new Date(Date.now() - 600000).toISOString(),
-        currentQuestion: 7,
-        totalQuestions: 10,
-        status: 'suspicious',
-        violations: ['Multiple tab switches', 'Extended idle time'],
-        lastActivity: new Date(Date.now() - 30000).toISOString(),
-        isRecording: true,
-        screenShare: false,
-        cameraEnabled: true,
-        micEnabled: true
-      },
-      {
-        id: '3',
-        userId: 'user3',
-        userName: 'Mike Johnson',
-        assessmentId: 'assessment1',
-        startedAt: new Date(Date.now() - 1200000).toISOString(),
-        currentQuestion: 10,
-        totalQuestions: 10,
-        status: 'completed',
-        violations: [],
-        lastActivity: new Date(Date.now() - 300000).toISOString(),
-        isRecording: false,
-        screenShare: false,
-        cameraEnabled: false,
-        micEnabled: false
-      }
-    ];
+    loadMonitoringEnabledAssessments();
+  }, []);
 
-    setParticipants(mockParticipants);
-    
-    // Calculate stats
+  // Load real participant data from assessment instances
+  useEffect(() => {
+    if (isMonitoring) {
+      loadActiveParticipants();
+    }
+  }, [isMonitoring]);
+
+  const loadMonitoringEnabledAssessments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('assessments')
+        .select('id, title, description, live_monitoring_enabled, status')
+        .eq('live_monitoring_enabled', true)
+        .eq('status', 'published');
+
+      if (error) throw error;
+      setAvailableAssessments(data || []);
+    } catch (error) {
+      console.error('Error loading assessments:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load monitoring-enabled assessments",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const loadActiveParticipants = async () => {
+    try {
+      const { data: instances, error } = await supabase
+        .from('assessment_instances')
+        .select(`
+          id,
+          participant_id,
+          participant_name,
+          assessment_id,
+          started_at,
+          current_question_index,
+          status,
+          time_remaining_seconds,
+          proctoring_violations,
+          assessments!assessment_instances_assessment_id_fkey(
+            id,
+            title,
+            live_monitoring_enabled
+          )
+        `)
+        .eq('assessments.live_monitoring_enabled', true)
+        .eq('status', 'in_progress')
+        .order('started_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Get question counts for each assessment
+      const assessmentIds = [...new Set((instances || []).map(i => i.assessment_id))];
+      const { data: questionCounts } = await supabase
+        .from('questions')
+        .select('assessment_id')
+        .in('assessment_id', assessmentIds);
+
+      const questionCountMap = questionCounts?.reduce((acc: any, q: any) => {
+        acc[q.assessment_id] = (acc[q.assessment_id] || 0) + 1;
+        return acc;
+      }, {}) || {};
+
+      // Transform the data to match our ParticipantSession interface
+      const transformedParticipants: ParticipantSession[] = (instances || []).map(instance => {
+        const violations = Array.isArray(instance.proctoring_violations) 
+          ? instance.proctoring_violations.map((v: any) => v.description || v.type || 'Unknown violation')
+          : [];
+
+        return {
+          id: instance.id,
+          userId: instance.participant_id || `anon_${instance.id}`,
+          userName: instance.participant_name || 'Anonymous Participant',
+          assessmentId: instance.assessment_id,
+          startedAt: instance.started_at,
+          currentQuestion: (instance.current_question_index || 0) + 1,
+          totalQuestions: questionCountMap[instance.assessment_id] || 10,
+          status: violations.length > 2 ? 'flagged' : violations.length > 0 ? 'suspicious' : 'active',
+          violations,
+          lastActivity: new Date().toISOString(),
+          isRecording: true, // Default for active sessions
+          screenShare: false, // Will be updated from proctoring data
+          cameraEnabled: true,
+          micEnabled: true
+        };
+      });
+
+      setParticipants(transformedParticipants);
+      calculateStats(transformedParticipants);
+
+    } catch (error) {
+      console.error('Error loading participants:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load active participants",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const calculateStats = (participantData: ParticipantSession[]) => {
     const newStats: MonitoringStats = {
-      totalParticipants: mockParticipants.length,
-      activeParticipants: mockParticipants.filter(p => p.status === 'active').length,
-      flaggedParticipants: mockParticipants.filter(p => p.status === 'suspicious' || p.status === 'flagged').length,
-      completedParticipants: mockParticipants.filter(p => p.status === 'completed').length,
-      averageProgress: mockParticipants.reduce((sum, p) => sum + (p.currentQuestion / p.totalQuestions * 100), 0) / mockParticipants.length
+      totalParticipants: participantData.length,
+      activeParticipants: participantData.filter(p => p.status === 'active').length,
+      flaggedParticipants: participantData.filter(p => p.status === 'suspicious' || p.status === 'flagged').length,
+      completedParticipants: participantData.filter(p => p.status === 'completed').length,
+      averageProgress: participantData.length > 0 
+        ? participantData.reduce((sum, p) => sum + (p.currentQuestion / p.totalQuestions * 100), 0) / participantData.length
+        : 0
     };
     setStats(newStats);
-  }, []);
+  };
 
   // Set up real-time subscriptions
   useEffect(() => {
-    if (isConnected && profile?.role === 'admin') {
+    if (isConnected && isMonitoring) {
       const subscriptionId = subscribe({
         channel: 'assessment_monitoring',
         table: 'assessment_instances',
         callback: (payload) => {
           console.log('Assessment instance update:', payload);
-          // Handle real-time updates to participant sessions
+          // Reload participants when data changes
+          loadActiveParticipants();
+        }
+      });
+
+      const proctoringSubscriptionId = subscribe({
+        channel: 'proctoring_monitoring',
+        table: 'proctoring_sessions',
+        callback: (payload) => {
+          console.log('Proctoring session update:', payload);
+          // Handle proctoring updates
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            updateParticipantFromProctoringData(payload.new);
+          }
         }
       });
 
       return () => {
         if (subscriptionId) unsubscribe(subscriptionId);
+        if (proctoringSubscriptionId) unsubscribe(proctoringSubscriptionId);
       };
     }
-  }, [isConnected, profile, subscribe, unsubscribe]);
+  }, [isConnected, isMonitoring, subscribe, unsubscribe]);
+
+  const updateParticipantFromProctoringData = (proctoringData: any) => {
+    setParticipants(prev => prev.map(participant => {
+      if (participant.id === proctoringData.assessment_instance_id) {
+        const violations = Array.isArray(proctoringData.security_events) 
+          ? proctoringData.security_events.map((e: any) => e.description || e.type || 'Security event')
+          : [];
+          
+        return {
+          ...participant,
+          violations,
+          status: violations.length > 2 ? 'flagged' : violations.length > 0 ? 'suspicious' : 'active',
+          lastActivity: new Date().toISOString()
+        };
+      }
+      return participant;
+    }));
+  };
 
   // Handle WebSocket messages
   useEffect(() => {
@@ -168,11 +264,38 @@ const LiveMonitoring = () => {
   }, [lastMessage]);
 
   const startMonitoring = () => {
+    if (availableAssessments.length === 0) {
+      toast({
+        title: "No Assessments Available",
+        description: "No assessments with live monitoring enabled are currently published.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsMonitoring(true);
     connectWS();
+    
+    // Authenticate with WebSocket
+    if (user) {
+      sendMessage({
+        type: 'auth',
+        data: { userId: user.id, role: profile?.role || 'user' }
+      });
+    }
+
+    // Start monitoring all available assessments
     sendMessage({
       type: 'start_monitoring',
-      data: { assessmentId: 'current_assessment' }
+      data: { 
+        assessmentIds: availableAssessments.map(a => a.id),
+        monitoringType: 'live_assessment' 
+      }
+    });
+
+    toast({
+      title: "Monitoring Started",
+      description: `Now monitoring ${availableAssessments.length} assessment(s)`
     });
   };
 
@@ -181,6 +304,11 @@ const LiveMonitoring = () => {
     sendMessage({
       type: 'stop_monitoring',
       data: {}
+    });
+    
+    toast({
+      title: "Monitoring Stopped",
+      description: "Live monitoring has been disabled"
     });
   };
 
@@ -206,13 +334,49 @@ const LiveMonitoring = () => {
 
   const selectedParticipantData = participants.find(p => p.id === selectedParticipant);
 
+  // Access control check
+  if (!hasMonitoringPermissions) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center py-8">
+              <Shield className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
+              <p className="text-muted-foreground">
+                You need administrator or instructor permissions to access live monitoring.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Assessment Monitoring Status */}
+      <AssessmentMonitoringStatus 
+        onSelectAssessment={(assessmentId) => {
+          // TODO: Filter monitoring by specific assessment
+          console.log('Selected assessment for monitoring:', assessmentId);
+        }}
+      />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Live Monitoring</h2>
           <p className="text-muted-foreground">Real-time assessment monitoring and proctoring</p>
+          {availableAssessments.length > 0 && (
+            <p className="text-sm text-green-600 mt-1">
+              {availableAssessments.length} assessment(s) available for monitoring
+            </p>
+          )}
+          {availableAssessments.length === 0 && (
+            <p className="text-sm text-yellow-600 mt-1">
+              No assessments with live monitoring enabled found
+            </p>
+          )}
         </div>
         <div className="flex items-center space-x-2">
           <Badge variant={wsConnected ? 'default' : 'secondary'}>

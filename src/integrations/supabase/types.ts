@@ -286,6 +286,7 @@ export type Database = {
           duration_minutes: number
           id: string
           instructions: string | null
+          live_monitoring_enabled: boolean
           max_attempts: number | null
           proctoring_config: Json | null
           proctoring_enabled: boolean | null
@@ -300,6 +301,7 @@ export type Database = {
           duration_minutes?: number
           id?: string
           instructions?: string | null
+          live_monitoring_enabled?: boolean
           max_attempts?: number | null
           proctoring_config?: Json | null
           proctoring_enabled?: boolean | null
@@ -314,6 +316,7 @@ export type Database = {
           duration_minutes?: number
           id?: string
           instructions?: string | null
+          live_monitoring_enabled?: boolean
           max_attempts?: number | null
           proctoring_config?: Json | null
           proctoring_enabled?: boolean | null
