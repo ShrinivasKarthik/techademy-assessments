@@ -82,67 +82,70 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     try {
       setLoading(true);
       setError(null);
-      console.log('=== INITIALIZING SESSION ===');
       
-      // Optimized: Single API call that includes existing instance check
+      // Step 1: Fetch assessment data
       const { data, error: fetchError } = await supabase.functions.invoke('take-shared-assessment', {
         body: { token: shareToken },
       });
 
-      console.log('API Response:', { data, fetchError });
-
       if (fetchError) {
         console.error('Error fetching shared assessment:', fetchError);
         setError('Failed to load assessment');
-        setSessionState('ready');
         return;
       }
 
       if (!data?.success) {
-        console.error('API returned error:', data?.error);
         setError(data?.error || 'Assessment not available');
-        setSessionState('ready');
         return;
       }
 
-      console.log('Setting assessment data:', data.assessment);
-      console.log('Setting share config:', data.shareConfig);
-      
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
       
-      // Optimized: Handle existing instance from API response (no separate call needed)
-      if (data.existingInstance) {
-        console.log('Found existing instance:', data.existingInstance);
-        setInstance(data.existingInstance);
-        
-        if (data.existingInstance.status === 'submitted') {
-          console.log('Setting state to submitted');
-          setSessionState('submitted');
-        } else if (data.existingInstance.session_state === 'in_progress') {
-          console.log('Setting state to in_progress');
-          setSessionState('in_progress');
-        } else {
-          console.log('Setting state to ready (with existing instance)');
-          setSessionState('ready');
-        }
-      } else {
-        console.log('No existing instance, setting state to ready');
-        setSessionState('ready');
-      }
+      // Step 2: Check for existing instance
+      await checkExistingInstance(data.assessment.id);
+      
+      // Step 3: Set ready state
+      setSessionState('ready');
 
     } catch (err: any) {
       console.error('Error initializing session:', err);
       setError('Failed to initialize assessment session');
-      setSessionState('ready');
     } finally {
-      console.log('Setting loading to false');
       setLoading(false);
     }
   };
 
-  // Optimized: Removed redundant checkExistingInstance function
-  // Instance checking is now handled in the optimized initializeSession
+  const checkExistingInstance = async (assessmentId: string) => {
+    try {
+      const { data: instances, error } = await supabase
+        .from('assessment_instances')
+        .select('*')
+        .eq('share_token', shareToken)
+        .eq('is_anonymous', true)
+        .eq('assessment_id', assessmentId)
+        .order('started_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking existing instance:', error);
+        return;
+      }
+
+      if (instances && instances.length > 0) {
+        const existingInstance = instances[0];
+        setInstance(existingInstance);
+        
+        if (existingInstance.status === 'submitted') {
+          setSessionState('submitted');
+        } else if (existingInstance.session_state === 'in_progress') {
+          setSessionState('in_progress');
+        }
+      }
+    } catch (err) {
+      console.error('Error checking existing instance:', err);
+    }
+  };
 
   const validateParticipantInfo = () => {
     if (!shareConfig) return false;
@@ -310,13 +313,12 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   };
 
   // Loading state
-  if (loading) {
+  if (loading || sessionState === 'loading') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading assessment...</p>
-          <p className="text-xs text-muted-foreground mt-2">Session State: {sessionState}</p>
         </div>
       </div>
     );

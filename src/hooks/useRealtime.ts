@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -94,26 +94,21 @@ export const useRealtimeV2 = ({
   onDelete
 }: UseRealtimeV2Props) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
-  const subscriptionRef = useRef<any>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 3;
+  const [subscription, setSubscription] = useState<any>(null);
   const { toast } = useToast();
 
   const connect = useCallback(() => {
-    // Skip connection if disabled or no callbacks provided
+    // Don't connect if no callbacks are provided (for anonymous users)
     if (!onInsert && !onUpdate && !onDelete) {
+      console.log('Skipping realtime connection - no callbacks provided for table:', table);
       return;
     }
     
-    // Don't connect if already connected or connecting
-    if (subscriptionRef.current || connectionState === 'connecting') {
+    if (subscription) {
+      console.log('Already connected to', table);
       return;
     }
 
-    setConnectionState('connecting');
-    
     const channelName = `${table}_${filter || 'all'}_${Date.now()}`;
     const channel = supabase.channel(channelName);
 
@@ -128,9 +123,7 @@ export const useRealtimeV2 = ({
     }
 
     channel.on('postgres_changes', changeConfig, (payload) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Realtime event on ${table}:`, payload);
-      }
+      console.log(`Realtime event on ${table}:`, payload);
       
       switch (payload.eventType) {
         case 'INSERT':
@@ -146,59 +139,29 @@ export const useRealtimeV2 = ({
     });
 
     channel.subscribe((status) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Realtime subscription status for ${table}:`, status);
-      }
-      
+      console.log(`Realtime subscription status for ${table}:`, status);
       setIsConnected(status === 'SUBSCRIBED');
-      setConnectionState(status === 'SUBSCRIBED' ? 'connected' : 'disconnected');
       
-      if (status === 'SUBSCRIBED') {
-        reconnectAttemptsRef.current = 0;
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        setConnectionState('disconnected');
-        
-        // Only show toast in development or for critical errors
-        if (process.env.NODE_ENV === 'development') {
-          toast({
-            title: "Connection Error",
-            description: `Failed to connect to real-time updates for ${table}`,
-            variant: "destructive",
-          });
-        }
-        
-        // Attempt reconnection with exponential backoff
-        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-          const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000;
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttemptsRef.current++;
-            disconnect();
-            connect();
-          }, delay);
-        }
+      if (status === 'CHANNEL_ERROR') {
+        toast({
+          title: "Connection Error",
+          description: `Failed to connect to real-time updates for ${table}`,
+          variant: "destructive",
+        });
       }
     });
 
-    subscriptionRef.current = channel;
-  }, [table, filter, onInsert, onUpdate, onDelete, connectionState, toast]);
+    setSubscription(channel);
+  }, [table, filter, onInsert, onUpdate, onDelete, subscription, toast]);
 
   const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
+    if (subscription) {
+      console.log('Disconnecting from', table);
+      supabase.removeChannel(subscription);
+      setSubscription(null);
+      setIsConnected(false);
     }
-    
-    if (subscriptionRef.current) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Disconnecting from', table);
-      }
-      supabase.removeChannel(subscriptionRef.current);
-      subscriptionRef.current = null;
-    }
-    
-    setIsConnected(false);
-    setConnectionState('disconnected');
-  }, [table]);
+  }, [subscription, table]);
 
   useEffect(() => {
     connect();
@@ -207,7 +170,6 @@ export const useRealtimeV2 = ({
 
   return {
     isConnected,
-    connectionState,
     connect,
     disconnect
   };

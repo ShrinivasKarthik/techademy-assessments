@@ -47,51 +47,41 @@ serve(async (req) => {
 
     console.log('Processing share token:', shareToken)
 
-    // Optimized: Combine all database queries using joins for better performance
-    const { data: combinedData, error: dataError } = await supabaseClient
+    // Validate and fetch share record with enhanced error handling
+    const { data: shareData, error: shareError } = await supabaseClient
       .from('assessment_shares')
-      .select(`
-        *,
-        assessments!inner (
-          id, title, description, instructions, duration_minutes, 
-          proctoring_enabled, proctoring_config, status
-        )
-      `)
+      .select('*')
       .eq('share_token', shareToken)
       .eq('is_active', true)
-      .eq('assessments.status', 'published')
       .maybeSingle()
 
-    if (dataError) {
-      console.error('Database error fetching data:', dataError)
+    if (shareError) {
+      console.error('Database error fetching share:', shareError)
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Database error accessing assessment information' 
+          error: 'Database error accessing share information' 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
-    if (!combinedData) {
-      console.log('No active share or published assessment found for token:', shareToken)
+    if (!shareData) {
+      console.log('No active share found for token:', shareToken)
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Invalid, expired, or inactive assessment link' 
+          error: 'Invalid, expired, or inactive share link' 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       )
     }
 
-    const shareData = combinedData
-    const assessment = combinedData.assessments
-
-    console.log('Share and assessment found:', { 
-      shareId: shareData.id, 
-      assessmentId: assessment.id,
-      assessmentTitle: assessment.title,
-      accessCount: shareData.access_count
+    console.log('Share record found:', { 
+      id: shareData.id, 
+      assessment_id: shareData.assessment_id,
+      access_count: shareData.access_count,
+      max_attempts: shareData.max_attempts
     })
 
     // Enhanced expiration check
@@ -125,11 +115,48 @@ serve(async (req) => {
       )
     }
 
-    // Optimized: Only fetch question metadata initially (defer full question content)
+    // Fetch assessment with enhanced validation
+    const { data: assessment, error: assessmentError } = await supabaseClient
+      .from('assessments')
+      .select('*')
+      .eq('id', shareData.assessment_id)
+      .eq('status', 'published')
+      .maybeSingle()
+
+    if (assessmentError) {
+      console.error('Database error fetching assessment:', assessmentError)
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Database error accessing assessment' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
+
+    if (!assessment) {
+      console.log('No published assessment found for ID:', shareData.assessment_id)
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Assessment not found or not available' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      )
+    }
+
+    console.log('Assessment found:', { 
+      id: assessment.id, 
+      title: assessment.title,
+      status: assessment.status,
+      duration: assessment.duration_minutes
+    })
+
+    // Fetch questions with enhanced validation
     const { data: questions, error: questionsError } = await supabaseClient
       .from('questions')
-      .select('id, title, question_type, difficulty, points, order_index')
-      .eq('assessment_id', assessment.id)
+      .select('*')
+      .eq('assessment_id', shareData.assessment_id)
       .eq('is_active', true)
       .order('order_index')
 
@@ -145,7 +172,7 @@ serve(async (req) => {
     }
 
     if (!questions || questions.length === 0) {
-      console.log('No active questions found for assessment:', assessment.id)
+      console.log('No active questions found for assessment:', shareData.assessment_id)
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -155,40 +182,25 @@ serve(async (req) => {
       )
     }
 
-    // Optimized: Check for existing instance in parallel
-    const existingInstancePromise = supabaseClient
-      .from('assessment_instances')
-      .select('id, status, session_state, started_at, time_remaining_seconds, current_question_index, participant_name, participant_email')
-      .eq('share_token', shareToken)
-      .eq('is_anonymous', true)
-      .eq('assessment_id', assessment.id)
-      .order('started_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
     console.log('Questions loaded:', questions.length)
 
-    // Optimized: Wait for existing instance check and increment access count in parallel
-    const [existingInstanceResult, accessCountResult] = await Promise.allSettled([
-      existingInstancePromise,
-      supabaseClient
+    // Increment access count
+    try {
+      const { error: updateError } = await supabaseClient
         .from('assessment_shares')
         .update({ access_count: shareData.access_count + 1 })
         .eq('id', shareData.id)
-    ])
 
-    // Handle existing instance result
-    let existingInstance = null
-    if (existingInstanceResult.status === 'fulfilled' && existingInstanceResult.value.data) {
-      existingInstance = existingInstanceResult.value.data
+      if (updateError) {
+        console.error('Error updating access count:', updateError)
+        // Don't fail the request for this
+      }
+    } catch (err) {
+      console.error('Error incrementing access count:', err)
+      // Don't fail the request for this
     }
 
-    // Log access count update (don't fail for this)
-    if (accessCountResult.status === 'rejected') {
-      console.error('Error updating access count:', accessCountResult.reason)
-    }
-
-    // Optimized response data with existing instance if found
+    // Enhanced response data
     const responseData = {
       success: true,
       shareToken: shareToken,
@@ -201,22 +213,20 @@ serve(async (req) => {
         proctoring_enabled: assessment.proctoring_enabled || false,
         proctoring_config: assessment.proctoring_config || {},
         question_count: questions.length,
-        questions: questions // Only basic question metadata, not full content
+        questions: questions
       },
       shareConfig: {
         requireName: shareData.require_name || false,
         requireEmail: shareData.require_email || false,
-        allowAnonymous: shareData.allow_anonymous !== false,
+        allowAnonymous: shareData.allow_anonymous !== false, // Default to true if null
         maxAttempts: shareData.max_attempts,
         expiresAt: shareData.expires_at,
-        accessCount: shareData.access_count + 1,
+        accessCount: shareData.access_count + 1, // Include incremented count
         completionCount: shareData.completion_count || 0
       },
-      existingInstance: existingInstance, // Include existing instance if found
       metadata: {
         accessedAt: new Date().toISOString(),
-        remainingAttempts: shareData.max_attempts ? shareData.max_attempts - (shareData.access_count + 1) : null,
-        hasExistingInstance: !!existingInstance
+        remainingAttempts: shareData.max_attempts ? shareData.max_attempts - (shareData.access_count + 1) : null
       }
     }
 

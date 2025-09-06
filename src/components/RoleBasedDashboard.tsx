@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import AdminDashboard from './AdminDashboard';
@@ -9,15 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 const RoleBasedDashboard: React.FC = () => {
   const { profile, loading } = useAuth();
   const navigate = useNavigate();
-
-  // Use useEffect for navigation to avoid render-time side effects
-  useEffect(() => {
-    if (!loading) {
-      if (profile?.role === 'user' || !profile?.role) {
-        navigate('/auth');
-      }
-    }
-  }, [loading, profile?.role, navigate]);
 
   if (loading) {
     return (
@@ -34,8 +25,9 @@ const RoleBasedDashboard: React.FC = () => {
     );
   }
 
-  // Don't render anything if redirecting
-  if (profile?.role === 'user' || !profile?.role) {
+  // Handle users with 'user' role - redirect them to complete setup
+  if (profile?.role === 'user') {
+    navigate('/auth');
     return null;
   }
 
@@ -47,6 +39,8 @@ const RoleBasedDashboard: React.FC = () => {
     case 'student':
       return <StudentDashboard />;
     default:
+      // This should never happen due to ProtectedRoute, but just in case
+      navigate('/auth');
       return null;
   }
 };

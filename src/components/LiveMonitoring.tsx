@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOptimizedRealtime } from '@/hooks/useOptimizedRealtime';
+import { useRealtime } from '@/hooks/useRealtime';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useToast } from '@/hooks/use-toast';
 import AssessmentMonitoringStatus from './AssessmentMonitoringStatus';
@@ -76,34 +76,7 @@ const LiveMonitoring: React.FC = () => {
   const { toast } = useToast();
   
   // Real-time subscription hooks
-  const assessmentRealtimeConfig = {
-    table: 'assessment_instances',
-    enabled: monitoringStatus === 'active',
-    onUpdate: (payload: any) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Assessment instance update:', payload);
-      }
-      loadActiveParticipants();
-    }
-  };
-
-  const proctoringRealtimeConfig = {
-    table: 'proctoring_sessions',
-    enabled: monitoringStatus === 'active',
-    onUpdate: (payload: any) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Proctoring session update:', payload);
-      }
-      if (payload.new) {
-        updateParticipantFromProctoringData(payload.new);
-      }
-    }
-  };
-
-  const { isConnected: assessmentConnected } = useOptimizedRealtime(assessmentRealtimeConfig);
-  const { isConnected: proctoringConnected } = useOptimizedRealtime(proctoringRealtimeConfig);
-  
-  const isConnected = assessmentConnected || proctoringConnected;
+  const { subscribe, unsubscribe, isConnected } = useRealtime();
   
   // WebSocket for live monitoring
   const webSocketUrl = isConnected ? 'wss://axdwgxtukqqzupboojmx.supabase.co/realtime/v1/websocket' : undefined;
@@ -148,7 +121,7 @@ const LiveMonitoring: React.FC = () => {
 
   const loadActiveParticipants = async () => {
     try {
-      // Remove console.log for production
+      console.log('Loading active participants...');
       const { data: instances, error } = await supabase
         .from('assessment_instances')
         .select(`
@@ -175,15 +148,10 @@ const LiveMonitoring: React.FC = () => {
 
       if (error) throw error;
       
-      // Only log in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Found assessment instances:', instances?.length || 0, instances);
-      }
+      console.log('Found assessment instances:', instances?.length || 0, instances);
 
       if (!instances || instances.length === 0) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('No in-progress assessment instances found');
-        }
+        console.log('No in-progress assessment instances found');
         setParticipants([]);
         setStats({ total: 0, active: 0, flagged: 0, averageProgress: 0 });
         setSecurityAlerts([]);
@@ -296,7 +264,35 @@ const LiveMonitoring: React.FC = () => {
     setStats(newStats);
   };
 
-  // Realtime subscriptions are now handled by the optimized hooks above
+  // Set up real-time subscriptions
+  useEffect(() => {
+    if (isConnected && monitoringStatus === 'active') {
+      const subscriptionId = subscribe({
+        channel: 'assessment_monitoring',
+        table: 'assessment_instances',
+        callback: (payload) => {
+          console.log('Assessment instance update:', payload);
+          loadActiveParticipants();
+        }
+      });
+
+      const proctoringSubscriptionId = subscribe({
+        channel: 'proctoring_monitoring',
+        table: 'proctoring_sessions',
+        callback: (payload) => {
+          console.log('Proctoring session update:', payload);
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            updateParticipantFromProctoringData(payload.new);
+          }
+        }
+      });
+
+      return () => {
+        if (subscriptionId) unsubscribe(subscriptionId);
+        if (proctoringSubscriptionId) unsubscribe(proctoringSubscriptionId);
+      };
+    }
+  }, [isConnected, monitoringStatus, subscribe, unsubscribe]);
 
   const updateParticipantFromProctoringData = (proctoringData: any) => {
     setParticipants(prev => prev.map(participant => {
