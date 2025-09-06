@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRealtime } from '@/hooks/useRealtime';
+import { useOptimizedRealtime } from '@/hooks/useOptimizedRealtime';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useToast } from '@/hooks/use-toast';
 import AssessmentMonitoringStatus from './AssessmentMonitoringStatus';
@@ -76,7 +76,34 @@ const LiveMonitoring: React.FC = () => {
   const { toast } = useToast();
   
   // Real-time subscription hooks
-  const { subscribe, unsubscribe, isConnected } = useRealtime();
+  const assessmentRealtimeConfig = {
+    table: 'assessment_instances',
+    enabled: monitoringStatus === 'active',
+    onUpdate: (payload: any) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Assessment instance update:', payload);
+      }
+      loadActiveParticipants();
+    }
+  };
+
+  const proctoringRealtimeConfig = {
+    table: 'proctoring_sessions',
+    enabled: monitoringStatus === 'active',
+    onUpdate: (payload: any) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Proctoring session update:', payload);
+      }
+      if (payload.new) {
+        updateParticipantFromProctoringData(payload.new);
+      }
+    }
+  };
+
+  const { isConnected: assessmentConnected } = useOptimizedRealtime(assessmentRealtimeConfig);
+  const { isConnected: proctoringConnected } = useOptimizedRealtime(proctoringRealtimeConfig);
+  
+  const isConnected = assessmentConnected || proctoringConnected;
   
   // WebSocket for live monitoring
   const webSocketUrl = isConnected ? 'wss://axdwgxtukqqzupboojmx.supabase.co/realtime/v1/websocket' : undefined;
@@ -269,35 +296,7 @@ const LiveMonitoring: React.FC = () => {
     setStats(newStats);
   };
 
-  // Set up real-time subscriptions
-  useEffect(() => {
-    if (isConnected && monitoringStatus === 'active') {
-      const subscriptionId = subscribe({
-        channel: 'assessment_monitoring',
-        table: 'assessment_instances',
-        callback: (payload) => {
-          console.log('Assessment instance update:', payload);
-          loadActiveParticipants();
-        }
-      });
-
-      const proctoringSubscriptionId = subscribe({
-        channel: 'proctoring_monitoring',
-        table: 'proctoring_sessions',
-        callback: (payload) => {
-          console.log('Proctoring session update:', payload);
-          if (payload.eventType === 'UPDATE' && payload.new) {
-            updateParticipantFromProctoringData(payload.new);
-          }
-        }
-      });
-
-      return () => {
-        if (subscriptionId) unsubscribe(subscriptionId);
-        if (proctoringSubscriptionId) unsubscribe(proctoringSubscriptionId);
-      };
-    }
-  }, [isConnected, monitoringStatus, subscribe, unsubscribe]);
+  // Realtime subscriptions are now handled by the optimized hooks above
 
   const updateParticipantFromProctoringData = (proctoringData: any) => {
     setParticipants(prev => prev.map(participant => {
