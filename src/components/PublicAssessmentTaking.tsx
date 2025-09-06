@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useProgressPersistence } from '@/hooks/useProgressPersistence';
 
 // Import question components
 import MCQQuestion from './questions/MCQQuestion';
@@ -85,12 +86,28 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Enhanced progress persistence
+  const {
+    saveAnswer: persistAnswer,
+    navigateToQuestion: persistNavigate,
+    updateTimeRemaining: persistTime,
+    forceSave,
+    canResume,
+    resumeFromSaved,
+    saving: persistenceSaving,
+    lastSaved
+  } = useProgressPersistence({
+    instanceId: instance.id,
+    enabled: true,
+    autoSaveInterval: 30000
+  });
+
   // Initialize assessment and load existing answers
   useEffect(() => {
     initializeAssessment();
   }, [assessmentId]);
 
-  // Timer effect
+  // Enhanced timer effect with persistence
   useEffect(() => {
     if (timeRemaining <= 0) return;
 
@@ -101,12 +118,18 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
           handleAutoSubmit();
           return 0;
         }
+        
+        // Persist time every 10 seconds
+        if (newTime % 10 === 0) {
+          persistTime(newTime);
+        }
+        
         return newTime;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeRemaining]);
+  }, [timeRemaining, persistTime]);
 
   // Auto-save effect
   useEffect(() => {
@@ -154,8 +177,21 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       const sortedQuestions = questionsData || [];
       setAssessment({ ...assessmentData, questions: sortedQuestions });
 
-      // Load existing answers
+      // Load existing answers and check for resume capability
       await loadExistingAnswers();
+      
+      // Check if we can resume from a previous session
+      if (canResume()) {
+        const savedState = resumeFromSaved();
+        setCurrentQuestionIndex(savedState.currentQuestionIndex);
+        setTimeRemaining(savedState.timeRemainingSeconds);
+        setAnswers(savedState.answers);
+        
+        toast({
+          title: "Session Resumed",
+          description: "Your previous progress has been restored.",
+        });
+      }
 
     } catch (err: any) {
       console.error('Error initializing assessment:', err);
@@ -220,34 +256,31 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       // Update local state immediately
       setAnswers(prev => ({ ...prev, [questionId]: answer }));
 
-      // Save to database with upsert
-      const { error } = await supabase
-        .from('submissions')
-        .upsert({
-          instance_id: instance.id,
-          question_id: questionId,
-          answer: answer,
-        }, {
-          onConflict: 'instance_id,question_id'
-        });
+      // Use enhanced persistence
+      await persistAnswer(questionId, answer);
+      setLastSaveTime(new Date());
 
-      if (error) {
-        console.error('Error saving answer:', error);
-        toast({
-          title: "Save Error",
-          description: "Failed to save your answer. Please try again.",
-          variant: "destructive",
-        });
-      }
     } catch (err) {
       console.error('Error saving answer:', err);
+      toast({
+        title: "Save Error",
+        description: "Failed to save your answer. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const navigateToQuestion = (index: number) => {
+  const navigateToQuestion = async (index: number) => {
     if (!assessment || index < 0 || index >= assessment.questions.length) return;
+    
+    // Save current answer before navigating
+    const currentQuestion = assessment.questions[currentQuestionIndex];
+    if (currentQuestion && answers[currentQuestion.id] !== undefined) {
+      await saveAnswer(currentQuestion.id, answers[currentQuestion.id]);
+    }
+    
     setCurrentQuestionIndex(index);
-    saveProgress();
+    await persistNavigate(index);
   };
 
   const toggleFlag = () => {
@@ -420,12 +453,12 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
                 <span className="font-mono">{formatTime(timeRemaining)}</span>
               </div>
               
-              {/* Save Status */}
-              {saving && <Badge variant="outline">Saving...</Badge>}
-              {lastSaveTime && !saving && (
+              {/* Enhanced Save Status */}
+              {(saving || persistenceSaving) && <Badge variant="outline">Saving...</Badge>}
+              {(lastSaveTime || lastSaved) && !saving && !persistenceSaving && (
                 <Badge variant="outline" className="text-green-600">
                   <Save className="h-3 w-3 mr-1" />
-                  Saved
+                  Saved {lastSaved ? new Date(lastSaved).toLocaleTimeString() : ''}
                 </Badge>
               )}
               

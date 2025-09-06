@@ -17,8 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Code, HelpCircle, FileText, Upload, Mic, Sparkles, Loader2 } from "lucide-react";
+import { X, Plus, Code, HelpCircle, FileText, Upload, Mic, Sparkles, Loader2, BookOpen } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import QuestionTemplateSelector from "./QuestionTemplateSelector";
 import { Question } from "@/hooks/useQuestionBank";
 import EnhancedQuestionBuilders from "./EnhancedQuestionBuilders";
 import { useSkills } from "@/hooks/useSkills";
@@ -85,6 +86,7 @@ export default function CreateQuestionModal({
   const [newSkill, setNewSkill] = useState('');
   const [loading, setLoading] = useState(false);
   const [suggestingSkills, setSuggestingSkills] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   
   const { skills: availableSkills, getOrCreateSkills, suggestSkillsForQuestion } = useSkills();
   const { toast } = useToast();
@@ -202,6 +204,18 @@ export default function CreateQuestionModal({
     }
   };
 
+  const handleTemplateSelect = (template: any) => {
+    setFormData(prev => ({
+      ...prev,
+      question_text: template.template_config.question_text || '',
+      question_type: template.question_type,
+      config: template.template_config || {},
+      tags: template.template_config.tags || [],
+      skills: template.template_config.skills || [],
+    }));
+    setShowTemplates(false);
+  };
+
   const handleConfigUpdate = (config: any) => {
     setFormData(prev => ({ ...prev, config }));
   };
@@ -236,12 +250,34 @@ export default function CreateQuestionModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">
-            {question ? 'Edit Question' : 'Create New Question'}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl">
+              {question ? 'Edit Question' : 'Create New Question'}
+            </DialogTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTemplates(!showTemplates)}
+              className="gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              {showTemplates ? 'Hide Templates' : 'Use Template'}
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-8">
+          {/* Template Selector */}
+          {showTemplates && (
+            <div className="border rounded-lg p-4 bg-muted/20">
+              <QuestionTemplateSelector
+                onSelectTemplate={handleTemplateSelect}
+                selectedType={formData.question_type}
+                mode="select"
+              />
+            </div>
+          )}
+
           {/* Question Text - Primary Field */}
           <div className="space-y-3">
             <Label htmlFor="question-text" className="text-base font-semibold">

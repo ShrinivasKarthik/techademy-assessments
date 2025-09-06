@@ -27,6 +27,7 @@ import {
   Activity
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
+import ParticipantJourneyTracker from './ParticipantJourneyTracker';
 
 interface AnalyticsData {
   overview: {
@@ -413,10 +414,11 @@ const ComprehensiveAnalyticsDashboard = () => {
 
         {/* Analytics Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="assessments">Assessments</TabsTrigger>
             <TabsTrigger value="participants">Participants</TabsTrigger>
+            <TabsTrigger value="journey">Journey</TabsTrigger>
             <TabsTrigger value="insights">Insights</TabsTrigger>
           </TabsList>
 
@@ -545,6 +547,10 @@ const ComprehensiveAnalyticsDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="journey" className="space-y-6">
+            <ParticipantJourneyTracker assessmentId={selectedAssessment !== 'all' ? selectedAssessment : undefined} />
           </TabsContent>
         </Tabs>
       </div>
