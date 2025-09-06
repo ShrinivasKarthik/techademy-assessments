@@ -108,7 +108,6 @@ const Navigation = () => {
             icon: MonitorSpeaker,
             items: [
               { name: "Live Monitoring", href: "/monitoring", icon: Activity },
-              { name: "Real-Time", href: "/monitoring/real-time", icon: Activity },
               { name: "Queue Monitor", href: "/queue-monitoring", icon: Database },
               { name: "Performance", href: "/performance-metrics", icon: TrendingUp },
               { name: "DB Performance", href: "/performance", icon: Database }
@@ -166,7 +165,6 @@ const Navigation = () => {
             icon: MonitorSpeaker,
             items: [
               { name: "Live Monitoring", href: "/monitoring", icon: Activity },
-              { name: "Real-Time", href: "/monitoring/real-time", icon: Activity },
               { name: "Performance", href: "/performance-metrics", icon: TrendingUp }
             ]
           },

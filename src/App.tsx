@@ -24,7 +24,7 @@ import QuestionBankPage from "./pages/QuestionBankPage";
 import QuestionQualityPage from "./pages/QuestionQualityPage";
 import SkillAnalyticsPage from "./pages/SkillAnalyticsPage";
 import AIInsightsPage from "./pages/AIInsightsPage";
-import RealTimeMonitoringPage from "./pages/RealTimeMonitoringPage";
+
 import AdvancedReportsPage from "./pages/AdvancedReportsPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import QuestionAnalyticsPage from "./pages/QuestionAnalyticsPage";
@@ -116,11 +116,6 @@ const App = () => (
             <Route path="/monitoring" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                 <MonitoringPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/monitoring/real-time" element={
-              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
-                <RealTimeMonitoringPage />
               </ProtectedRoute>
             } />
             <Route path="/reports" element={

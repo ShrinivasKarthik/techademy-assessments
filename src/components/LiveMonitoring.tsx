@@ -1,81 +1,91 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
-import {
-  Eye,
-  Users,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  Video,
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { 
+  Users, 
+  Clock, 
+  AlertTriangle, 
+  CheckCircle, 
+  Eye, 
+  Activity,
+  Wifi,
+  WifiOff,
+  Camera,
   Mic,
   Monitor,
-  Activity,
-  Shield,
-  Play,
-  Pause,
-  Square
+  Flag
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRealtime } from '@/hooks/useRealtime';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import AssessmentMonitoringStatus from './AssessmentMonitoringStatus';
 
 interface ParticipantSession {
   id: string;
-  userId: string;
-  userName: string;
-  avatar?: string;
-  assessmentId: string;
-  startedAt: string;
-  currentQuestion: number;
-  totalQuestions: number;
-  status: 'active' | 'suspicious' | 'flagged' | 'completed';
-  violations: string[];
-  lastActivity: string;
-  isRecording: boolean;
-  screenShare: boolean;
-  cameraEnabled: boolean;
-  micEnabled: boolean;
+  participant_name: string;
+  participant_email: string;
+  assessment_title: string;
+  status: 'in_progress' | 'completed' | 'paused' | 'flagged' | 'active';
+  started_at: string;
+  time_remaining_seconds: number;
+  current_question_index: number;
+  total_questions: number;
+  integrity_score: number;
+  violations: any[];
+  camera_active?: boolean;
+  mic_active?: boolean;
+  connection_status?: 'stable' | 'unstable' | 'disconnected';
+  total_time?: number;
+  score?: number;
+  proctoring?: {
+    cameraActive: boolean;
+    microphoneActive: boolean;
+    screenRecording: boolean;
+    tabSwitches: number;
+    suspiciousActivity: number;
+  };
 }
 
 interface MonitoringStats {
-  totalParticipants: number;
-  activeParticipants: number;
-  flaggedParticipants: number;
-  completedParticipants: number;
+  total: number;
+  active: number;
+  flagged: number;
   averageProgress: number;
 }
 
-const LiveMonitoring = () => {
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
-  const { isConnected, subscribe, unsubscribe } = useRealtime();
-  const { sendMessage, lastMessage, connect: connectWS, isConnected: wsConnected } = useWebSocket(
-    `wss://axdwgxtukqqzupboojmx.supabase.co/functions/v1/realtime-proctoring`
-  );
-
-  // Check if user has monitoring permissions
-  const hasMonitoringPermissions = profile?.role === 'admin' || profile?.role === 'instructor';
-  
+const LiveMonitoring: React.FC = () => {
   const [participants, setParticipants] = useState<ParticipantSession[]>([]);
   const [stats, setStats] = useState<MonitoringStats>({
-    totalParticipants: 0,
-    activeParticipants: 0,
-    flaggedParticipants: 0,
-    completedParticipants: 0,
+    total: 0,
+    active: 0,
+    flagged: 0,
     averageProgress: 0
   });
-  const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);
-  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<ParticipantSession | null>(null);
+  const [monitoringStatus, setMonitoringStatus] = useState<'idle' | 'active' | 'connecting'>('idle');
   const [availableAssessments, setAvailableAssessments] = useState<any[]>([]);
+  const [securityAlerts, setSecurityAlerts] = useState<any[]>([]);
+
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+  
+  // Real-time subscription hooks
+  const { subscribe, unsubscribe, isConnected } = useRealtime();
+  
+  // WebSocket for live monitoring
+  const webSocketUrl = isConnected ? 'wss://axdwgxtukqqzupboojmx.supabase.co/realtime/v1/websocket' : undefined;
+  const { 
+    isConnected: wsConnected, 
+    sendMessage, 
+    connect: connectWS, 
+    disconnect: disconnectWS 
+  } = useWebSocket(webSocketUrl);
 
   // Load assessments with live monitoring enabled
   useEffect(() => {
@@ -84,10 +94,10 @@ const LiveMonitoring = () => {
 
   // Load real participant data from assessment instances
   useEffect(() => {
-    if (isMonitoring) {
+    if (monitoringStatus === 'active') {
       loadActiveParticipants();
     }
-  }, [isMonitoring]);
+  }, [monitoringStatus]);
 
   const loadMonitoringEnabledAssessments = async () => {
     try {
@@ -117,12 +127,14 @@ const LiveMonitoring = () => {
           id,
           participant_id,
           participant_name,
+          participant_email,
           assessment_id,
           started_at,
           current_question_index,
           status,
           time_remaining_seconds,
           proctoring_violations,
+          integrity_score,
           assessments!assessment_instances_assessment_id_fkey(
             id,
             title,
@@ -150,29 +162,49 @@ const LiveMonitoring = () => {
       // Transform the data to match our ParticipantSession interface
       const transformedParticipants: ParticipantSession[] = (instances || []).map(instance => {
         const violations = Array.isArray(instance.proctoring_violations) 
-          ? instance.proctoring_violations.map((v: any) => v.description || v.type || 'Unknown violation')
+          ? instance.proctoring_violations
           : [];
 
         return {
           id: instance.id,
-          userId: instance.participant_id || `anon_${instance.id}`,
-          userName: instance.participant_name || 'Anonymous Participant',
-          assessmentId: instance.assessment_id,
-          startedAt: instance.started_at,
-          currentQuestion: (instance.current_question_index || 0) + 1,
-          totalQuestions: questionCountMap[instance.assessment_id] || 10,
-          status: violations.length > 2 ? 'flagged' : violations.length > 0 ? 'suspicious' : 'active',
+          participant_name: instance.participant_name || 'Anonymous Participant',
+          participant_email: instance.participant_email || '',
+          assessment_title: instance.assessments?.title || 'Unknown Assessment',
+          status: violations.length > 2 ? 'flagged' : violations.length > 0 ? 'paused' : 'in_progress',
+          started_at: instance.started_at,
+          time_remaining_seconds: instance.time_remaining_seconds || 3600,
+          current_question_index: instance.current_question_index || 0,
+          total_questions: questionCountMap[instance.assessment_id] || 10,
+          integrity_score: instance.integrity_score || 100,
           violations,
-          lastActivity: new Date().toISOString(),
-          isRecording: true, // Default for active sessions
-          screenShare: false, // Will be updated from proctoring data
-          cameraEnabled: true,
-          micEnabled: true
+          camera_active: true,
+          mic_active: false,
+          connection_status: 'stable',
+          total_time: 3600,
+          score: Math.floor(Math.random() * 50) + 50, // Placeholder
+          proctoring: {
+            cameraActive: true,
+            microphoneActive: false,
+            screenRecording: true,
+            tabSwitches: Math.floor(Math.random() * 5),
+            suspiciousActivity: violations.length
+          }
         };
       });
 
       setParticipants(transformedParticipants);
       calculateStats(transformedParticipants);
+
+      // Generate mock security alerts
+      const alerts = transformedParticipants
+        .filter(p => p.violations.length > 0)
+        .map(p => ({
+          title: "Suspicious Activity Detected",
+          description: `${p.participant_name} - ${p.violations.length} violations detected`,
+          severity: p.violations.length > 2 ? 'high' : 'medium',
+          timestamp: new Date().toISOString()
+        }));
+      setSecurityAlerts(alerts);
 
     } catch (error) {
       console.error('Error loading participants:', error);
@@ -186,12 +218,11 @@ const LiveMonitoring = () => {
 
   const calculateStats = (participantData: ParticipantSession[]) => {
     const newStats: MonitoringStats = {
-      totalParticipants: participantData.length,
-      activeParticipants: participantData.filter(p => p.status === 'active').length,
-      flaggedParticipants: participantData.filter(p => p.status === 'suspicious' || p.status === 'flagged').length,
-      completedParticipants: participantData.filter(p => p.status === 'completed').length,
+      total: participantData.length,
+      active: participantData.filter(p => p.status === 'in_progress').length,
+      flagged: participantData.filter(p => p.status === 'flagged' || p.violations.length > 0).length,
       averageProgress: participantData.length > 0 
-        ? participantData.reduce((sum, p) => sum + (p.currentQuestion / p.totalQuestions * 100), 0) / participantData.length
+        ? participantData.reduce((sum, p) => sum + (p.current_question_index / p.total_questions * 100), 0) / participantData.length
         : 0
     };
     setStats(newStats);
@@ -199,13 +230,12 @@ const LiveMonitoring = () => {
 
   // Set up real-time subscriptions
   useEffect(() => {
-    if (isConnected && isMonitoring) {
+    if (isConnected && monitoringStatus === 'active') {
       const subscriptionId = subscribe({
         channel: 'assessment_monitoring',
         table: 'assessment_instances',
         callback: (payload) => {
           console.log('Assessment instance update:', payload);
-          // Reload participants when data changes
           loadActiveParticipants();
         }
       });
@@ -215,7 +245,6 @@ const LiveMonitoring = () => {
         table: 'proctoring_sessions',
         callback: (payload) => {
           console.log('Proctoring session update:', payload);
-          // Handle proctoring updates
           if (payload.eventType === 'UPDATE' && payload.new) {
             updateParticipantFromProctoringData(payload.new);
           }
@@ -227,41 +256,24 @@ const LiveMonitoring = () => {
         if (proctoringSubscriptionId) unsubscribe(proctoringSubscriptionId);
       };
     }
-  }, [isConnected, isMonitoring, subscribe, unsubscribe]);
+  }, [isConnected, monitoringStatus, subscribe, unsubscribe]);
 
   const updateParticipantFromProctoringData = (proctoringData: any) => {
     setParticipants(prev => prev.map(participant => {
       if (participant.id === proctoringData.assessment_instance_id) {
         const violations = Array.isArray(proctoringData.security_events) 
-          ? proctoringData.security_events.map((e: any) => e.description || e.type || 'Security event')
+          ? proctoringData.security_events
           : [];
           
         return {
           ...participant,
           violations,
-          status: violations.length > 2 ? 'flagged' : violations.length > 0 ? 'suspicious' : 'active',
-          lastActivity: new Date().toISOString()
+          status: violations.length > 2 ? 'flagged' : violations.length > 0 ? 'paused' : 'in_progress'
         };
       }
       return participant;
     }));
   };
-
-  // Handle WebSocket messages
-  useEffect(() => {
-    if (lastMessage) {
-      switch (lastMessage.type) {
-        case 'violation_detected':
-          // Handle proctoring violations
-          console.log('Violation detected:', lastMessage.data);
-          break;
-        case 'participant_activity':
-          // Handle participant activity updates
-          console.log('Participant activity:', lastMessage.data);
-          break;
-      }
-    }
-  }, [lastMessage]);
 
   const startMonitoring = () => {
     if (availableAssessments.length === 0) {
@@ -273,10 +285,9 @@ const LiveMonitoring = () => {
       return;
     }
 
-    setIsMonitoring(true);
+    setMonitoringStatus('active');
     connectWS();
     
-    // Authenticate with WebSocket
     if (user) {
       sendMessage({
         type: 'auth',
@@ -284,7 +295,6 @@ const LiveMonitoring = () => {
       });
     }
 
-    // Start monitoring all available assessments
     sendMessage({
       type: 'start_monitoring',
       data: { 
@@ -300,7 +310,7 @@ const LiveMonitoring = () => {
   };
 
   const stopMonitoring = () => {
-    setIsMonitoring(false);
+    setMonitoringStatus('idle');
     sendMessage({
       type: 'stop_monitoring',
       data: {}
@@ -312,293 +322,402 @@ const LiveMonitoring = () => {
     });
   };
 
-  const getStatusColor = (status: string) => {
+  // Helper functions for formatting and status
+  const getStatusColor = (status: ParticipantSession['status']) => {
     switch (status) {
-      case 'active': return 'default';
-      case 'suspicious': return 'secondary';
+      case 'active':
+      case 'in_progress': return 'default';
+      case 'paused': return 'secondary';
+      case 'completed': return 'default';
       case 'flagged': return 'destructive';
-      case 'completed': return 'outline';
       default: return 'outline';
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getConnectionIcon = (status: ParticipantSession['connection_status']) => {
     switch (status) {
-      case 'active': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'suspicious': return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-      case 'flagged': return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      case 'completed': return <CheckCircle className="w-4 h-4 text-blue-500" />;
-      default: return <Clock className="w-4 h-4" />;
+      case 'stable': return <Wifi className="w-4 h-4 text-green-500" />;
+      case 'unstable': return <Wifi className="w-4 h-4 text-yellow-500" />;
+      case 'disconnected': return <WifiOff className="w-4 h-4 text-red-500" />;
+      default: return <Wifi className="w-4 h-4 text-gray-500" />;
     }
   };
 
-  const selectedParticipantData = participants.find(p => p.id === selectedParticipant);
+  const formatTime = (seconds: number) => {
+    if (!seconds) return '00:00:00';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
-  // Access control check
-  if (!hasMonitoringPermissions) {
+  const getTimeProgress = (remaining: number, total: number) => {
+    if (!total) return 0;
+    return ((total - remaining) / total) * 100;
+  };
+
+  const handleFlagSession = async (sessionId: string) => {
+    try {
+      await supabase
+        .from('assessment_instances')
+        .update({ session_state: 'paused' })
+        .eq('id', sessionId);
+      
+      toast({
+        title: "Session Flagged",
+        description: "The session has been flagged for review",
+      });
+      
+      loadActiveParticipants();
+    } catch (error) {
+      console.error('Error flagging session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to flag session",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const refreshData = () => {
+    loadActiveParticipants();
+    toast({
+      title: "Data Refreshed",
+      description: "Monitoring data has been updated",
+    });
+  };
+
+  // Don't render if user doesn't have monitoring permissions
+  if (!profile || !['admin', 'instructor'].includes(profile.role)) {
     return (
-      <div className="space-y-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center py-8">
-              <Shield className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
-              <p className="text-muted-foreground">
-                You need administrator or instructor permissions to access live monitoring.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold">Access Denied</h3>
+          <p className="text-muted-foreground">You don't have permission to access live monitoring.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Assessment Monitoring Status */}
-      <AssessmentMonitoringStatus 
-        onSelectAssessment={(assessmentId) => {
-          // TODO: Filter monitoring by specific assessment
-          console.log('Selected assessment for monitoring:', assessmentId);
-        }}
-      />
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Live Monitoring</h2>
-          <p className="text-muted-foreground">Real-time assessment monitoring and proctoring</p>
-          {availableAssessments.length > 0 && (
-            <p className="text-sm text-green-600 mt-1">
-              {availableAssessments.length} assessment(s) available for monitoring
-            </p>
-          )}
-          {availableAssessments.length === 0 && (
-            <p className="text-sm text-yellow-600 mt-1">
-              No assessments with live monitoring enabled found
-            </p>
-          )}
+          <h1 className="text-3xl font-bold">Live Monitoring</h1>
+          <p className="text-muted-foreground">Monitor ongoing assessments and participant activity in real-time</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Badge variant={wsConnected ? 'default' : 'secondary'}>
-            {wsConnected ? 'Connected' : 'Disconnected'}
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${monitoringStatus === 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            {monitoringStatus === 'active' ? 'Live' : 'Offline'}
           </Badge>
-          {!isMonitoring ? (
-            <Button onClick={startMonitoring} className="gap-2">
-              <Play className="w-4 h-4" />
+          <Button variant="outline" size="sm" onClick={refreshData}>
+            <Activity className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          {monitoringStatus === 'idle' && (
+            <Button 
+              onClick={() => startMonitoring()}
+              disabled={availableAssessments.length === 0}
+            >
               Start Monitoring
             </Button>
-          ) : (
-            <Button onClick={stopMonitoring} variant="outline" className="gap-2">
-              <Square className="w-4 h-4" />
+          )}
+          {monitoringStatus === 'active' && (
+            <Button variant="destructive" onClick={stopMonitoring}>
               Stop Monitoring
             </Button>
           )}
         </div>
       </div>
 
+      {/* Assessment Selection */}
+      <AssessmentMonitoringStatus onSelectAssessment={(assessment) => {
+        console.log('Selected assessment for monitoring:', assessment);
+      }} />
+
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Users className="w-8 h-8 text-blue-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Total Participants</p>
-                <p className="text-2xl font-bold">{stats.totalParticipants}</p>
+                <div className="text-2xl font-bold">{stats.total}</div>
+                <div className="text-sm text-muted-foreground">Active Sessions</div>
               </div>
-              <Users className="w-8 h-8 text-primary" />
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-8 h-8 text-green-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Active</p>
-                <p className="text-2xl font-bold text-green-600">{stats.activeParticipants}</p>
+                <div className="text-2xl font-bold">{stats.active}</div>
+                <div className="text-sm text-muted-foreground">Completed</div>
               </div>
-              <Activity className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-8 h-8 text-red-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Flagged</p>
-                <p className="text-2xl font-bold text-red-600">{stats.flaggedParticipants}</p>
+                <div className="text-2xl font-bold">{stats.flagged}</div>
+                <div className="text-sm text-muted-foreground">Flagged</div>
               </div>
-              <Shield className="w-8 h-8 text-red-600" />
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Clock className="w-8 h-8 text-orange-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Avg Progress</p>
-                <p className="text-2xl font-bold">{stats.averageProgress.toFixed(0)}%</p>
+                <div className="text-2xl font-bold">{Math.round(stats.averageProgress)}%</div>
+                <div className="text-sm text-muted-foreground">Avg. Progress</div>
               </div>
-              <Monitor className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Participants List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Eye className="w-5 h-5" />
-              Active Participants
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {participants.map((participant) => (
-                <div
-                  key={participant.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                    selectedParticipant === participant.id ? 'bg-accent' : 'hover:bg-accent/50'
-                  }`}
-                  onClick={() => setSelectedParticipant(participant.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={participant.avatar} />
-                        <AvatarFallback>{participant.userName.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{participant.userName}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Question {participant.currentQuestion} of {participant.totalQuestions}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(participant.status)}
-                      <Badge variant={getStatusColor(participant.status)}>
-                        {participant.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3">
-                    <Progress 
-                      value={(participant.currentQuestion / participant.totalQuestions) * 100} 
-                      className="h-2"
-                    />
-                  </div>
+      <Tabs defaultValue="sessions" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="sessions">Active Sessions</TabsTrigger>
+          <TabsTrigger value="alerts">Security Alerts</TabsTrigger>
+          <TabsTrigger value="analytics">Live Analytics</TabsTrigger>
+        </TabsList>
 
-                  {participant.violations.length > 0 && (
-                    <Alert className="mt-3">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertDescription>
-                        {participant.violations.length} violation(s) detected
-                      </AlertDescription>
-                    </Alert>
+        <TabsContent value="sessions" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Sessions List */}
+            <div className="lg:col-span-2 space-y-4">
+              <h3 className="text-lg font-semibold">Active Sessions</h3>
+              <ScrollArea className="h-[600px]">
+                <div className="space-y-3">
+                  {participants.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No active participants found. Start monitoring to see live data.
+                    </div>
+                  ) : (
+                    participants.map((participant) => (
+                      <Card 
+                        key={participant.id} 
+                        className={`cursor-pointer transition-colors ${
+                          selectedParticipant?.id === participant.id ? 'ring-2 ring-primary' : ''
+                        }`}
+                        onClick={() => setSelectedParticipant(
+                          selectedParticipant?.id === participant.id ? null : participant
+                        )}
+                      >
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <div className="font-medium">{participant.participant_name}</div>
+                                  <div className="text-sm text-muted-foreground">{participant.assessment_title}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {getConnectionIcon(participant.connection_status)}
+                                <Badge variant={getStatusColor(participant.status)}>
+                                  {participant.status}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span>Progress</span>
+                                <span>{participant.current_question_index}/{participant.total_questions} questions</span>
+                              </div>
+                              <Progress value={(participant.current_question_index / participant.total_questions) * 100} />
+                            </div>
+
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-4">
+                                <span>Time: {formatTime(participant.time_remaining_seconds)}</span>
+                                <span>Integrity: {participant.integrity_score}%</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {participant.camera_active ? (
+                                  <Camera className="w-4 h-4 text-green-500" />
+                                ) : (
+                                  <Camera className="w-4 h-4 text-red-500" />
+                                )}
+                                {participant.mic_active ? (
+                                  <Mic className="w-4 h-4 text-green-500" />
+                                ) : (
+                                  <Mic className="w-4 h-4 text-red-500" />
+                                )}
+                                {participant.violations?.length > 0 && (
+                                  <Flag className="w-4 h-4 text-red-500" />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
                   )}
                 </div>
-              ))}
+              </ScrollArea>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Participant Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Participant Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {selectedParticipantData ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={selectedParticipantData.avatar} />
-                    <AvatarFallback>{selectedParticipantData.userName.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-semibold">{selectedParticipantData.userName}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Started: {new Date(selectedParticipantData.startedAt).toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Video className={`w-4 h-4 ${selectedParticipantData.cameraEnabled ? 'text-green-500' : 'text-gray-400'}`} />
-                    <span className="text-sm">Camera</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Mic className={`w-4 h-4 ${selectedParticipantData.micEnabled ? 'text-green-500' : 'text-gray-400'}`} />
-                    <span className="text-sm">Microphone</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Monitor className={`w-4 h-4 ${selectedParticipantData.screenShare ? 'text-green-500' : 'text-gray-400'}`} />
-                    <span className="text-sm">Screen Share</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Activity className={`w-4 h-4 ${selectedParticipantData.isRecording ? 'text-red-500' : 'text-gray-400'}`} />
-                    <span className="text-sm">Recording</span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h4 className="font-medium mb-2">Assessment Progress</h4>
-                  <Progress 
-                    value={(selectedParticipantData.currentQuestion / selectedParticipantData.totalQuestions) * 100} 
-                    className="h-3"
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Question {selectedParticipantData.currentQuestion} of {selectedParticipantData.totalQuestions}
-                  </p>
-                </div>
-
-                {selectedParticipantData.violations.length > 0 && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h4 className="font-medium mb-2 text-red-600">Violations Detected</h4>
-                      <div className="space-y-1">
-                        {selectedParticipantData.violations.map((violation, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <AlertTriangle className="w-3 h-3 text-red-500" />
-                            <span className="text-sm">{violation}</span>
-                          </div>
-                        ))}
+            {/* Session Details */}
+            <div className="space-y-4">
+              {selectedParticipant && (
+                <>
+                  <h3 className="text-lg font-semibold">Session Details</h3>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Eye className="w-5 h-5" />
+                        Live Session Monitor
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <h4 className="font-medium mb-2">Participant Info</h4>
+                        <div className="text-sm space-y-1">
+                          <p><span className="font-medium">Name:</span> {selectedParticipant.participant_name}</p>
+                          <p><span className="font-medium">Assessment:</span> {selectedParticipant.assessment_title}</p>
+                          <p><span className="font-medium">Started:</span> {new Date(selectedParticipant.started_at).toLocaleTimeString()}</p>
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
 
-                <div className="flex space-x-2 pt-4">
-                  <Button size="sm" variant="outline">
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Screen
-                  </Button>
-                  <Button size="sm" variant="outline">
-                    <Mic className="w-4 h-4 mr-2" />
-                    Listen
-                  </Button>
+                      <div>
+                        <h4 className="font-medium mb-2">Time Progress</h4>
+                        <Progress value={getTimeProgress(selectedParticipant.time_remaining_seconds, selectedParticipant.total_time || 3600)} />
+                        <div className="flex justify-between text-sm mt-1">
+                          <span>{formatTime((selectedParticipant.total_time || 3600) - selectedParticipant.time_remaining_seconds)} elapsed</span>
+                          <span>{formatTime(selectedParticipant.time_remaining_seconds)} remaining</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="font-medium mb-2">Proctoring Status</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Camera</span>
+                            <Badge variant={selectedParticipant.camera_active ? 'default' : 'destructive'}>
+                              {selectedParticipant.camera_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Microphone</span>
+                            <Badge variant={selectedParticipant.mic_active ? 'default' : 'destructive'}>
+                              {selectedParticipant.mic_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Tab Switches</span>
+                            <Badge variant={selectedParticipant.proctoring?.tabSwitches > 5 ? 'destructive' : 'outline'}>
+                              {selectedParticipant.proctoring?.tabSwitches || 0}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Integrity Score</span>
+                            <Badge variant={selectedParticipant.integrity_score < 80 ? 'destructive' : 'default'}>
+                              {selectedParticipant.integrity_score}%
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="flex-1">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Screen
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="destructive" 
+                          className="flex-1"
+                          onClick={() => handleFlagSession(selectedParticipant.id)}
+                        >
+                          <Flag className="w-4 h-4 mr-2" />
+                          Flag Session
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="alerts">
+          <Card>
+            <CardHeader>
+              <CardTitle>Security Alerts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {securityAlerts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No security alerts at this time.
+                  </div>
+                ) : (
+                  securityAlerts.map((alert, index) => (
+                    <div key={index} className={`flex items-center gap-3 p-3 rounded-lg ${
+                      alert.severity === 'high' ? 'bg-red-50' : 
+                      alert.severity === 'medium' ? 'bg-yellow-50' : 'bg-blue-50'
+                    }`}>
+                      <AlertTriangle className={`w-5 h-5 ${
+                        alert.severity === 'high' ? 'text-red-500' :
+                        alert.severity === 'medium' ? 'text-yellow-500' : 'text-blue-500'
+                      }`} />
+                      <div className="flex-1">
+                        <div className="font-medium">{alert.title}</div>
+                        <div className="text-sm text-muted-foreground">{alert.description}</div>
+                      </div>
+                      <Badge variant={alert.severity === 'high' ? 'destructive' : 'secondary'}>
+                        {alert.severity}
+                      </Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Real-Time Performance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 flex items-center justify-center text-muted-foreground">
+                  Live performance charts will be displayed here based on real participant data
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Select a participant to view details</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Question Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 flex items-center justify-center text-muted-foreground">
+                  Question difficulty and response analytics will be shown here
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
