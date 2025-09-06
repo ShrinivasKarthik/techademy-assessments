@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnimatedCounter } from '@/components/ui/animated-counter';
+import { ProgressRing } from '@/components/ui/progress-ring';
+import { GlassCard } from '@/components/ui/glass-card';
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,7 +30,8 @@ import {
   AlertCircle,
   Activity,
   Settings,
-  Zap
+  Zap,
+  Sparkles
 } from "lucide-react";
 
 interface DashboardStats {
@@ -227,93 +231,176 @@ const MainDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Assessment Dashboard</h1>
-            <p className="text-muted-foreground">
-              Manage, monitor, and analyze your AI-powered assessments
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button onClick={() => navigate('/assessments/create')} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Create Assessment
-            </Button>
+    <main className="min-h-screen hero-gradient">
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        {/* Hero Header Section */}
+        <div className="relative overflow-hidden rounded-2xl shadow-elevation">
+          <div className="glass-card p-8">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-full bg-gradient-to-r from-primary to-secondary shadow-glow">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                      Assessment Hub
+                    </h1>
+                    <p className="text-muted-foreground text-lg">
+                      Elevate your assessment experience with AI-powered insights
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => navigate('/assessments/create')}
+                  className="gap-2 bg-gradient-to-r from-primary to-secondary shadow-lg hover:shadow-xl transition-all duration-300 group"
+                  size="lg"
+                >
+                  <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                  Create Assessment
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">Total Assessments</p>
-                  <p className="text-2xl font-bold">{stats.totalAssessments}</p>
-                </div>
-                <BookOpen className="w-8 h-8 text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">Active Assessments</p>
-                  <p className="text-2xl font-bold">{stats.activeAssessments}</p>
-                </div>
-                <Zap className="w-8 h-8 text-warning" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">Total Participants</p>
-                  <p className="text-2xl font-bold">{stats.totalParticipants}</p>
-                </div>
-                <Users className="w-8 h-8 text-info" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">Average Score</p>
-                  <p className="text-2xl font-bold">{stats.avgScore.toFixed(1)}%</p>
-                </div>
-                <BarChart3 className="w-8 h-8 text-success" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Feature Showcase Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {quickActions.map((action, index) => {
-            const Icon = action.icon;
-            return (
-              <Card key={index} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={action.action}>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4 mb-3">
-                    <div className={`p-3 rounded-lg bg-${action.color}/10`}>
-                      <Icon className={`w-6 h-6 text-${action.color}`} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{action.title}</h3>
-                      <p className="text-sm text-muted-foreground">{action.description}</p>
+        {/* Statistics Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <GlassCard variant="primary" className="group cursor-pointer">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-full bg-gradient-to-r from-primary to-secondary shadow-lg">
+                    <BookOpen className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Assessments</p>
+                    <div className="text-3xl font-bold">
+                      <AnimatedCounter value={stats.totalAssessments} />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+                <ProgressRing progress={(stats.totalAssessments / Math.max(stats.totalAssessments, 10)) * 100} size={50} />
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="w-3 h-3 text-green-500" />
+                All time assessments created
+              </p>
+            </div>
+          </GlassCard>
+
+          <GlassCard variant="secondary" className="group cursor-pointer">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-full bg-gradient-to-r from-accent to-secondary shadow-lg">
+                    <Zap className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Active Assessments</p>
+                    <div className="text-3xl font-bold">
+                      <AnimatedCounter value={stats.activeAssessments} />
+                    </div>
+                  </div>
+                </div>
+                <ProgressRing progress={(stats.activeAssessments / Math.max(stats.totalAssessments, 1)) * 100} size={50} />
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Activity className="w-3 h-3 text-orange-500" />
+                Currently running
+              </p>
+            </div>
+          </GlassCard>
+
+          <GlassCard className="group cursor-pointer">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 shadow-lg">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Participants</p>
+                    <div className="text-3xl font-bold">
+                      <AnimatedCounter value={stats.totalParticipants} />
+                    </div>
+                  </div>
+                </div>
+                <ProgressRing progress={Math.min((stats.totalParticipants / 100) * 100, 100)} size={50} />
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Users className="w-3 h-3 text-blue-500" />
+                Across all assessments
+              </p>
+            </div>
+          </GlassCard>
+
+          <GlassCard className="group cursor-pointer">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg">
+                    <BarChart3 className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Average Score</p>
+                    <div className="text-3xl font-bold">
+                      <AnimatedCounter value={Math.round(stats.avgScore)} suffix="%" />
+                    </div>
+                  </div>
+                </div>
+                <ProgressRing progress={stats.avgScore} size={50} showLabel />
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <CheckCircle className="w-3 h-3 text-green-500" />
+                Overall performance
+              </p>
+            </div>
+          </GlassCard>
         </div>
+
+        {/* Quick Actions */}
+        <GlassCard>
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-full bg-gradient-to-r from-primary to-accent">
+                <Activity className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Quick Actions</h2>
+                <p className="text-sm text-muted-foreground">
+                  Jump into the most common assessment tasks
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {quickActions.map((action, index) => {
+                const Icon = action.icon;
+                return (
+                  <div 
+                    key={index} 
+                    className="group cursor-pointer p-4 rounded-xl bg-gradient-to-br from-card/50 to-card/20 border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
+                    onClick={action.action}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="p-3 bg-gradient-to-r from-primary/20 to-accent/20 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                        <Icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-sm mb-1">{action.title}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {action.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </GlassCard>
 
         {/* Assessment Types Overview */}
         <Card className="mb-8">
@@ -403,7 +490,7 @@ const MainDashboard = () => {
           </Card>
         )}
       </div>
-    </div>
+    </main>
   );
 };
 
