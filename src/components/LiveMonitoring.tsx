@@ -146,6 +146,13 @@ const LiveMonitoring: React.FC = () => {
         .order('started_at', { ascending: false });
 
       if (error) throw error;
+
+      // Also get proctoring sessions for real-time security events
+      const instanceIds = (instances || []).map(i => i.id);
+      const { data: proctoringData } = await supabase
+        .from('proctoring_sessions')
+        .select('assessment_instance_id, security_events, monitoring_data')
+        .in('assessment_instance_id', instanceIds);
       
       // Get question counts for each assessment
       const assessmentIds = [...new Set((instances || []).map(i => i.assessment_id))];
@@ -164,30 +171,44 @@ const LiveMonitoring: React.FC = () => {
         const violations = Array.isArray(instance.proctoring_violations) 
           ? instance.proctoring_violations
           : [];
+        
+        // Get proctoring session data for this instance
+        const proctoringSession = proctoringData?.find(p => p.assessment_instance_id === instance.id);
+        const securityEvents = Array.isArray(proctoringSession?.security_events) 
+          ? proctoringSession.security_events 
+          : [];
+        
+        // Combine violations with security events
+        const allViolations = [...violations, ...securityEvents];
+        
+        // Get camera/mic status from monitoring data
+        const monitoringData = proctoringSession?.monitoring_data as any || {};
+        const cameraActive = monitoringData?.camera_active !== false;
+        const micActive = monitoringData?.mic_active === true;
 
         return {
           id: instance.id,
           participant_name: instance.participant_name || 'Anonymous Participant',
           participant_email: instance.participant_email || '',
           assessment_title: instance.assessments?.title || 'Unknown Assessment',
-          status: violations.length > 2 ? 'flagged' : violations.length > 0 ? 'paused' : 'in_progress',
+          status: allViolations.length > 2 ? 'flagged' : allViolations.length > 0 ? 'paused' : 'in_progress',
           started_at: instance.started_at,
           time_remaining_seconds: instance.time_remaining_seconds || 3600,
           current_question_index: instance.current_question_index || 0,
           total_questions: questionCountMap[instance.assessment_id] || 10,
           integrity_score: instance.integrity_score || 100,
-          violations,
-          camera_active: true,
-          mic_active: false,
+          violations: allViolations,
+          camera_active: cameraActive,
+          mic_active: micActive,
           connection_status: 'stable',
           total_time: 3600,
           score: Math.floor(Math.random() * 50) + 50, // Placeholder
           proctoring: {
-            cameraActive: true,
-            microphoneActive: false,
+            cameraActive,
+            microphoneActive: micActive,
             screenRecording: true,
-            tabSwitches: Math.floor(Math.random() * 5),
-            suspiciousActivity: violations.length
+            tabSwitches: securityEvents.filter((e: any) => e?.type === 'tab_switch').length,
+            suspiciousActivity: allViolations.length
           }
         };
       });
@@ -195,15 +216,19 @@ const LiveMonitoring: React.FC = () => {
       setParticipants(transformedParticipants);
       calculateStats(transformedParticipants);
 
-      // Generate mock security alerts
+      // Generate security alerts from actual violations
       const alerts = transformedParticipants
-        .filter(p => p.violations.length > 0)
-        .map(p => ({
-          title: "Suspicious Activity Detected",
-          description: `${p.participant_name} - ${p.violations.length} violations detected`,
-          severity: p.violations.length > 2 ? 'high' : 'medium',
-          timestamp: new Date().toISOString()
-        }));
+        .flatMap(p => 
+          p.violations.map((violation: any) => ({
+            title: getViolationTitle(violation.type || violation.event_type || 'unknown'),
+            description: `${p.participant_name} - ${violation.description || getViolationDescription(violation.type || violation.event_type)}`,
+            severity: getViolationSeverity(violation.type || violation.event_type),
+            timestamp: violation.timestamp || new Date().toISOString(),
+            participantId: p.id,
+            participantName: p.participant_name
+          }))
+        )
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setSecurityAlerts(alerts);
 
     } catch (error) {
@@ -385,6 +410,62 @@ const LiveMonitoring: React.FC = () => {
       title: "Data Refreshed",
       description: "Monitoring data has been updated",
     });
+  };
+
+  // Helper functions for violation processing
+  const getViolationTitle = (type: string) => {
+    switch (type) {
+      case 'face_not_detected':
+        return 'Face Not Detected';
+      case 'face_detected':
+        return 'Face Detection Status';
+      case 'tab_switch':
+        return 'Tab Switch Detected';
+      case 'fullscreen_exit':
+        return 'Fullscreen Exit';
+      case 'camera_blocked':
+        return 'Camera Blocked';
+      case 'mic_muted':
+        return 'Microphone Muted';
+      default:
+        return 'Security Event';
+    }
+  };
+
+  const getViolationDescription = (type: string) => {
+    switch (type) {
+      case 'face_not_detected':
+        return 'Participant face not detected in camera feed';
+      case 'face_detected':
+        return 'Participant face detected in camera feed';
+      case 'tab_switch':
+        return 'Participant switched browser tabs';
+      case 'fullscreen_exit':
+        return 'Participant exited fullscreen mode';
+      case 'camera_blocked':
+        return 'Camera access was blocked or disabled';
+      case 'mic_muted':
+        return 'Microphone was muted during assessment';
+      default:
+        return 'Unknown security event detected';
+    }
+  };
+
+  const getViolationSeverity = (type: string): 'low' | 'medium' | 'high' | 'critical' => {
+    switch (type) {
+      case 'face_not_detected':
+      case 'camera_blocked':
+        return 'high';
+      case 'tab_switch':
+      case 'fullscreen_exit':
+        return 'medium';
+      case 'mic_muted':
+        return 'low';
+      case 'face_detected':
+        return 'low';
+      default:
+        return 'medium';
+    }
   };
 
   // Don't render if user doesn't have monitoring permissions
@@ -604,6 +685,26 @@ const LiveMonitoring: React.FC = () => {
                       </div>
 
                       <div>
+                        <h4 className="font-medium mb-2">Live Camera Feed</h4>
+                        <div className="bg-muted rounded-lg aspect-video flex items-center justify-center mb-4">
+                          {selectedParticipant.camera_active ? (
+                            <div className="text-center space-y-2">
+                              <Camera className="w-8 h-8 text-green-500 mx-auto" />
+                              <p className="text-sm text-muted-foreground">Live camera feed</p>
+                              <div className="w-32 h-24 bg-green-100 rounded border-2 border-green-300 flex items-center justify-center">
+                                <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse"></div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center space-y-2">
+                              <Camera className="w-8 h-8 text-red-500 mx-auto" />
+                              <p className="text-sm text-muted-foreground">Camera inactive</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
                         <h4 className="font-medium mb-2">Proctoring Status</h4>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
@@ -622,6 +723,18 @@ const LiveMonitoring: React.FC = () => {
                             <span className="text-sm">Tab Switches</span>
                             <Badge variant={selectedParticipant.proctoring?.tabSwitches > 5 ? 'destructive' : 'outline'}>
                               {selectedParticipant.proctoring?.tabSwitches || 0}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Face Detection</span>
+                            <Badge variant={
+                              selectedParticipant.violations.some((v: any) => v?.type === 'face_not_detected') 
+                                ? 'destructive' 
+                                : 'default'
+                            }>
+                              {selectedParticipant.violations.some((v: any) => v?.type === 'face_not_detected') 
+                                ? 'Not Detected' 
+                                : 'Detected'}
                             </Badge>
                           </div>
                           <div className="flex items-center justify-between">
@@ -659,31 +772,46 @@ const LiveMonitoring: React.FC = () => {
         <TabsContent value="alerts">
           <Card>
             <CardHeader>
-              <CardTitle>Security Alerts</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                Security Alerts
+                <Badge variant="outline">{securityAlerts.length} alerts</Badge>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {securityAlerts.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No security alerts at this time.
                   </div>
                 ) : (
-                  securityAlerts.map((alert, index) => (
-                    <div key={index} className={`flex items-center gap-3 p-3 rounded-lg ${
-                      alert.severity === 'high' ? 'bg-red-50' : 
-                      alert.severity === 'medium' ? 'bg-yellow-50' : 'bg-blue-50'
+                  securityAlerts.map((alert: any, index) => (
+                    <div key={index} className={`flex items-start gap-3 p-4 rounded-lg border ${
+                      alert.severity === 'high' || alert.severity === 'critical' ? 'bg-red-50 border-red-200' : 
+                      alert.severity === 'medium' ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'
                     }`}>
-                      <AlertTriangle className={`w-5 h-5 ${
-                        alert.severity === 'high' ? 'text-red-500' :
+                      <AlertTriangle className={`w-5 h-5 mt-0.5 ${
+                        alert.severity === 'high' || alert.severity === 'critical' ? 'text-red-500' :
                         alert.severity === 'medium' ? 'text-yellow-500' : 'text-blue-500'
                       }`} />
-                      <div className="flex-1">
-                        <div className="font-medium">{alert.title}</div>
-                        <div className="text-sm text-muted-foreground">{alert.description}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="font-medium">{alert.title}</div>
+                          <Badge variant={
+                            alert.severity === 'high' || alert.severity === 'critical' 
+                              ? 'destructive' 
+                              : alert.severity === 'medium' 
+                              ? 'secondary' 
+                              : 'outline'
+                          }>
+                            {alert.severity}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground mb-2">{alert.description}</div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{alert.participantName}</span>
+                          <span>{new Date(alert.timestamp).toLocaleTimeString()}</span>
+                        </div>
                       </div>
-                      <Badge variant={alert.severity === 'high' ? 'destructive' : 'secondary'}>
-                        {alert.severity}
-                      </Badge>
                     </div>
                   ))
                 )}
