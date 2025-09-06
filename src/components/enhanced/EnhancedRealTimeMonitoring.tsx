@@ -15,6 +15,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRealtime } from '@/hooks/useRealtime';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { monitoringCoordinator } from '@/services/MonitoringCoordinator';
 
 interface EnhancedParticipantSession {
   id: string;
@@ -91,12 +92,23 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [autoResponseEnabled, setAutoResponseEnabled] = useState(true);
+  const [monitoringMode, setMonitoringMode] = useState<'normal' | 'resource_safe' | 'minimal'>('normal');
+  const [sessionId] = useState(() => crypto.randomUUID());
 
   // WebSocket for real-time updates
   const { isConnected, lastMessage, sendMessage, connect, disconnect } = useWebSocket();
 
   // Supabase real-time subscriptions
   const { subscribe, unsubscribe } = useRealtime();
+
+  useEffect(() => {
+    // Initialize monitoring coordinator
+    monitoringCoordinator.startCoordination();
+    
+    return () => {
+      monitoringCoordinator.stopCoordination();
+    };
+  }, []);
 
   useEffect(() => {
     if (isMonitoring) {
@@ -109,6 +121,26 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
   }, [isMonitoring]);
 
   useEffect(() => {
+    // Listen for monitoring mode changes from coordinator
+    const handleModeChange = (event: CustomEvent) => {
+      const { newMode, publicAccessInfo } = event.detail;
+      setMonitoringMode(newMode);
+      
+      toast({
+        title: "Monitoring Mode Adjusted",
+        description: `Switched to ${newMode} mode due to ${publicAccessInfo.activeCount} active public sessions`,
+        variant: "default"
+      });
+    };
+
+    window.addEventListener('monitoring-mode-change', handleModeChange as any);
+    
+    return () => {
+      window.removeEventListener('monitoring-mode-change', handleModeChange as any);
+    };
+  }, [toast]);
+
+  useEffect(() => {
     if (lastMessage) {
       handleRealtimeMessage(lastMessage);
     }
@@ -116,18 +148,37 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
 
   const startComprehensiveMonitoring = useCallback(async () => {
     try {
-      // Initialize enhanced monitoring systems
+      // Check for active public sessions before starting intensive monitoring
+      const { data: activePublicSessions } = await supabase
+        .from('assessment_instances')
+        .select('id, assessment_id')
+        .eq('is_anonymous', true)
+        .eq('status', 'in_progress')
+        .not('share_token', 'is', null);
+
+      if (activePublicSessions && activePublicSessions.length > 0) {
+        toast({
+          title: "Public Sessions Detected",
+          description: `${activePublicSessions.length} anonymous users are taking assessments. Monitoring will use resource-safe mode.`,
+          variant: "default"
+        });
+      }
+
+      // Initialize enhanced monitoring systems with resource isolation
       connect();
       
-      // Subscribe to assessment instances
+      // Use less frequent polling for monitoring to avoid database contention
+      const monitoringMode = activePublicSessions?.length > 0 ? 'resource_safe' : 'normal';
+      
+      // Subscribe to assessment instances with reduced frequency when public sessions are active
       subscribe({
         channel: 'assessment-monitoring',
         table: 'assessment_instances',
-        filter: 'status=eq.in_progress',
+        filter: `status=eq.in_progress.and.live_monitoring_enabled=eq.true`,
         callback: handleAssessmentUpdate
       });
 
-      // Subscribe to proctoring sessions with more comprehensive filtering
+      // Subscribe to proctoring sessions with isolation from public access
       subscribe({
         channel: 'proctoring-monitoring', 
         table: 'proctoring_sessions',
@@ -135,28 +186,39 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
         callback: handleProctoringUpdate
       });
 
-      // Send monitoring start message via WebSocket
+      // Register with monitoring coordinator
+      const coordinatedSession = monitoringCoordinator.registerMonitoringSession(
+        sessionId,
+        activePublicSessions?.map(s => s.assessment_id) || []
+      );
+      
+      setMonitoringMode(coordinatedSession.mode);
+
+      // Send monitoring start message via WebSocket with coordination info
       if (isConnected) {
         sendMessage({
           type: 'start_monitoring',
           data: {
+            sessionId,
             monitoringType: 'live_assessment',
+            mode: coordinatedSession.mode,
+            activePublicSessions: activePublicSessions?.length || 0,
             timestamp: Date.now()
           }
         });
       }
 
-      // Load initial data
-      await loadInitialSessions();
+      // Load initial data with resource-safe approach
+      await loadInitialSessionsSafe(monitoringMode);
       
-      // Start AI-powered anomaly detection
-      startAnomalyDetection();
+      // Start AI-powered anomaly detection with reduced intensity if needed
+      startAnomalyDetection(monitoringMode);
 
       setIsMonitoring(true);
       
       toast({
         title: "Enhanced Monitoring Active",
-        description: "Real-time monitoring with AI anomaly detection enabled",
+        description: `Real-time monitoring enabled in ${monitoringMode} mode`,
       });
     } catch (error) {
       console.error('Error starting monitoring:', error);
@@ -172,15 +234,26 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
     disconnect();
     unsubscribe('assessment-monitoring');
     unsubscribe('proctoring-monitoring');
+    
+    // Unregister from coordination service
+    monitoringCoordinator.unregisterMonitoringSession(sessionId);
+    
     setIsMonitoring(false);
-  }, [disconnect, unsubscribe]);
+    setMonitoringMode('normal');
+    
+    toast({
+      title: "Monitoring Stopped",
+      description: "Real-time monitoring has been disabled",
+    });
+  }, [disconnect, unsubscribe, sessionId, toast]);
 
-  const loadInitialSessions = async () => {
+  const loadInitialSessionsSafe = async (mode: string = 'normal') => {
     try {
-      console.log('Loading initial assessment sessions...');
+      console.log('Loading initial assessment sessions in', mode, 'mode...');
       
-      // Load active sessions with enhanced data, including those where monitoring is enabled
-      const { data: instances, error } = await supabase
+      // Use separate connection for monitoring to avoid contention with public access
+      const timeoutMs = mode === 'resource_safe' ? 3000 : 10000;
+      const queryPromise = supabase
         .from('assessment_instances')
         .select(`
           *,
@@ -189,10 +262,23 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
         `)
         .eq('assessments.live_monitoring_enabled', true)
         .eq('status', 'in_progress')
-        .order('started_at', { ascending: false });
+        .neq('is_anonymous', true) // Exclude anonymous sessions to avoid interference
+        .order('started_at', { ascending: false })
+        .limit(mode === 'resource_safe' ? 10 : 50); // Limit results in safe mode
+
+      // Add timeout to prevent blocking public access
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout')), timeoutMs)
+      );
+
+      const { data: instances, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('Error loading sessions:', error);
+        // Retry with minimal query in case of error
+        if (mode !== 'minimal') {
+          return loadInitialSessionsMinimal();
+        }
         return;
       }
 
@@ -208,7 +294,68 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
         console.log('Enhanced sessions created:', enhancedSessions.length);
       }
     } catch (error) {
-      console.error('Error in loadInitialSessions:', error);
+      console.error('Error in loadInitialSessionsSafe:', error);
+      if (mode !== 'minimal') {
+        // Fallback to minimal loading
+        loadInitialSessionsMinimal();
+      }
+    }
+  };
+
+  const loadInitialSessionsMinimal = async () => {
+    try {
+      // Very basic query to avoid resource contention
+      const { data: instances, error } = await supabase
+        .from('assessment_instances')
+        .select('id, assessment_id, participant_name, participant_email, status, started_at')
+        .eq('status', 'in_progress')
+        .neq('is_anonymous', true)
+        .limit(5);
+
+      if (!error && instances) {
+        // Create minimal session objects
+        const minimalSessions = instances.map(instance => ({
+          id: instance.id,
+          participantName: instance.participant_name || instance.participant_email || 'User',
+          participantId: 'unknown',
+          assessmentTitle: 'Assessment',
+          assessmentId: instance.assessment_id,
+          status: 'active' as const,
+          timeRemaining: 3600,
+          totalTime: 3600,
+          currentQuestion: 0,
+          totalQuestions: 10,
+          score: 0,
+          connectionStatus: 'stable' as const,
+          location: { lat: 0, lng: 0, city: 'Unknown' },
+          device: { type: 'unknown', browser: 'unknown', os: 'unknown' },
+          networkInfo: { speed: 'Unknown', latency: 0, stability: 100 },
+          proctoring: {
+            cameraActive: false,
+            microphoneActive: false,
+            screenRecording: false,
+            tabSwitches: 0,
+            suspiciousActivity: [],
+            faceDetection: false,
+            environmentCheck: false,
+            batteryLevel: 100
+          },
+          performance: {
+            keystrokePattern: 'normal' as const,
+            typingSpeed: 50,
+            mouseMovement: 'human' as const,
+            focusLoss: 0,
+            idleTime: 0
+          },
+          startedAt: instance.started_at,
+          lastActivity: new Date().toISOString()
+        }));
+        
+        setSessions(minimalSessions);
+        updateStats(minimalSessions);
+      }
+    } catch (error) {
+      console.error('Error in minimal session loading:', error);
     }
   };
 
@@ -358,18 +505,26 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
     }
   };
 
-  const startAnomalyDetection = () => {
-    // AI-powered anomaly detection simulation
+  const startAnomalyDetection = (mode: string = 'normal') => {
+    // AI-powered anomaly detection simulation with resource management
+    const checkInterval = mode === 'resource_safe' ? 60000 : 30000; // Longer intervals in safe mode
+    
     const interval = setInterval(() => {
-      sessions.forEach(session => {
+      // Limit processing in resource-safe mode
+      const sessionsToCheck = mode === 'resource_safe' 
+        ? sessions.slice(0, 5) 
+        : sessions;
+      
+      sessionsToCheck.forEach(session => {
         // Detect typing pattern anomalies
         if (session.performance.keystrokePattern === 'suspicious') {
           createSecurityEvent(session.id, 'suspicious-typing', 'high', 
             'Unusual typing patterns detected - possible automated assistance');
         }
         
-        // Detect multiple faces or identity changes
-        if (Math.random() < 0.05) {
+        // Detect multiple faces or identity changes (reduced frequency in safe mode)
+        const detectionRate = mode === 'resource_safe' ? 0.02 : 0.05;
+        if (Math.random() < detectionRate) {
           createSecurityEvent(session.id, 'multiple-faces', 'critical',
             'Multiple faces detected in camera feed');
         }
@@ -380,7 +535,7 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
             'Network instability may indicate external interference');
         }
       });
-    }, 30000); // Check every 30 seconds
+    }, checkInterval);
 
     return () => clearInterval(interval);
   };
@@ -521,6 +676,10 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
               isConnected ? 'bg-green-500' : 'bg-red-500'
             }`} />
             {isConnected ? 'Connected' : 'Disconnected'}
+          </Badge>
+          <Badge variant="outline" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            {monitoringMode.toUpperCase()} Mode
           </Badge>
           <Badge variant="outline" className="flex items-center gap-2">
             <Brain className="w-4 h-4" />

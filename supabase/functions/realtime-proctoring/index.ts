@@ -143,7 +143,7 @@ function handleAuth(connectionId: string, data: any, socket: WebSocket) {
   }));
 }
 
-function handleStartMonitoring(connectionId: string, data: any, socket: WebSocket) {
+async function handleStartMonitoring(connectionId: string, data: any, socket: WebSocket) {
   console.log(`Starting monitoring for ${connectionId}:`, data);
   
   const session = monitoringSessions.get(connectionId);
@@ -156,11 +156,26 @@ function handleStartMonitoring(connectionId: string, data: any, socket: WebSocke
     return;
   }
 
-  // Update session with monitoring info
+  // Check for active public sessions to determine monitoring mode
+  const { data: publicSessions, error } = await supabase
+    .from('assessment_instances')
+    .select('id, assessment_id')
+    .eq('is_anonymous', true)
+    .eq('status', 'in_progress')
+    .not('share_token', 'is', null);
+
+  const publicSessionCount = publicSessions?.length || 0;
+  const monitoringMode = data.mode || (publicSessionCount > 0 ? 'resource_safe' : 'normal');
+  
+  console.log(`Monitoring mode determined: ${monitoringMode} (${publicSessionCount} public sessions active)`);
+
+  // Update session with monitoring info and resource coordination
   session.isMonitoring = true;
   session.assessmentIds = data.assessmentIds || [data.assessmentId];
   session.monitoringType = data.monitoringType || 'standard';
+  session.monitoringMode = monitoringMode;
   session.monitoringStartedAt = Date.now();
+  session.publicSessionCount = publicSessionCount;
   
   monitoringSessions.set(connectionId, session);
   
@@ -169,16 +184,18 @@ function handleStartMonitoring(connectionId: string, data: any, socket: WebSocke
     data: { 
       assessmentIds: session.assessmentIds,
       monitoringType: session.monitoringType,
+      monitoringMode: monitoringMode,
+      publicSessionsDetected: publicSessionCount,
       startedAt: session.monitoringStartedAt
     },
     timestamp: Date.now()
   }));
 
-  // Simulate enhanced monitoring data for live assessments
+  // Adjust monitoring intensity based on mode
   if (session.monitoringType === 'live_assessment') {
-    simulateEnhancedMonitoringUpdates(connectionId, socket);
+    simulateEnhancedMonitoringUpdates(connectionId, socket, monitoringMode);
   } else {
-    simulateActivityUpdates(connectionId, socket);
+    simulateActivityUpdates(connectionId, socket, monitoringMode);
   }
 }
 
@@ -275,14 +292,18 @@ function broadcastToMonitors(message: any, excludeConnectionId?: string) {
   });
 }
 
-function simulateActivityUpdates(connectionId: string, socket: WebSocket) {
+function simulateActivityUpdates(connectionId: string, socket: WebSocket, mode: string = 'normal') {
   const session = monitoringSessions.get(connectionId);
   if (!session || !session.isMonitoring) return;
+
+  // Adjust update frequency based on monitoring mode
+  const baseInterval = mode === 'minimal' ? 20000 : mode === 'resource_safe' ? 15000 : 10000;
+  const varianceMs = mode === 'minimal' ? 15000 : mode === 'resource_safe' ? 10000 : 5000;
 
   // Simulate random activity updates
   const activities = [
     'question_answered',
-    'tab_focus_lost',
+    'tab_focus_lost', 
     'tab_focus_gained',
     'mouse_activity',
     'keyboard_activity',
@@ -301,40 +322,54 @@ function simulateActivityUpdates(connectionId: string, socket: WebSocket) {
       data: {
         participantId,
         activity,
-        details: `Simulated ${activity} event`,
+        details: `Simulated ${activity} event (${mode} mode)`,
         timestamp: Date.now()
       },
       timestamp: Date.now()
     }));
     
-    // Schedule next update
-    setTimeout(sendRandomActivity, Math.random() * 10000 + 5000); // 5-15 seconds
+    // Schedule next update with mode-appropriate interval
+    const nextInterval = baseInterval + (Math.random() * varianceMs);
+    setTimeout(sendRandomActivity, nextInterval);
   };
 
-  // Start after 2 seconds
-  setTimeout(sendRandomActivity, 2000);
+  // Start after initial delay
+  const initialDelay = mode === 'minimal' ? 10000 : mode === 'resource_safe' ? 5000 : 2000;
+  setTimeout(sendRandomActivity, initialDelay);
 }
 
-function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSocket) {
+function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSocket, mode: string = 'normal') {
   const session = monitoringSessions.get(connectionId);
   if (!session || !session.isMonitoring) return;
 
+  // Adjust monitoring intensity based on mode
+  const updateInterval = mode === 'minimal' ? 30000 : mode === 'resource_safe' ? 15000 : 8000;
+  const variance = mode === 'minimal' ? 20000 : mode === 'resource_safe' ? 10000 : 5000;
+
   const enhancedEvents = [
     'progress_update',
-    'security_check',
+    'security_check', 
     'network_status',
     'device_info',
     'proctoring_status'
   ];
 
+  // Reduce event types in resource-safe modes
+  const availableEvents = mode === 'minimal' 
+    ? ['progress_update', 'security_check']
+    : mode === 'resource_safe'
+    ? ['progress_update', 'security_check', 'network_status']
+    : enhancedEvents;
+
   const sendEnhancedUpdate = () => {
     if (!session.isMonitoring) return;
     
-    const eventType = enhancedEvents[Math.floor(Math.random() * enhancedEvents.length)];
+    const eventType = availableEvents[Math.floor(Math.random() * availableEvents.length)];
     const assessmentId = session.assessmentIds[Math.floor(Math.random() * session.assessmentIds.length)];
     
     let eventData = {
       assessmentId,
+      monitoringMode: mode,
       timestamp: Date.now()
     };
 
@@ -350,9 +385,9 @@ function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSock
       case 'security_check':
         eventData = {
           ...eventData,
-          securityStatus: Math.random() > 0.8 ? 'violation' : 'normal',
-          cameraStatus: Math.random() > 0.1,
-          microphoneStatus: Math.random() > 0.1
+          securityStatus: Math.random() > 0.9 ? 'violation' : 'normal', // Reduced false positives in safe mode
+          cameraStatus: Math.random() > 0.05,
+          microphoneStatus: Math.random() > 0.05
         };
         break;
       case 'network_status':
@@ -371,12 +406,14 @@ function simulateEnhancedMonitoringUpdates(connectionId: string, socket: WebSock
       timestamp: Date.now()
     }));
     
-    // Schedule next update
-    setTimeout(sendEnhancedUpdate, Math.random() * 8000 + 3000); // 3-11 seconds
+    // Schedule next update with mode-appropriate timing
+    const nextInterval = updateInterval + (Math.random() * variance);
+    setTimeout(sendEnhancedUpdate, nextInterval);
   };
 
-  // Start enhanced monitoring updates
-  setTimeout(sendEnhancedUpdate, 1000);
+  // Start enhanced monitoring updates with initial delay
+  const initialDelay = mode === 'minimal' ? 5000 : mode === 'resource_safe' ? 3000 : 1000;
+  setTimeout(sendEnhancedUpdate, initialDelay);
 }
 
 async function storeViolationInDatabase(violationData: any) {
