@@ -30,6 +30,8 @@ import SubjectiveQuestion from './questions/SubjectiveQuestion';
 import FileUploadQuestion from './questions/FileUploadQuestion';
 import AudioQuestion from './questions/AudioQuestion';
 import RealTimeEvaluationPanel from './RealTimeEvaluationPanel';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileAssessmentInterface from './mobile/MobileAssessmentInterface';
 
 interface Question {
   id: string;
@@ -85,6 +87,7 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   const pendingSavesRef = useRef(new Set<string>());
   // Mock participant ID for now - should match AssessmentSession default
   const mockParticipantId = 'sample-participant';
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     initializeAssessment();
@@ -450,6 +453,31 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   const isLastQuestion = currentQuestionIndex === assessment.questions.length - 1;
   const isTimeWarning = timeRemaining <= 300; // 5 minutes
   const isCodingQuestion = currentQuestion?.question_type === 'coding';
+
+  // If mobile, use mobile interface
+  if (isMobile) {
+    return (
+      <MobileAssessmentInterface
+        assessment={assessment}
+        currentQuestionIndex={currentQuestionIndex}
+        answers={answers}
+        timeRemaining={timeRemaining}
+        onQuestionChange={navigateToQuestion}
+        onAnswerChange={saveAnswer}
+        onSubmit={() => submitAssessment(false)}
+        onFlagQuestion={(questionId) => {
+          const index = assessment.questions.findIndex(q => q.id === questionId);
+          if (index >= 0) {
+            setCurrentQuestionIndex(index);
+            toggleFlag();
+          }
+        }}
+        flaggedQuestions={flaggedQuestions}
+      >
+        {renderQuestion()}
+      </MobileAssessmentInterface>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

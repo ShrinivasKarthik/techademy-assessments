@@ -35,6 +35,10 @@ import AdvancedQuestionBuilderPage from "./pages/AdvancedQuestionBuilderPage";
 import PerformanceMetricsPage from "./pages/PerformanceMetricsPage";
 import ComprehensiveReportsPage from "./pages/ComprehensiveReportsPage";
 import QueueMonitoringPage from "./pages/QueueMonitoringPage";
+import PredictiveAnalyticsPage from "./pages/PredictiveAnalyticsPage";
+import LearningPathRecommendationsPage from "./pages/LearningPathRecommendationsPage";
+import FraudDetectionPage from "./pages/FraudDetectionPage";
+import CohortAnalysisPage from "./pages/CohortAnalysisPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -170,6 +174,26 @@ const App = () => (
             <Route path="/queue-monitoring" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <QueueMonitoringPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/predictive-analytics" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <PredictiveAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/learning-paths" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <LearningPathRecommendationsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/fraud-detection" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <FraudDetectionPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/cohort-analysis" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <CohortAnalysisPage />
               </ProtectedRoute>
             } />
             {/* Public assessment route - no authentication required */}

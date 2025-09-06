@@ -73,6 +73,10 @@ const Navigation = () => {
           { name: "Queue Monitor", href: "/queue-monitoring", icon: Activity },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
           { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+          { name: "Predictive", href: "/predictive-analytics", icon: Brain },
+          { name: "Learning Paths", href: "/learning-paths", icon: TrendingUp },
+          { name: "Fraud Detection", href: "/fraud-detection", icon: Shield },
+          { name: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3 },
           { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
           { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp },
           { name: "Admin", href: "/admin", icon: Settings }
@@ -92,6 +96,10 @@ const Navigation = () => {
           { name: "Comprehensive", href: "/comprehensive-reports", icon: BarChart3 },
           { name: "Proctoring", href: "/proctoring", icon: Shield },
           { name: "Analytics", href: "/advanced-analytics", icon: BarChart3 },
+          { name: "Predictive", href: "/predictive-analytics", icon: Brain },
+          { name: "Learning Paths", href: "/learning-paths", icon: TrendingUp },
+          { name: "Fraud Detection", href: "/fraud-detection", icon: Shield },
+          { name: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3 },
           { name: "Question Quality", href: "/question-quality", icon: CheckCircle },
           { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
         );

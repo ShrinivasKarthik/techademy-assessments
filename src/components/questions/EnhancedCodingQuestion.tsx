@@ -25,6 +25,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import CodeIntelligencePanel from '@/components/CodeIntelligencePanel';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileMonacoEditor from '@/components/mobile/MobileMonacoEditor';
 
 // Utility function for debouncing
 const debounce = (func: Function, wait: number) => {
@@ -101,6 +103,7 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
   disabled = false
 }) => {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   
   // Supported languages - must be defined before functions that use it
   const languages = [
@@ -634,22 +637,34 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
         </CardHeader>
         <CardContent className="p-0">
           <div className="border-t">
-            <Editor
-              height="400px"
-              language={activeFile?.language || language}
-              value={activeFile?.content || ''}
-              onChange={(value) => updateFileContent(value || '')}
-              theme="vs-dark"
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                lineNumbers: 'on',
-                roundedSelection: false,
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                tabSize: 2,
-                insertSpaces: true,
-                wordWrap: 'on',
+            {isMobile ? (
+              <MobileMonacoEditor
+                files={files}
+                activeFileId={activeFileId}
+                onFileChange={setActiveFileId}
+                onContentChange={updateFileContent}
+                onRun={runCode}
+                onSave={() => {}}
+                language={language}
+                readOnly={disabled}
+              />
+            ) : (
+              <Editor
+                height="400px"
+                language={activeFile?.language || language}
+                value={activeFile?.content || ''}
+                onChange={(value) => updateFileContent(value || '')}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: 'on',
+                  roundedSelection: false,
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                  insertSpaces: true,
+                  wordWrap: 'on',
                 readOnly: disabled,
                 bracketPairColorization: { enabled: true },
                 suggest: {
@@ -689,6 +704,7 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
               }}
               loading={<div className="flex items-center justify-center h-96">Loading editor...</div>}
             />
+            )}
           </div>
         </CardContent>
       </Card>
