@@ -72,7 +72,7 @@ const Navigation = () => {
 
   const getNavigationStructure = () => {
     const baseLinks = [
-      { name: "Dashboard", href: "/", icon: Home },
+      { name: "Dashboard", href: "/home", icon: Home },
       { name: "Assessments", href: "/assessments", icon: BookOpen },
       { name: "Question Bank", href: "/question-bank", icon: Brain },
     ];
@@ -217,7 +217,7 @@ const Navigation = () => {
       <div className="container mx-auto px-4">
         <div className="flex h-14 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to={user ? "/home" : "/"} className="flex items-center space-x-2">
             <Brain className="h-6 w-6 text-primary" />
             <span className="font-bold text-lg">AssessAI</span>
           </Link>

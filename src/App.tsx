@@ -43,6 +43,7 @@ import IntegrationManagerPage from "./pages/IntegrationManagerPage";
 import PerformanceMonitorPage from "./pages/PerformanceMonitorPage";
 import AccessibilityManagerPage from "./pages/AccessibilityManagerPage";
 import ContextualHelpPage from "./pages/ContextualHelpPage";
+import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,11 +60,12 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/" element={
+            <Route path="/home" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor', 'student']}>
                 <Index />
               </ProtectedRoute>
             } />
+            <Route path="/" element={<HomePage />} />
             <Route path="/assessments/create" element={
               <ProtectedRoute>
                 <CreateAssessmentPage />
