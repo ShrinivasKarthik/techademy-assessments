@@ -18,6 +18,7 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
 }) => {
   const [count, setCount] = useState(0);
 
+  console.log('AnimatedCounter: Rendering', { value, count });
   useEffect(() => {
     let startTime: number;
     let animationFrame: number;

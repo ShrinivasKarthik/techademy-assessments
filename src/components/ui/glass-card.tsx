@@ -14,6 +14,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   variant = 'default',
   hover = true
 }) => {
+  console.log('GlassCard: Rendering', { variant, className });
   const variants = {
     default: 'bg-white/10 border-white/20',
     primary: 'bg-gradient-to-br from-primary/20 to-primary/10 border-primary/30',

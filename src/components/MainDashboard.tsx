@@ -230,6 +230,7 @@ const MainDashboard = () => {
     );
   }
 
+  console.log('MainDashboard: Enhanced version loaded', { stats, loading });
   return (
     <main className="min-h-screen hero-gradient">
       <div className="container mx-auto px-4 py-8 space-y-8">
