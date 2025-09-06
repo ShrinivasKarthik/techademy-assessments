@@ -142,7 +142,7 @@ const LiveMonitoring: React.FC = () => {
           )
         `)
         .eq('assessments.live_monitoring_enabled', true)
-        .eq('status', 'in_progress')
+        .in('status', ['in_progress', 'submitted'])
         .order('started_at', { ascending: false });
 
       if (error) throw error;
