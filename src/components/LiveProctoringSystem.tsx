@@ -369,9 +369,19 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
 
       if (instances && instances.length > 0) {
         const instance = instances[0];
-        const currentViolations = Array.isArray(instance.proctoring_violations) 
-          ? instance.proctoring_violations 
-          : [];
+        
+        // Safely handle the JSON type from Supabase
+        let currentViolations: any[] = [];
+        try {
+          if (instance.proctoring_violations) {
+            currentViolations = Array.isArray(instance.proctoring_violations) 
+              ? instance.proctoring_violations as any[]
+              : [];
+          }
+        } catch (error) {
+          console.warn('Error parsing proctoring_violations, using empty array:', error);
+          currentViolations = [];
+        }
         
         // Convert SecurityEvent to plain object for JSON storage
         const violationObject = {
@@ -383,7 +393,8 @@ const LiveProctoringSystem: React.FC<LiveProctoringSystemProps> = ({
           evidence: securityEvent.evidence || null
         };
         
-        const updatedViolations = [...currentViolations, violationObject];
+        // Create new array without spreading the potentially problematic type
+        const updatedViolations = currentViolations.concat([violationObject]);
         
         // Calculate integrity score
         const severityWeights: Record<string, number> = { low: 1, medium: 3, high: 7, critical: 15 };
