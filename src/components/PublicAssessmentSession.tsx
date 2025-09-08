@@ -539,7 +539,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
               />
             </div>
             <div className="lg:col-span-1">
-              <Card className="sticky top-4">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Shield className="h-4 w-4" />
@@ -561,9 +561,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
               {/* Assessment Integrity Card - moved from results to right column */}
               {proctoringData && (
-                <div className="mt-6">
-                  <AssessmentIntegrityCard proctoringData={proctoringData} />
-                </div>
+                <AssessmentIntegrityCard proctoringData={proctoringData} />
               )}
             </div>
           </div>
