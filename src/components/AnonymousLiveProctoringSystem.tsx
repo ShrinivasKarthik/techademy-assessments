@@ -302,10 +302,11 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
     // Force active status when in assessment mode
     if (isInAssessment) {
       console.log('Setting status to active because isInAssessment is true');
+      setSetupComplete(true);
       setStatus('active');
       onStatusChange('active');
       
-      if (config.cameraRequired) {
+      if (config.cameraRequired && !permissions.camera) {
         requestPermissions();
       } else if (config.faceDetection) {
         // Start face detection even without camera permissions if already in assessment
@@ -446,6 +447,7 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
 
       setSetupComplete(true);
       setStatus('active');
+      console.log('✅ Proctoring setup complete, notifying parent of active status');
       onStatusChange('active');
     } catch (error) {
       console.error('Error requesting permissions:', error);
@@ -529,6 +531,16 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
     getProctoringData
   }), [violations, permissions, config]);
 
+  // Auto-proceed to assessment if minimal requirements are met
+  useEffect(() => {
+    if (!setupComplete && !config.cameraRequired && !config.microphoneRequired && !config.fullscreenRequired) {
+      console.log('🚀 Auto-proceeding with minimal proctoring requirements');
+      setSetupComplete(true);
+      setStatus('active');
+      onStatusChange('active');
+    }
+  }, [setupComplete, config]);
+
   if (!setupComplete) {
     return (
       <Card>
@@ -543,7 +555,7 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
               ) : (
                 <XCircle className="h-4 w-4 text-red-500" />
               )}
-              <span className="text-sm">Camera Access</span>
+              <span className="text-sm">Camera Access {!config.cameraRequired && <span className="text-muted-foreground">(Optional)</span>}</span>
             </div>
             
             {config.microphoneRequired && (
@@ -572,13 +584,35 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Please grant all required permissions to continue with the proctored assessment.
+              {config.cameraRequired || config.microphoneRequired || config.fullscreenRequired 
+                ? "Please grant all required permissions to continue with the proctored assessment."
+                : "Basic proctoring is enabled. You may proceed or grant additional permissions for enhanced monitoring."
+              }
             </AlertDescription>
           </Alert>
           
-          <Button onClick={requestPermissions} className="w-full">
-            Grant Permissions & Start Proctoring
-          </Button>
+          <div className="space-y-2">
+            <Button onClick={requestPermissions} className="w-full">
+              {config.cameraRequired || config.microphoneRequired 
+                ? "Grant Permissions & Start Proctoring"
+                : "Grant Enhanced Permissions"
+              }
+            </Button>
+            
+            {!config.cameraRequired && !config.microphoneRequired && !config.fullscreenRequired && (
+              <Button 
+                onClick={() => {
+                  setSetupComplete(true);
+                  setStatus('active');
+                  onStatusChange('active');
+                }} 
+                variant="outline" 
+                className="w-full"
+              >
+                Continue with Basic Proctoring
+              </Button>
+            )}
+          </div>
           
           {status === 'stopped' && (
             <Alert className="mt-4">

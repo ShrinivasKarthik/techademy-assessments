@@ -230,8 +230,10 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       }
 
       if (assessment.proctoring_enabled) {
+        console.log('📹 Proctoring enabled, setting up proctoring...');
         setSessionState('proctoring_setup');
       } else {
+        console.log('✅ No proctoring required, starting assessment directly');
         setSessionState('in_progress');
       }
 
@@ -266,6 +268,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
 
     try {
+      console.log('🚀 Starting proctoring setup...');
       // Create proctoring session
       const { data: newProctoringSession, error: proctoringError } = await supabase
         .from('proctoring_sessions')
@@ -286,6 +289,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
         return;
       }
 
+      console.log('✅ Proctoring session created, transitioning to check state');
       setProctoringSession(newProctoringSession);
       setSessionState('proctoring_check');
     } catch (error: any) {
@@ -295,18 +299,19 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   };
 
   const handleProctoringStatusChange = async (status: 'active' | 'paused' | 'stopped') => {
+    console.log('🔄 Proctoring status changed to:', status, 'from session state:', sessionState);
+    
     if (status === 'active') {
       // Auto-transition to assessment when proctoring becomes active
       if (sessionState === 'proctoring_check' || sessionState === 'proctoring_setup') {
+        console.log('✅ Transitioning to in_progress due to proctoring active');
         setSessionState('in_progress');
       }
     } else if (status === 'paused') {
       setSessionState('paused');
     } else if (status === 'stopped') {
-      // If proctoring stops/fails during check, go back to setup
-      if (sessionState === 'proctoring_check') {
-        setSessionState('proctoring_setup');
-      }
+      // Don't go back to setup automatically - this was causing the loop
+      console.log('⚠️ Proctoring stopped but not changing session state automatically');
     }
   };
 
