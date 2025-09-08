@@ -142,6 +142,7 @@ export type Database = {
         Row: {
           assessment_id: string
           current_question_index: number | null
+          duration_taken_seconds: number | null
           id: string
           integrity_score: number | null
           is_anonymous: boolean
@@ -152,6 +153,7 @@ export type Database = {
           proctoring_started_at: string | null
           proctoring_summary: Json | null
           proctoring_violations: Json | null
+          questions_answered: number | null
           session_state: string | null
           share_token: string | null
           started_at: string
@@ -163,6 +165,7 @@ export type Database = {
         Insert: {
           assessment_id: string
           current_question_index?: number | null
+          duration_taken_seconds?: number | null
           id?: string
           integrity_score?: number | null
           is_anonymous?: boolean
@@ -173,6 +176,7 @@ export type Database = {
           proctoring_started_at?: string | null
           proctoring_summary?: Json | null
           proctoring_violations?: Json | null
+          questions_answered?: number | null
           session_state?: string | null
           share_token?: string | null
           started_at?: string
@@ -184,6 +188,7 @@ export type Database = {
         Update: {
           assessment_id?: string
           current_question_index?: number | null
+          duration_taken_seconds?: number | null
           id?: string
           integrity_score?: number | null
           is_anonymous?: boolean
@@ -194,6 +199,7 @@ export type Database = {
           proctoring_started_at?: string | null
           proctoring_summary?: Json | null
           proctoring_violations?: Json | null
+          questions_answered?: number | null
           session_state?: string | null
           share_token?: string | null
           started_at?: string
@@ -1284,6 +1290,7 @@ export type Database = {
         Returns: {
           assessment_id: string
           current_question_index: number | null
+          duration_taken_seconds: number | null
           id: string
           integrity_score: number | null
           is_anonymous: boolean
@@ -1294,6 +1301,7 @@ export type Database = {
           proctoring_started_at: string | null
           proctoring_summary: Json | null
           proctoring_violations: Json | null
+          questions_answered: number | null
           session_state: string | null
           share_token: string | null
           started_at: string
@@ -1302,6 +1310,18 @@ export type Database = {
           time_remaining_seconds: number | null
           total_score: number | null
         }
+      }
+      get_current_user_email: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      is_session_collaborator: {
+        Args: { session_id_param: string }
+        Returns: boolean
+      }
+      update_proctoring_session_events: {
+        Args: { new_event: Json; session_id: string }
+        Returns: undefined
       }
     }
     Enums: {
