@@ -309,17 +309,21 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
       if (config.cameraRequired && !permissions.camera) {
         console.log('🚀 Auto-requesting camera permissions for assessment mode...');
         requestPermissions();
-      } else if (config.faceDetection) {
+      } else if (config.faceDetection && !faceDetectionIntervalRef.current) {
         // Start face detection even without camera permissions if already in assessment
         console.log('Starting face detection for assessment mode');
         faceDetectionIntervalRef.current = setInterval(detectFace, 2000);
       }
     }
-    
+  }, [isInAssessment, config.cameraRequired, config.faceDetection]);
+
+  // Separate cleanup effect that only runs on actual unmount
+  useEffect(() => {
     return () => {
+      console.log('🧹 Component unmounting - cleaning up resources');
       cleanup();
     };
-  }, [isInAssessment]);
+  }, []); // Empty dependency array ensures this only runs on mount/unmount
 
   // Remove the conflicting effect that was causing infinite loops
   // The status is already properly managed in the main useEffect

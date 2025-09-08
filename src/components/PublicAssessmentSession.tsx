@@ -501,8 +501,9 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
             </CardHeader>
           </Card>
           <AnonymousLiveProctoringSystem
+            ref={proctoringRef}
             assessmentId={assessment.id}
-            participantId={`anon_${Date.now()}`}
+            participantId={`anon_${instance?.id || Date.now()}`}
             config={assessment.proctoring_config || {}}
             onSecurityEvent={handleSecurityEvent}
             onStatusChange={handleProctoringStatusChange}
@@ -544,7 +545,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                   <AnonymousLiveProctoringSystem
                     ref={proctoringRef}
                     assessmentId={assessment.id}
-                    participantId={`anon_${Date.now()}`}
+                    participantId={`anon_${instance?.id || Date.now()}`}
                     config={assessment.proctoring_config || {}}
                     onSecurityEvent={handleSecurityEvent}
                     onStatusChange={handleProctoringStatusChange}
