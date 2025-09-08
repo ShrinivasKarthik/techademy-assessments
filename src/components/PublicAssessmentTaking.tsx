@@ -306,6 +306,10 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
     try {
       setSubmitting(true);
 
+      // Calculate duration taken (total time minus remaining time)
+      const assessmentDuration = assessment?.duration_minutes || 60;
+      const durationTaken = (assessmentDuration * 60) - timeRemaining;
+
       // Update instance status to submitted
       const { data: updatedInstance, error: updateError } = await supabase
         .from('assessment_instances')
@@ -313,6 +317,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
           status: 'submitted',
           submitted_at: new Date().toISOString(),
           time_remaining_seconds: timeRemaining,
+          duration_taken_seconds: durationTaken,
         })
         .eq('id', instance.id)
         .select()

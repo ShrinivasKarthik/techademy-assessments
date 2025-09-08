@@ -38,6 +38,8 @@ interface AssessmentInstance {
   submitted_at?: string;
   total_score?: number;
   max_possible_score?: number;
+  duration_taken_seconds?: number;
+  questions_answered?: number;
 }
 
 interface Evaluation {
@@ -126,13 +128,20 @@ const PublicAssessmentResults: React.FC<PublicAssessmentResultsProps> = ({
     return 'destructive';
   };
 
-  const formatDuration = (startTime: string, endTime?: string) => {
-    const start = new Date(startTime);
-    const end = endTime ? new Date(endTime) : new Date();
-    const durationMs = end.getTime() - start.getTime();
-    const minutes = Math.floor(durationMs / (1000 * 60));
-    const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
-    return `${minutes}m ${seconds}s`;
+  const formatDuration = (seconds: number) => {
+    if (!seconds || seconds < 0) return '0m';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    }
+    return `${secs}s`;
   };
 
   if (loading) {
@@ -145,7 +154,7 @@ const PublicAssessmentResults: React.FC<PublicAssessmentResultsProps> = ({
 
   const percentage = calculatePercentage();
   const submissionTime = instance.submitted_at || new Date().toISOString();
-  const duration = formatDuration(instance.started_at, instance.submitted_at);
+  const duration = formatDuration(instance.duration_taken_seconds || 0);
 
   return (
     <div className="min-h-screen bg-background py-8">
@@ -205,8 +214,8 @@ const PublicAssessmentResults: React.FC<PublicAssessmentResultsProps> = ({
           <Card>
             <CardContent className="p-6 text-center">
               <FileText className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <div className="text-2xl font-bold">{assessment.questions?.length || 0}</div>
-              <p className="text-sm text-muted-foreground">Questions</p>
+              <div className="text-2xl font-bold">{evaluations.length} / {assessment.questions?.length || 0}</div>
+              <p className="text-sm text-muted-foreground">Questions Answered</p>
             </CardContent>
           </Card>
         </div>

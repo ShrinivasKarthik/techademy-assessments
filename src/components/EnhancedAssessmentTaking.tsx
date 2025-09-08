@@ -355,11 +355,16 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
 
     setSubmitting(true);
     try {
+      // Calculate duration taken (total time minus remaining time)
+      const assessmentDuration = assessment?.duration_minutes || 60;
+      const durationTaken = (assessmentDuration * 60) - timeRemaining;
+
       const { error } = await supabase
         .from('assessment_instances')
         .update({
           status: 'submitted',
-          submitted_at: new Date().toISOString()
+          submitted_at: new Date().toISOString(),
+          duration_taken_seconds: durationTaken,
         })
         .eq('id', instance.id);
 

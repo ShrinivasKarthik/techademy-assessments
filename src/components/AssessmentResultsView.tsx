@@ -43,6 +43,8 @@ interface ParticipantResult {
   status: string;
   time_remaining_seconds: number;
   duration_taken: number;
+  duration_taken_seconds?: number;
+  questions_answered?: number;
 }
 
 const AssessmentResultsView: React.FC = () => {
@@ -132,14 +134,19 @@ const AssessmentResultsView: React.FC = () => {
   };
 
   const formatDuration = (seconds: number) => {
+    if (!seconds || seconds < 0) return '0m';
+    
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     
     if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
+      return `${hours}h ${minutes}m`;
     }
-    return `${minutes}m ${secs}s`;
+    if (minutes > 0) {
+      return `${minutes}m`;
+    }
+    return `${secs}s`;
   };
 
   const formatDate = (dateString: string) => {
@@ -291,7 +298,7 @@ const AssessmentResultsView: React.FC = () => {
                       </TableCell>
                       <TableCell>{participant.participant_email || '-'}</TableCell>
                       <TableCell>{formatDate(participant.submitted_at || participant.started_at)}</TableCell>
-                      <TableCell>{formatDuration(participant.duration_taken)}</TableCell>
+                      <TableCell>{formatDuration(participant.duration_taken_seconds || participant.duration_taken || 0)}</TableCell>
                       <TableCell>
                         <div className={`font-semibold ${getScoreColor(participant.total_score || 0, participant.max_possible_score || 100)}`}>
                           {participant.total_score || 0}/{participant.max_possible_score || 100}

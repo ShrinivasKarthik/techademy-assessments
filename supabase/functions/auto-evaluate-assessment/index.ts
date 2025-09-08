@@ -131,12 +131,16 @@ serve(async (req) => {
     // Apply integrity score to final result
     const finalScore = (totalScore * (integrityScore / 100));
 
+    // Calculate questions answered
+    const questionsAnswered = submissions?.length || 0;
+    
     // Update assessment instance with scores
     await supabase
       .from('assessment_instances')
       .update({
         total_score: finalScore,
         max_possible_score: maxPossibleScore,
+        questions_answered: questionsAnswered,
         status: 'evaluated',
         session_state: 'evaluated',
         integrity_score: integrityScore,
