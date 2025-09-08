@@ -77,6 +77,7 @@ interface PublicAssessmentTakingProps {
       technical_issues: string[];
     };
   };
+  showTwoColumnLayout?: boolean; // For proctoring-enabled results
 }
 
 const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
@@ -84,7 +85,8 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   instance: initialInstance,
   onSubmission,
   onProctoringStop,
-  proctoringData
+  proctoringData,
+  showTwoColumnLayout = false
 }) => {
   const { toast } = useToast();
   const [assessment, setAssessment] = useState<Assessment | null>(null);
@@ -606,23 +608,44 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
 
   // Show instant results if available
   if (showInstantResults && instantResults) {
-    return (
-      <InstantMCQResults
-        evaluation={instantResults.evaluation}
-        assessment={assessment}
-        instance={instance}
-        durationTaken={instantResults.durationTaken}
-        shareUrl={instantResults.shareUrl}
-        proctoringData={proctoringData}
-        onViewFullResults={() => {
-          window.location.href = instantResults.shareUrl;
-        }}
-        onRetakeAssessment={() => {
-          // Refresh to start a new attempt
-          window.location.reload();
-        }}
-      />
-    );
+    if (showTwoColumnLayout && proctoringData) {
+      // Return just the main results content for two-column layout
+      return (
+        <InstantMCQResults
+          evaluation={instantResults.evaluation}
+          assessment={assessment}
+          instance={instance}
+          durationTaken={instantResults.durationTaken}
+          shareUrl={instantResults.shareUrl}
+          onViewFullResults={() => {
+            window.location.href = instantResults.shareUrl;
+          }}
+          onRetakeAssessment={() => {
+            // Refresh to start a new attempt
+            window.location.reload();
+          }}
+        />
+      );
+    } else {
+      // Single column layout (no proctoring or proctoring disabled)
+      return (
+        <InstantMCQResults
+          evaluation={instantResults.evaluation}
+          assessment={assessment}
+          instance={instance}
+          durationTaken={instantResults.durationTaken}
+          shareUrl={instantResults.shareUrl}
+          proctoringData={proctoringData}
+          onViewFullResults={() => {
+            window.location.href = instantResults.shareUrl;
+          }}
+          onRetakeAssessment={() => {
+            // Refresh to start a new attempt
+            window.location.reload();
+          }}
+        />
+      );
+    }
   }
 
   const currentQuestion = assessment.questions[currentQuestionIndex];

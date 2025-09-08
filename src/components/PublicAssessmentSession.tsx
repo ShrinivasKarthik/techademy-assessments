@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import PublicAssessmentTaking from './PublicAssessmentTaking';
 import PublicAssessmentResults from './PublicAssessmentResults';
 import AnonymousLiveProctoringSystem, { AnonymousLiveProctoringSystemRef } from './AnonymousLiveProctoringSystem';
+import AssessmentIntegrityCard from './AssessmentIntegrityCard';
 
 interface Assessment {
   id: string;
@@ -528,6 +529,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                 instance={instance}
                 onSubmission={handleSubmission}
                 proctoringData={proctoringData}
+                showTwoColumnLayout={true}
                 onProctoringStop={() => {
                   if (assessment.proctoring_enabled && proctoringRef.current) {
                     console.log('🛑 Assessment requesting proctoring stop...');
@@ -556,6 +558,11 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                   />
                 </CardContent>
               </Card>
+
+              {/* Assessment Integrity Card - moved from results to right column */}
+              {proctoringData && (
+                <AssessmentIntegrityCard proctoringData={proctoringData} />
+              )}
             </div>
           </div>
         </div>
