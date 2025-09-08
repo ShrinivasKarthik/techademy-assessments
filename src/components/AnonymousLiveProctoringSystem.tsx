@@ -320,15 +320,8 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
     };
   }, [isInAssessment]);
 
-  // Ensure status stays active during assessment
-  useEffect(() => {
-    console.log('Status check effect:', { isInAssessment, status });
-    if (isInAssessment && status !== 'active') {
-      console.log('Forcing status to active');
-      setStatus('active');
-      onStatusChange('active');
-    }
-  }, [isInAssessment, status]);
+  // Remove the conflicting effect that was causing infinite loops
+  // The status is already properly managed in the main useEffect
 
   const checkFullscreen = () => {
     const isFullscreenActive = !!(
