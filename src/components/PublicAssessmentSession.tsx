@@ -175,6 +175,11 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setIsStarting(true);
       setError(null);
 
+      console.log('=== STARTING ASSESSMENT ===');
+      console.log('Assessment ID:', assessment.id);
+      console.log('Share Token:', shareToken);
+      console.log('Participant Info:', participantInfo);
+
       // Use the new database function that handles attempt logic
       const { data: result, error: instanceError } = await supabase
         .rpc('find_or_create_anonymous_instance', {
@@ -185,13 +190,24 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
           p_duration_minutes: assessment.duration_minutes
         });
 
-      if (instanceError || !result || result.length === 0) {
-        console.error('Error creating instance:', instanceError);
-        setError('Failed to start assessment');
+      console.log('=== RPC RESULT ===');
+      console.log('Result:', result);
+      console.log('Error:', instanceError);
+
+      if (instanceError) {
+        console.error('RPC Error details:', instanceError);
+        setError(`Failed to start assessment: ${instanceError.message || 'Database error'}`);
+        return;
+      }
+
+      if (!result || result.length === 0) {
+        console.error('No result returned from RPC');
+        setError('Failed to start assessment: No response from server');
         return;
       }
 
       const firstResult = result[0];
+      console.log('First result:', firstResult);
       
       // Check if attempts are exhausted
       if (!firstResult.instance_data) {
@@ -201,6 +217,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
       // Parse the instance data and show attempt info
       const newInstance = firstResult.instance_data as unknown as AssessmentInstance;
+      console.log('New instance created:', newInstance);
       setInstance(newInstance);
       
       // Show attempt information
@@ -219,7 +236,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
     } catch (error: any) {
       console.error('Error starting assessment:', error);
-      setError(`Failed to start assessment: ${error.message}`);
+      setError(`Failed to start assessment: ${error.message || 'Unknown error'}`);
     } finally {
       setIsStarting(false);
     }
