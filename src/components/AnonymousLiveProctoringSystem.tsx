@@ -401,44 +401,73 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
       // Request camera permission
       if (config.cameraRequired) {
         console.log('📹 Requesting camera and microphone access...');
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        
+        const constraints = {
           video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            frameRate: { ideal: 30 }
+            width: { ideal: 640, min: 320 },
+            height: { ideal: 480, min: 240 },
+            frameRate: { ideal: 30, min: 15 }
           }, 
           audio: config.microphoneRequired 
-        });
+        };
         
-        console.log('✅ Media stream obtained:', stream.getTracks().map(t => t.kind));
+        console.log('📹 Using constraints:', constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        console.log('✅ Media stream obtained:', {
+          tracks: stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })),
+          streamId: stream.id
+        });
         
         if (videoRef.current) {
           // Clear any existing stream first
           if (videoRef.current.srcObject) {
             const oldStream = videoRef.current.srcObject as MediaStream;
             oldStream.getTracks().forEach(track => track.stop());
+            console.log('🧹 Cleared old stream');
           }
           
           // Set the new stream
           videoRef.current.srcObject = stream;
+          console.log('📹 Set video srcObject to new stream');
           
-          // Ensure video starts playing
-          try {
-            await videoRef.current.play();
-            console.log('✅ Video playback started successfully');
-          } catch (playError) {
-            console.error('❌ Video play error:', playError);
-            // Try to play again after a short delay
-            setTimeout(async () => {
-              try {
-                if (videoRef.current) {
-                  await videoRef.current.play();
-                  console.log('✅ Video playback started on retry');
-                }
-              } catch (retryError) {
-                console.error('❌ Video play retry failed:', retryError);
+          // Wait for video to be ready and then play
+          const playVideo = async () => {
+            try {
+              console.log('🎬 Attempting to play video...');
+              console.log('Video element state:', {
+                readyState: videoRef.current?.readyState,
+                videoWidth: videoRef.current?.videoWidth,
+                videoHeight: videoRef.current?.videoHeight,
+                paused: videoRef.current?.paused
+              });
+              
+              if (videoRef.current) {
+                await videoRef.current.play();
+                console.log('✅ Video playback started successfully');
               }
-            }, 100);
+            } catch (playError) {
+              console.error('❌ Video play error:', playError);
+              
+              // Try again with a user interaction approach
+              setTimeout(async () => {
+                try {
+                  if (videoRef.current && videoRef.current.paused) {
+                    await videoRef.current.play();
+                    console.log('✅ Video playback started on retry');
+                  }
+                } catch (retryError) {
+                  console.error('❌ Video play retry failed:', retryError);
+                }
+              }, 500);
+            }
+          };
+
+          // Play immediately if metadata is already loaded, otherwise wait for it
+          if (videoRef.current.readyState >= 1) {
+            await playVideo();
+          } else {
+            videoRef.current.addEventListener('loadedmetadata', playVideo, { once: true });
           }
           
           // Start REAL face detection if required
@@ -705,6 +734,16 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
                 muted
                 playsInline
                 className="w-full h-full object-cover"
+                style={{ minHeight: '240px', minWidth: '320px' }}
+                onLoadedMetadata={() => {
+                  console.log('✅ Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+                }}
+                onError={(e) => {
+                  console.error('❌ Video element error:', e);
+                }}
+                onCanPlay={() => {
+                  console.log('✅ Video can play');
+                }}
               />
               <canvas
                 ref={canvasRef}
