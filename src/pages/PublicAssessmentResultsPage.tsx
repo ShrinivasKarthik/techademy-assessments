@@ -29,7 +29,7 @@ const PublicAssessmentResultsPage = () => {
           .select('*')
           .eq('share_token', token)
           .eq('status', 'evaluated')
-          .single();
+          .maybeSingle();
 
         console.log('Instance query result:', { instanceData, instanceError });
 
