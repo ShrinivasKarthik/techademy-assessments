@@ -309,7 +309,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
   const handleSubmission = (submittedInstance: AssessmentInstance) => {
     setInstance(submittedInstance);
-    setSessionState('submitted');
+    // Redirect to evaluation progress page instead of final results
+    window.location.href = `/assessment/${submittedInstance.assessment_id}/evaluation/${submittedInstance.id}`;
   };
 
   // Loading state
@@ -348,9 +349,11 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     );
   }
 
-  // Submitted state
+  // Submitted state - this should now redirect to evaluation progress instead
   if (sessionState === 'submitted' && instance) {
-    return <PublicAssessmentResults instance={instance} assessment={assessment} />;
+    // This state should be rare since we redirect immediately on submission
+    window.location.href = `/assessment/${instance.assessment_id}/evaluation/${instance.id}`;
+    return null;
   }
 
   // Paused state

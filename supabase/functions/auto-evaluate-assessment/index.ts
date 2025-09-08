@@ -49,17 +49,26 @@ serve(async (req) => {
     // Fetch submissions for this instance
     const { data: submissions, error: submissionsError } = await supabase
       .from('submissions')
-      .select(`
-        *,
-        questions (
-          id, question_type, points, config
-        )
-      `)
+      .select('*')
       .eq('instance_id', instanceId);
 
     if (submissionsError) {
       throw new Error(`Failed to fetch submissions: ${submissionsError?.message}`);
     }
+
+    // Fetch questions separately to avoid relationship conflicts
+    const { data: questions, error: questionsError } = await supabase
+      .from('questions')
+      .select('id, question_type, points, config')
+      .eq('assessment_id', instance.assessment_id);
+
+    if (questionsError) {
+      throw new Error(`Failed to fetch questions: ${questionsError?.message}`);
+    }
+
+    // Create a map for easy question lookup
+    const questionMap = new Map(questions?.map(q => [q.id, q]) || []);
+
 
     // Fetch proctoring data
     const { data: proctoringSession, error: proctoringError } = await supabase
@@ -88,7 +97,7 @@ serve(async (req) => {
 
     // Evaluate each submission
     for (const submission of submissions || []) {
-      const question = submission.questions;
+      const question = questionMap.get(submission.question_id);
       if (!question) continue;
 
       maxPossibleScore += question.points || 0;

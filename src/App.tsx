@@ -241,6 +241,8 @@ const App = () => (
             } />
             {/* Public assessment route - no authentication required */}
             <Route path="/public/assessment/:token" element={<PublicAssessmentPage />} />
+            {/* Public evaluation route for both authenticated and anonymous users */}
+            <Route path="/assessment/:assessmentId/evaluation/:instanceId" element={<AssessmentEvaluationPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

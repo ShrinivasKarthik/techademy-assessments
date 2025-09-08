@@ -355,6 +355,9 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
           : "Your assessment has been submitted successfully and is being evaluated.",
       });
 
+      // Redirect to evaluation progress page instead of final results
+      window.location.href = `/assessment/${instance.assessment_id}/evaluation/${instance.id}`;
+      
       onSubmission(updatedInstance);
 
     } catch (err) {

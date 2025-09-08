@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import AssessmentEvaluationProgress from "@/components/AssessmentEvaluationProgress";
+import EnhancedAssessmentEvaluationProgress from "@/components/EnhancedAssessmentEvaluationProgress";
 
 const AssessmentEvaluationPage = () => {
   const { assessmentId, instanceId } = useParams<{ 
@@ -18,7 +18,7 @@ const AssessmentEvaluationPage = () => {
     );
   }
 
-  return <AssessmentEvaluationProgress assessmentId={assessmentId} instanceId={instanceId} />;
+  return <EnhancedAssessmentEvaluationProgress assessmentId={assessmentId} instanceId={instanceId} />;
 };
 
 export default AssessmentEvaluationPage;
