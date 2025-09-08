@@ -45,6 +45,7 @@ import AccessibilityManagerPage from "./pages/AccessibilityManagerPage";
 import ContextualHelpPage from "./pages/ContextualHelpPage";
 import ResultsPage from "./pages/ResultsPage";
 import AssessmentResultsPage from "./pages/AssessmentResultsPage";
+import AssessmentEvaluationPage from "./pages/AssessmentEvaluationPage";
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 
@@ -231,6 +232,11 @@ const App = () => (
             <Route path="/assessments/:assessmentId/results/:instanceId" element={
               <ProtectedRoute allowedRoles={['student', 'admin', 'instructor']}>
                 <AssessmentResultsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assessments/:assessmentId/evaluating/:instanceId" element={
+              <ProtectedRoute allowedRoles={['student', 'admin', 'instructor']}>
+                <AssessmentEvaluationPage />
               </ProtectedRoute>
             } />
             {/* Public assessment route - no authentication required */}

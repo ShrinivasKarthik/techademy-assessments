@@ -21,18 +21,29 @@ serve(async (req) => {
     const { instanceId } = await req.json();
     console.log('Starting evaluation for instance:', instanceId);
 
-    // Fetch assessment instance
+    // Fetch assessment instance with better error handling
     const { data: instance, error: instanceError } = await supabase
       .from('assessment_instances')
       .select(`
         *,
-        assessments (id, title, proctoring_enabled, proctoring_config)
+        assessment_id
       `)
       .eq('id', instanceId)
       .single();
 
     if (instanceError || !instance) {
       throw new Error(`Failed to fetch instance: ${instanceError?.message}`);
+    }
+
+    // Fetch assessment separately to avoid relationship conflicts
+    const { data: assessment, error: assessmentError } = await supabase
+      .from('assessments')
+      .select('id, title, proctoring_enabled, proctoring_config')
+      .eq('id', instance.assessment_id)
+      .single();
+
+    if (assessmentError || !assessment) {
+      throw new Error(`Failed to fetch assessment: ${assessmentError?.message}`);
     }
 
     // Fetch submissions for this instance
@@ -63,7 +74,7 @@ serve(async (req) => {
     let proctoringNotes = '';
 
     // Calculate proctoring integrity score
-    if (proctoringSession && instance.assessments?.proctoring_enabled) {
+    if (proctoringSession && assessment?.proctoring_enabled) {
       const violations = Array.isArray(instance.proctoring_violations) ? instance.proctoring_violations : [];
       const securityEvents = Array.isArray(proctoringSession.security_events) ? proctoringSession.security_events : [];
       
@@ -84,43 +95,76 @@ serve(async (req) => {
       let questionScore = 0;
 
       try {
-        // Evaluate based on question type
+        // Evaluate based on question type - MCQs first for instant feedback
         switch (question.question_type) {
           case 'mcq':
             questionScore = evaluateMCQ(submission, question);
+            
+            // Create evaluation record immediately for MCQ
+            await supabase.from('evaluations').insert({
+              submission_id: submission.id,
+              score: questionScore,
+              max_score: question.points || 0,
+              integrity_score: integrityScore,
+              proctoring_notes: proctoringNotes,
+              evaluator_type: 'ai',
+              ai_feedback: {
+                confidence: 1.0,
+                evaluation_method: 'mcq',
+                timestamp: new Date().toISOString()
+              }
+            });
             break;
+            
           case 'subjective':
             if (openAIApiKey) {
               questionScore = await evaluateSubjectiveWithAI(submission, question);
+              
+              // Create evaluation record for subjective
+              await supabase.from('evaluations').insert({
+                submission_id: submission.id,
+                score: questionScore,
+                max_score: question.points || 0,
+                integrity_score: integrityScore,
+                proctoring_notes: proctoringNotes,
+                evaluator_type: 'ai',
+                ai_feedback: {
+                  confidence: 0.8,
+                  evaluation_method: 'subjective_ai',
+                  timestamp: new Date().toISOString()
+                }
+              });
             } else {
               questionScore = 0; // Requires manual evaluation
             }
             break;
+            
           case 'coding':
             if (openAIApiKey) {
               questionScore = await evaluateCodingWithAI(submission, question);
+              
+              // Create evaluation record for coding
+              await supabase.from('evaluations').insert({
+                submission_id: submission.id,
+                score: questionScore,
+                max_score: question.points || 0,
+                integrity_score: integrityScore,
+                proctoring_notes: proctoringNotes,
+                evaluator_type: 'ai',
+                ai_feedback: {
+                  confidence: 0.75,
+                  evaluation_method: 'coding_ai',
+                  timestamp: new Date().toISOString()
+                }
+              });
             } else {
               questionScore = 0; // Requires manual evaluation
             }
             break;
+            
           default:
             questionScore = 0;
         }
-
-        // Create evaluation record
-        await supabase.from('evaluations').insert({
-          submission_id: submission.id,
-          score: questionScore,
-          max_score: question.points || 0,
-          integrity_score: integrityScore,
-          proctoring_notes: proctoringNotes,
-          evaluator_type: 'ai',
-          ai_feedback: {
-            confidence: question.question_type === 'mcq' ? 1.0 : 0.8,
-            evaluation_method: question.question_type,
-            timestamp: new Date().toISOString()
-          }
-        });
 
         totalScore += questionScore;
       } catch (evalError) {

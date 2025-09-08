@@ -337,9 +337,9 @@ const AssessmentSession: React.FC<AssessmentSessionProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-0 h-screen">
           {/* Assessment Taking Area */}
           <div className="lg:col-span-3 overflow-auto">
-            <EnhancedAssessmentTaking 
-              assessmentId={assessmentId} 
-            />
+          <EnhancedAssessmentTaking 
+            assessmentId={assessmentId}
+          />
           </div>
 
           {/* Proctoring Sidebar */}
