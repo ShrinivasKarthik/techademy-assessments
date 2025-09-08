@@ -230,28 +230,38 @@ const EnhancedAssessmentEvaluationProgress: React.FC<EnhancedAssessmentEvaluatio
 
   const updateEvaluationProgress = async () => {
     try {
-      // Fetch current evaluations
+      // First get submissions for this instance
+      const { data: submissions, error: submissionsError } = await supabase
+        .from('submissions')
+        .select('id, question_id')
+        .eq('instance_id', instanceId);
+
+      if (submissionsError) {
+        console.error('Error fetching submissions:', submissionsError);
+        return;
+      }
+
+      if (!submissions || submissions.length === 0) {
+        console.log('No submissions found for instance');
+        return;
+      }
+
+      // Then get evaluations for these submissions
+      const submissionIds = submissions.map(s => s.id);
       const { data: evaluationsData, error: evalError } = await supabase
         .from('evaluations')
-        .select(`
-          *,
-          submissions (
-            question_id
-          )
-        `)
-        .in('submission_id', 
-          questions.length > 0 
-            ? (await supabase
-                .from('submissions')
-                .select('id')
-                .eq('instance_id', instanceId)).data?.map(s => s.id) || []
-            : []
-        );
+        .select('*')
+        .in('submission_id', submissionIds);
 
       if (evalError) {
         console.error('Error fetching evaluations:', evalError);
         return;
       }
+
+      // Create a map of submission_id to question_id for easier lookup
+      const submissionToQuestionMap = new Map(
+        submissions.map(sub => [sub.id, sub.question_id])
+      );
 
       // Update evaluation statuses
       const newStatuses: { [key: string]: EvaluationStatus } = {};
@@ -260,9 +270,10 @@ const EnhancedAssessmentEvaluationProgress: React.FC<EnhancedAssessmentEvaluatio
       const evaluatedQuestions: string[] = [];
 
       questions.forEach(question => {
-        const evaluation = evaluationsData?.find(
-          evaluation => evaluation.submissions?.question_id === question.id
-        );
+        const evaluation = evaluationsData?.find(evaluation => {
+          const questionId = submissionToQuestionMap.get(evaluation.submission_id);
+          return questionId === question.id;
+        });
 
         if (evaluation) {
           newStatuses[question.id] = {
