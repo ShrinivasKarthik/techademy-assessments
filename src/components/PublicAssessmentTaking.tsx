@@ -333,30 +333,65 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
         return;
       }
 
-      // Trigger immediate evaluation
-      try {
-        const { data: evaluationResult, error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
-          body: { instanceId: instance.id }
+      // Check if this is a pure MCQ assessment
+      const isMCQOnly = assessment?.questions?.every(q => q.question_type === 'mcq');
+      
+      if (isMCQOnly) {
+        // For MCQ-only assessments, evaluate immediately and show results
+        try {
+          const { data: evaluationResult, error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
+            body: { instanceId: instance.id }
+          });
+
+          if (evalError) {
+            console.error('Error triggering evaluation:', evalError);
+            throw evalError;
+          }
+
+          console.log('MCQ evaluation completed successfully:', evaluationResult);
+          
+          toast({
+            title: "Assessment Submitted",
+            description: "Your assessment has been submitted and evaluated successfully!",
+          });
+
+          // For MCQ assessments, redirect directly to results
+          window.location.href = `/public/assessment/${instance.share_token}/results`;
+          
+        } catch (evalErr) {
+          console.error('Failed to evaluate MCQ assessment:', evalErr);
+          toast({
+            title: "Evaluation Error",
+            description: "Assessment submitted but evaluation failed. Please contact support.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        // For mixed or non-MCQ assessments, use the evaluation progress flow
+        try {
+          const { data: evaluationResult, error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
+            body: { instanceId: instance.id }
+          });
+
+          if (evalError) {
+            console.error('Error triggering evaluation:', evalError);
+          } else {
+            console.log('Evaluation triggered successfully:', evaluationResult);
+          }
+        } catch (evalErr) {
+          console.error('Failed to trigger evaluation:', evalErr);
+        }
+
+        toast({
+          title: "Assessment Submitted",
+          description: isAutoSubmit 
+            ? "Time expired. Your assessment has been automatically submitted and is being evaluated."
+            : "Your assessment has been submitted successfully and is being evaluated.",
         });
 
-        if (evalError) {
-          console.error('Error triggering evaluation:', evalError);
-        } else {
-          console.log('Evaluation triggered successfully:', evaluationResult);
-        }
-      } catch (evalErr) {
-        console.error('Failed to trigger evaluation:', evalErr);
+        // Redirect to evaluation progress page for mixed assessments
+        window.location.href = `/assessment/${instance.assessment_id}/evaluation/${instance.id}`;
       }
-
-      toast({
-        title: "Assessment Submitted",
-        description: isAutoSubmit 
-          ? "Time expired. Your assessment has been automatically submitted and is being evaluated."
-          : "Your assessment has been submitted successfully and is being evaluated.",
-      });
-
-      // Redirect to evaluation progress page instead of final results
-      window.location.href = `/assessment/${instance.assessment_id}/evaluation/${instance.id}`;
       
       onSubmission(updatedInstance);
 

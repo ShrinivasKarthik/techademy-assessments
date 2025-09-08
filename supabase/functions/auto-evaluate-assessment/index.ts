@@ -1,5 +1,6 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,35 +11,43 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { instanceId } = await req.json();
-    console.log('Starting evaluation for instance:', instanceId);
+    
+    if (!instanceId) {
+      throw new Error('Instance ID is required');
+    }
 
-    // Fetch assessment instance with better error handling
+    console.log(`Starting evaluation for instance: ${instanceId}`);
+
+    // Fetch assessment instance
     const { data: instance, error: instanceError } = await supabase
       .from('assessment_instances')
-      .select(`
-        *,
-        assessment_id
-      `)
+      .select('*')
       .eq('id', instanceId)
       .single();
 
     if (instanceError || !instance) {
-      throw new Error(`Failed to fetch instance: ${instanceError?.message}`);
+      throw new Error(`Failed to fetch assessment instance: ${instanceError?.message}`);
     }
 
-    // Fetch assessment separately to avoid relationship conflicts
+    // Fetch assessment details
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
-      .select('id, title, proctoring_enabled, proctoring_config')
+      .select('*')
       .eq('id', instance.assessment_id)
       .single();
 
@@ -69,7 +78,6 @@ serve(async (req) => {
     // Create a map for easy question lookup
     const questionMap = new Map(questions?.map(q => [q.id, q]) || []);
 
-
     // Fetch proctoring data
     const { data: proctoringSession, error: proctoringError } = await supabase
       .from('proctoring_sessions')
@@ -77,15 +85,14 @@ serve(async (req) => {
       .eq('assessment_instance_id', instanceId)
       .single();
 
-    let totalScore = 0;
-    let maxPossibleScore = 0;
     let integrityScore = 100;
     let proctoringNotes = '';
+    let violations: any[] = [];
+    let securityEvents: any[] = [];
 
-    // Calculate proctoring integrity score
-    if (proctoringSession && assessment?.proctoring_enabled) {
-      const violations = Array.isArray(instance.proctoring_violations) ? instance.proctoring_violations : [];
-      const securityEvents = Array.isArray(proctoringSession.security_events) ? proctoringSession.security_events : [];
+    if (proctoringSession && !proctoringError) {
+      violations = proctoringSession.security_events || [];
+      securityEvents = proctoringSession.monitoring_data?.security_events || [];
       
       // Calculate integrity score based on violations
       integrityScore = calculateIntegrityScore(violations.concat(securityEvents));
@@ -95,158 +102,175 @@ serve(async (req) => {
       await createProctoringReport(instanceId, instance, violations.concat(securityEvents), integrityScore);
     }
 
+    // Check if evaluation already exists to prevent duplicates
+    const { data: existingEvaluations } = await supabase
+      .from('evaluations')
+      .select('submission_id')
+      .in('submission_id', (submissions || []).map(s => s.id));
+
+    const evaluatedSubmissionIds = new Set(existingEvaluations?.map(e => e.submission_id) || []);
+
+    let totalScore = 0;
+    let maxPossibleScore = 0;
+
     // Evaluate each submission
     for (const submission of submissions || []) {
       const question = questionMap.get(submission.question_id);
       if (!question) continue;
 
       maxPossibleScore += question.points || 0;
-      let questionScore = 0;
 
-      try {
-        // Evaluate based on question type - MCQs first for instant feedback
-        switch (question.question_type) {
-          case 'mcq':
-            questionScore = evaluateMCQ(submission, question);
-            
-            // Create evaluation record immediately for MCQ
-            await supabase.from('evaluations').insert({
-              submission_id: submission.id,
-              score: questionScore,
-              max_score: question.points || 0,
-              integrity_score: integrityScore,
-              proctoring_notes: proctoringNotes,
-              evaluator_type: 'ai',
-              ai_feedback: {
-                confidence: 1.0,
-                evaluation_method: 'mcq',
-                timestamp: new Date().toISOString()
-              }
-            });
-            break;
-            
-          case 'subjective':
-            if (openAIApiKey) {
-              questionScore = await evaluateSubjectiveWithAI(submission, question);
-              
-              // Create evaluation record for subjective
-              await supabase.from('evaluations').insert({
-                submission_id: submission.id,
-                score: questionScore,
-                max_score: question.points || 0,
-                integrity_score: integrityScore,
-                proctoring_notes: proctoringNotes,
-                evaluator_type: 'ai',
-                ai_feedback: {
-                  confidence: 0.8,
-                  evaluation_method: 'subjective_ai',
-                  timestamp: new Date().toISOString()
-                }
-              });
-            } else {
-              questionScore = 0; // Requires manual evaluation
-            }
-            break;
-            
-          case 'coding':
-            if (openAIApiKey) {
-              questionScore = await evaluateCodingWithAI(submission, question);
-              
-              // Create evaluation record for coding
-              await supabase.from('evaluations').insert({
-                submission_id: submission.id,
-                score: questionScore,
-                max_score: question.points || 0,
-                integrity_score: integrityScore,
-                proctoring_notes: proctoringNotes,
-                evaluator_type: 'ai',
-                ai_feedback: {
-                  confidence: 0.75,
-                  evaluation_method: 'coding_ai',
-                  timestamp: new Date().toISOString()
-                }
-              });
-            } else {
-              questionScore = 0; // Requires manual evaluation
-            }
-            break;
-            
-          default:
-            questionScore = 0;
+      // Skip if already evaluated
+      if (evaluatedSubmissionIds.has(submission.id)) {
+        console.log(`Submission ${submission.id} already evaluated, fetching existing score`);
+        const { data: existingEval } = await supabase
+          .from('evaluations')
+          .select('score')
+          .eq('submission_id', submission.id)
+          .single();
+        if (existingEval) {
+          totalScore += existingEval.score || 0;
         }
+        continue;
+      }
 
-        totalScore += questionScore;
-      } catch (evalError) {
-        console.error(`Error evaluating question ${question.id}:`, evalError);
+      let score = 0;
+      switch (question.question_type) {
+        case 'mcq':
+          score = evaluateMCQ(submission, question);
+          break;
+        case 'subjective':
+          if (openAIApiKey) {
+            score = await evaluateSubjectiveWithAI(submission, question);
+          }
+          break;
+        case 'coding':
+          if (openAIApiKey) {
+            score = await evaluateCodingWithAI(submission, question);
+          }
+          break;
+        default:
+          console.log(`Skipping evaluation for question type: ${question.question_type}`);
+      }
+
+      totalScore += score;
+
+      // Insert evaluation record
+      const { error: evalError } = await supabase
+        .from('evaluations')
+        .insert({
+          submission_id: submission.id,
+          score: score,
+          max_score: question.points || 0,
+          integrity_score: integrityScore,
+          proctoring_notes: proctoringNotes,
+          evaluator_type: 'ai',
+          ai_feedback: {
+            question_type: question.question_type,
+            evaluation_method: question.question_type === 'mcq' ? 'automatic' : 'ai_analysis',
+            timestamp: new Date().toISOString()
+          }
+        });
+
+      if (evalError) {
+        console.error('Error inserting evaluation:', evalError);
       }
     }
 
-    // Apply integrity score to final result
-    const finalScore = (totalScore * (integrityScore / 100));
+    // Calculate final score with integrity adjustment
+    const finalScore = Math.round((totalScore * (integrityScore / 100)) * 100) / 100;
 
-    // Calculate questions answered
-    const questionsAnswered = submissions?.length || 0;
-    
-    // Update assessment instance with scores
-    await supabase
+    // Update the assessment instance with final scores
+    const { error: updateError } = await supabase
       .from('assessment_instances')
       .update({
         total_score: finalScore,
         max_possible_score: maxPossibleScore,
-        questions_answered: questionsAnswered,
-        status: 'evaluated',
-        session_state: 'evaluated',
         integrity_score: integrityScore,
-        proctoring_summary: {
-          violations_count: Array.isArray(instance.proctoring_violations) ? instance.proctoring_violations.length : 0,
-          integrity_score: integrityScore,
-          technical_issues: []
-        }
+        status: 'evaluated',
+        evaluation_status: 'completed',
+        duration_taken_seconds: Math.round((Date.now() - new Date(instance.started_at).getTime()) / 1000)
       })
       .eq('id', instanceId);
 
+    if (updateError) {
+      throw new Error(`Failed to update assessment instance: ${updateError.message}`);
+    }
+
     console.log(`Evaluation completed. Score: ${finalScore}/${maxPossibleScore}, Integrity: ${integrityScore}%`);
 
-    return new Response(JSON.stringify({
-      success: true,
-      totalScore: finalScore,
-      maxPossibleScore,
-      integrityScore,
-      evaluatedSubmissions: submissions?.length || 0
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        instanceId,
+        totalScore: finalScore,
+        maxPossibleScore,
+        integrityScore,
+        message: 'Assessment evaluated successfully'
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
 
   } catch (error) {
     console.error('Error in auto-evaluate-assessment:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      success: false 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message,
+        message: 'Failed to evaluate assessment'
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 });
 
 function evaluateMCQ(submission: any, question: any): number {
-  const answer = submission.answer;
-  const correctAnswer = question.config?.correctAnswer;
-  
-  if (!answer || !correctAnswer) return 0;
-  
-  if (typeof correctAnswer === 'string') {
-    return answer === correctAnswer ? (question.points || 0) : 0;
+  try {
+    const submissionAnswer = submission.answer;
+    const questionConfig = question.config;
+    
+    if (!submissionAnswer || !questionConfig?.options) {
+      console.log('Missing submission answer or question options', { submissionAnswer, questionConfig });
+      return 0;
+    }
+
+    // Extract selected options from submission
+    const selectedOptions = submissionAnswer.selectedOptions || [];
+    if (!Array.isArray(selectedOptions)) {
+      console.log('Invalid selectedOptions format:', selectedOptions);
+      return 0;
+    }
+
+    // Find correct options from question config
+    const correctOptions = questionConfig.options
+      .filter((option: any) => option.isCorrect)
+      .map((option: any) => option.id);
+
+    console.log('MCQ Evaluation:', {
+      selectedOptions,
+      correctOptions,
+      questionPoints: question.points
+    });
+
+    // Check if selected options match correct options exactly
+    const isCorrect = selectedOptions.length === correctOptions.length &&
+                     selectedOptions.every((selected: any) => correctOptions.includes(selected)) &&
+                     correctOptions.every((correct: any) => selectedOptions.includes(correct));
+
+    const score = isCorrect ? (question.points || 0) : 0;
+    console.log('MCQ Score awarded:', score);
+    
+    return score;
+  } catch (error) {
+    console.error('Error in evaluateMCQ:', error);
+    return 0;
   }
-  
-  if (Array.isArray(correctAnswer)) {
-    const userAnswers = Array.isArray(answer) ? answer : [answer];
-    const isCorrect = correctAnswer.every(correct => userAnswers.includes(correct)) &&
-                     userAnswers.every(userAns => correctAnswer.includes(userAns));
-    return isCorrect ? (question.points || 0) : 0;
-  }
-  
-  return 0;
 }
 
 async function evaluateSubjectiveWithAI(submission: any, question: any): Promise<number> {
@@ -278,21 +302,21 @@ async function evaluateSubjectiveWithAI(submission: any, question: any): Promise
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are an expert assessment evaluator. Provide only numeric scores.' },
+          { role: 'system', content: 'You are an expert evaluator. Respond only with a numeric score.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,
-        max_tokens: 50
+        max_tokens: 10,
       }),
     });
 
     const data = await response.json();
-    const scoreText = data.choices?.[0]?.message?.content?.trim();
-    const score = parseFloat(scoreText || '0');
+    const scoreText = data.choices[0].message.content.trim();
+    const score = parseFloat(scoreText);
     
-    return Math.min(Math.max(score, 0), question.points || 0);
+    return isNaN(score) ? 0 : Math.min(score, question.points || 0);
   } catch (error) {
-    console.error('Error evaluating subjective question:', error);
+    console.error('Error in AI evaluation:', error);
     return 0;
   }
 }
@@ -301,17 +325,19 @@ async function evaluateCodingWithAI(submission: any, question: any): Promise<num
   if (!openAIApiKey) return 0;
 
   const prompt = `
-    Evaluate this coding solution for the given problem. Provide a score out of ${question.points || 10} points.
+    Evaluate this coding solution. Provide a score out of ${question.points || 10} points.
     
     Problem: ${question.config?.problem || ''}
-    Expected Output: ${question.config?.expectedOutput || 'Not specified'}
-    Student Code: ${submission.answer?.code || submission.answer || ''}
+    Expected Solution/Approach: ${question.config?.expectedSolution || 'Not provided'}
+    Student Code: ${submission.answer?.code || ''}
+    Programming Language: ${submission.answer?.language || 'Not specified'}
     
-    Evaluate based on:
-    - Correctness (40%)
-    - Code quality and structure (30%)
-    - Efficiency (20%)
-    - Edge case handling (10%)
+    Consider:
+    - Correctness of the algorithm
+    - Code quality and structure
+    - Efficiency
+    - Edge case handling
+    - Best practices
     
     Respond with only a number (the score).
   `;
@@ -326,42 +352,48 @@ async function evaluateCodingWithAI(submission: any, question: any): Promise<num
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are an expert coding assessment evaluator. Provide only numeric scores.' },
+          { role: 'system', content: 'You are an expert code evaluator. Respond only with a numeric score.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,
-        max_tokens: 50
+        max_tokens: 10,
       }),
     });
 
     const data = await response.json();
-    const scoreText = data.choices?.[0]?.message?.content?.trim();
-    const score = parseFloat(scoreText || '0');
+    const scoreText = data.choices[0].message.content.trim();
+    const score = parseFloat(scoreText);
     
-    return Math.min(Math.max(score, 0), question.points || 0);
+    return isNaN(score) ? 0 : Math.min(score, question.points || 0);
   } catch (error) {
-    console.error('Error evaluating coding question:', error);
+    console.error('Error in AI coding evaluation:', error);
     return 0;
   }
 }
 
 function calculateIntegrityScore(violations: any[]): number {
-  let score = 100;
+  if (!violations || violations.length === 0) return 100;
   
+  let score = 100;
   for (const violation of violations) {
-    switch (violation.severity) {
-      case 'critical':
-        score -= 25;
-        break;
-      case 'high':
-        score -= 15;
-        break;
-      case 'medium':
-        score -= 10;
-        break;
-      case 'low':
+    switch (violation.type) {
+      case 'tab_switch':
         score -= 5;
         break;
+      case 'fullscreen_exit':
+        score -= 10;
+        break;
+      case 'multiple_faces':
+        score -= 15;
+        break;
+      case 'no_face':
+        score -= 20;
+        break;
+      case 'copy_paste':
+        score -= 25;
+        break;
+      default:
+        score -= 3;
     }
   }
   
@@ -369,70 +401,63 @@ function calculateIntegrityScore(violations: any[]): number {
 }
 
 function generateProctoringNotes(violations: any[], securityEvents: any[]): string {
+  if (!violations.length && !securityEvents.length) {
+    return 'No proctoring violations detected. Assessment completed under normal conditions.';
+  }
+  
   const notes = [];
-  
   if (violations.length > 0) {
-    notes.push(`${violations.length} proctoring violations detected`);
+    notes.push(`${violations.length} proctoring violation(s) detected`);
   }
-  
   if (securityEvents.length > 0) {
-    notes.push(`${securityEvents.length} security events recorded`);
+    notes.push(`${securityEvents.length} security event(s) logged`);
   }
   
-  const criticalEvents = [...violations, ...securityEvents].filter(e => e.severity === 'critical');
-  if (criticalEvents.length > 0) {
-    notes.push(`${criticalEvents.length} critical security events require review`);
-  }
-  
-  return notes.length > 0 ? notes.join('. ') : 'No significant proctoring issues detected';
+  return notes.join('. ');
 }
 
 async function createProctoringReport(instanceId: string, instance: any, allEvents: any[], integrityScore: number) {
-  const reportData = {
-    timeline: allEvents.map(event => ({
-      timestamp: event.timestamp || new Date().toISOString(),
-      type: event.type || 'unknown',
-      severity: event.severity || 'low',
-      description: event.description || event.message || 'Security event'
-    })),
-    summary: {
-      total_events: allEvents.length,
-      by_severity: {
-        critical: allEvents.filter(e => e.severity === 'critical').length,
-        high: allEvents.filter(e => e.severity === 'high').length,
-        medium: allEvents.filter(e => e.severity === 'medium').length,
-        low: allEvents.filter(e => e.severity === 'low').length
-      }
-    }
-  };
+  try {
+    const reportData = {
+      total_violations: allEvents.length,
+      integrity_score: integrityScore,
+      session_duration: instance.duration_taken_seconds || 0,
+      events_timeline: allEvents.map(event => ({
+        type: event.type,
+        timestamp: event.timestamp,
+        severity: event.severity || 'medium'
+      }))
+    };
 
-  await supabase.from('proctoring_reports').insert({
-    assessment_instance_id: instanceId,
-    participant_id: instance.participant_id,
-    assessment_id: instance.assessment_id,
-    report_data: reportData,
-    integrity_score: integrityScore,
-    violations_summary: allEvents,
-    recommendations: generateRecommendations(allEvents, integrityScore)
-  });
+    const { error } = await supabase
+      .from('proctoring_reports')
+      .insert({
+        assessment_instance_id: instanceId,
+        participant_id: instance.participant_id,
+        assessment_id: instance.assessment_id,
+        report_data: reportData,
+        integrity_score: integrityScore,
+        violations_summary: allEvents,
+        recommendations: generateRecommendations(allEvents, integrityScore),
+        status: 'generated'
+      });
+
+    if (error) {
+      console.error('Error creating proctoring report:', error);
+    }
+  } catch (error) {
+    console.error('Error in createProctoringReport:', error);
+  }
 }
 
 function generateRecommendations(events: any[], integrityScore: number): string {
-  const recommendations = [];
-  
-  if (integrityScore < 70) {
-    recommendations.push('Manual review recommended due to low integrity score');
+  if (integrityScore >= 90) {
+    return 'Assessment completed with high integrity. No additional action required.';
+  } else if (integrityScore >= 70) {
+    return 'Assessment completed with minor integrity concerns. Review recommended.';
+  } else if (integrityScore >= 50) {
+    return 'Assessment completed with moderate integrity concerns. Manual review strongly recommended.';
+  } else {
+    return 'Assessment completed with significant integrity concerns. Manual review and potential re-assessment recommended.';
   }
-  
-  const criticalEvents = events.filter(e => e.severity === 'critical');
-  if (criticalEvents.length > 0) {
-    recommendations.push('Critical security violations detected - requires instructor review');
-  }
-  
-  const tabSwitches = events.filter(e => e.type?.includes('tab_switch') || e.type?.includes('focus'));
-  if (tabSwitches.length > 5) {
-    recommendations.push('Multiple tab switches detected - possible academic dishonesty');
-  }
-  
-  return recommendations.length > 0 ? recommendations.join('. ') : 'Assessment appears to have been completed with integrity';
 }
