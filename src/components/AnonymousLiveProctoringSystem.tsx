@@ -27,12 +27,13 @@ interface AnonymousLiveProctoringSystemProps {
   participantId: string;
   config: any;
   onSecurityEvent: (event: SecurityEvent) => void;
-  onStatusChange: (status: 'active' | 'paused' | 'stopped') => void;
+  onStatusChange: (status: 'active' | 'paused' | 'stopped' | 'ended') => void;
   isInAssessment?: boolean; // New prop to indicate if we're in active assessment
 }
 
 interface AnonymousLiveProctoringSystemRef {
   cleanup: () => void;
+  endProctoring: () => void;
   getViolations: () => SecurityEvent[];
   getProctoringData: () => {
     violations: SecurityEvent[];
@@ -58,7 +59,7 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
   const faceDetectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const modelsLoadedRef = useRef<boolean>(false);
   
-  const [status, setStatus] = useState<'initializing' | 'active' | 'paused' | 'stopped'>(isInAssessment ? 'active' : 'initializing');
+  const [status, setStatus] = useState<'initializing' | 'active' | 'paused' | 'stopped' | 'ended'>(isInAssessment ? 'active' : 'initializing');
   const [permissions, setPermissions] = useState({
     camera: isInAssessment,
     microphone: isInAssessment
@@ -458,6 +459,38 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
     }
   };
 
+  const endProctoring = () => {
+    console.log('🏁 Ending proctoring gracefully...');
+    
+    // Stop face detection
+    if (faceDetectionIntervalRef.current) {
+      clearInterval(faceDetectionIntervalRef.current);
+      faceDetectionIntervalRef.current = null;
+      console.log('🔍 Stopped face detection interval');
+    }
+    
+    // Stop and clear video stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('📹 Stopped media track:', track.kind);
+      });
+      streamRef.current = null;
+    }
+    
+    // Clear video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      console.log('📹 Cleared video element');
+    }
+    
+    // Update status to ended
+    setStatus('ended');
+    onStatusChange('ended');
+    
+    console.log('✅ Proctoring ended successfully');
+  };
+
   const cleanup = () => {
     console.log('🧹 Cleaning up proctoring system...');
     
@@ -535,6 +568,7 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
   // Expose methods via ref
   React.useImperativeHandle(ref, () => ({
     cleanup,
+    endProctoring,
     getViolations,
     getProctoringData
   }), [violations, permissions, config]);
@@ -632,6 +666,35 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
           )}
         </CardContent>
       </Card>
+    );
+  }
+
+  // Show "Proctoring Ended" UI when status is ended
+  if (status === 'ended') {
+    const proctoringData = getProctoringData();
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Badge variant="secondary" className="mb-3">
+              Proctoring Ended
+            </Badge>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>Assessment monitoring has been completed.</p>
+              <div className="flex justify-center gap-4 pt-2">
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-foreground">{proctoringData.summary.integrity_score}</div>
+                  <div className="text-xs">Integrity Score</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-foreground">{proctoringData.summary.violations_count}</div>
+                  <div className="text-xs">Violations</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

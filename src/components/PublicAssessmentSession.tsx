@@ -326,12 +326,12 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   const handleSubmission = async (finalAnswers: any, evaluatedAnswers?: any) => {
     console.log('Assessment submitted with final answers:', finalAnswers);
     
-    // Stop proctoring and collect violations
+    // End proctoring gracefully and collect violations
     let proctoringData = null;
     if (assessment?.proctoring_enabled && proctoringRef.current) {
-      console.log('🛑 Stopping proctoring system...');
+      console.log('🏁 Ending proctoring system...');
       proctoringData = proctoringRef.current.getProctoringData();
-      proctoringRef.current.cleanup();
+      proctoringRef.current.endProctoring();
       
       // Save proctoring data to assessment instance
       if (instance?.id && proctoringData) {
