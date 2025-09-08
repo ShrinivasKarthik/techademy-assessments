@@ -32,6 +32,8 @@ import AudioQuestion from './questions/AudioQuestion';
 import RealTimeEvaluationPanel from './RealTimeEvaluationPanel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileAssessmentInterface from './mobile/MobileAssessmentInterface';
+import { useConsolidatedAutoSave } from '@/hooks/useConsolidatedAutoSave';
+import ErrorBoundary from './ErrorBoundary';
 
 interface Question {
   id: string;
@@ -88,40 +90,61 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   // Mock participant ID for now - should match AssessmentSession default
   const mockParticipantId = 'sample-participant';
   const isMobile = useIsMobile();
+  
+  // Consolidated auto-save
+  const { queueSave, forceSave, isSaving: autoSaving, lastSaved, hasUnsavedChanges } = useConsolidatedAutoSave({
+    interval: 15000, // Save every 15 seconds
+    enabled: true
+  });
+
+  // Update auto-save status based on consolidated save state
+  useEffect(() => {
+    if (autoSaving) {
+      setAutoSaveStatus('saving');
+    } else if (hasUnsavedChanges) {
+      setAutoSaveStatus('error');
+    } else {
+      setAutoSaveStatus('saved');
+    }
+  }, [autoSaving, hasUnsavedChanges]);
 
   useEffect(() => {
     initializeAssessment();
   }, [assessmentId]);
 
-  // Auto-save functionality
+  // Stable timer functionality - only recreate when instance changes, not on every timeRemaining update
   useEffect(() => {
-    const autoSaveTimer = setInterval(autoSave, 30000); // Auto-save every 30 seconds
-    return () => clearInterval(autoSaveTimer);
-  }, [answers, instance]);
+    if (!instance || instance.status !== 'in_progress' || timeRemaining <= 0) return;
+    
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        const newTime = Math.max(0, prev - 1);
+        if (newTime === 0) {
+          handleAutoSubmit();
+          return 0;
+        }
+        if (newTime <= 300 && newTime % 60 === 0) { // Warning every minute in last 5 minutes
+          toast({
+            title: "Time Warning",
+            description: `${Math.floor(newTime / 60)} minutes remaining!`,
+            variant: "destructive"
+          });
+        }
+        
+        // Queue auto-save for time updates (less frequent)
+        if (newTime % 30 === 0) { // Every 30 seconds
+          queueSave('assessment_instances', instance.id, {
+            time_remaining_seconds: newTime,
+            current_question_index: currentQuestionIndex
+          }, `timer-${instance.id}`);
+        }
+        
+        return newTime;
+      });
+    }, 1000);
 
-  // Timer functionality
-  useEffect(() => {
-    if (timeRemaining > 0 && instance?.status === 'in_progress') {
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          const newTime = Math.max(0, prev - 1);
-          if (newTime === 0) {
-            handleAutoSubmit();
-          }
-          if (newTime <= 300 && newTime % 60 === 0) { // Warning every minute in last 5 minutes
-            toast({
-              title: "Time Warning",
-              description: `${Math.floor(newTime / 60)} minutes remaining!`,
-              variant: "destructive"
-            });
-          }
-          return newTime;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }
-  }, [timeRemaining, instance?.status]);
+    return () => clearInterval(timer);
+  }, [instance?.id, instance?.status, toast, queueSave, currentQuestionIndex]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -248,24 +271,16 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   };
 
   const autoSave = async () => {
-    if (!instance || autoSaveStatus === 'saving') return;
+    if (!instance) return;
 
-    setAutoSaveStatus('saving');
-    try {
-      // Update instance progress
-      await supabase
-        .from('assessment_instances')
-        .update({
-          current_question_index: currentQuestionIndex,
-          time_remaining_seconds: timeRemaining
-        })
-        .eq('id', instance.id);
-
-      setAutoSaveStatus('saved');
-    } catch (error) {
-      console.error('Auto-save failed:', error);
-      setAutoSaveStatus('error');
-    }
+    // Use consolidated auto-save instead of direct database calls
+    queueSave('assessment_instances', instance.id, {
+      current_question_index: currentQuestionIndex,
+      time_remaining_seconds: timeRemaining
+    }, `manual-save-${instance.id}`);
+    
+    // Force immediate save for manual saves
+    await forceSave();
   };
 
   const saveAnswer = useCallback(async (questionId: string, answer: any) => {
@@ -488,9 +503,10 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card sticky top-0 z-10">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="border-b bg-card sticky top-0 z-10">
         <div className="max-w-7xl mx-auto p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -718,7 +734,8 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
           <div><kbd>F11</kbd> Fullscreen</div>
         </div>
       </div>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

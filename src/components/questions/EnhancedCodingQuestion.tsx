@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -157,20 +157,24 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
 
   const supportedLanguages = question.config.supportedLanguages || ['javascript', 'typescript', 'python'];
   const availableLanguages = languages.filter(lang => supportedLanguages.includes(lang.value));
+  
+  // Stable localStorage save - only save when content actually changes
+  const lastSaveDataRef = useRef<string>('');
   useEffect(() => {
-    const saveTimer = setTimeout(() => {
-      const activeFile = files.find(f => f.id === activeFileId);
-      if (activeFile) {
+    const currentData = JSON.stringify({ files, language });
+    if (currentData !== lastSaveDataRef.current && !disabled) {
+      const saveTimer = setTimeout(() => {
         localStorage.setItem(`coding-question-${question.id}`, JSON.stringify({
           files,
           language,
           lastModified: Date.now()
         }));
-      }
-    }, 1000);
+        lastSaveDataRef.current = currentData;
+      }, 2000); // Increased debounce to 2 seconds
 
-    return () => clearTimeout(saveTimer);
-  }, [files, language, question.id, activeFileId]);
+      return () => clearTimeout(saveTimer);
+    }
+  }, [files, language, question.id, disabled]);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -188,21 +192,26 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
     }
   }, [question.id, answer?.files?.length]);
 
-  // Debounced notify change to prevent rapid saves
-  const debouncedNotifyChange = useCallback(
-    debounce(() => {
-      onAnswerChange({
-        files,
-        language,
-        testResults
-      });
-    }, 500),
-    [files, language, testResults, onAnswerChange]
+  // Stable debounced notify change - use refs to prevent recreation
+  const stableDataRef = useRef({ files, language, testResults });
+  const debouncedNotifyChangeRef = useRef(
+    debounce((data: any) => {
+      if (!disabled) {
+        onAnswerChange(data);
+      }
+    }, 1500) // Increased debounce to 1.5 seconds
   );
 
+  // Only notify when data actually changes
   useEffect(() => {
-    debouncedNotifyChange();
-  }, [debouncedNotifyChange]);
+    const currentData = { files, language, testResults };
+    const hasChanged = JSON.stringify(currentData) !== JSON.stringify(stableDataRef.current);
+    
+    if (hasChanged && !disabled) {
+      stableDataRef.current = currentData;
+      debouncedNotifyChangeRef.current(currentData);
+    }
+  }, [files, language, testResults, disabled, onAnswerChange]);
 
   // File management
   const createNewFile = () => {
@@ -347,88 +356,96 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
     }
   };
 
-  // AI-powered code execution and evaluation
+  // Enhanced AI-powered code execution with better error handling
   const runCode = async () => {
+    if (!activeFile?.content.trim()) {
+      toast({
+        title: "No Code to Execute",
+        description: "Please write some code before running analysis.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsRunning(true);
     
     try {
-      // Step 1: Code Analysis
+      // Step 1: Code Analysis with timeout
       toast({
         title: "Running AI Analysis",
         description: "Analyzing code quality and logic...",
       });
 
-      const analysisResponse = await supabase.functions.invoke('analyze-code', {
+      const analysisPromise = supabase.functions.invoke('analyze-code', {
         body: {
-          code: activeFile?.content,
-          language: activeFile?.language || language,
+          code: activeFile.content,
+          language: activeFile.language || language,
           questionContext: question.question_text,
-          testCases: question.config.testCases?.filter(tc => !tc.isHidden)
+          testCases: question.config.testCases?.filter(tc => !tc.isHidden) || []
         }
       });
 
-      if (analysisResponse.error) {
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Analysis timeout after 30 seconds')), 30000)
+      );
+
+      const analysisResponse = await Promise.race([analysisPromise, timeoutPromise]) as any;
+
+      if (analysisResponse?.error) {
         throw new Error(`Analysis failed: ${analysisResponse.error.message}`);
       }
 
-      const { analysis } = analysisResponse.data;
+      const analysis = analysisResponse?.data?.analysis;
 
-      // Step 2: Execution Simulation
+      // Step 2: Execution Simulation with timeout
       toast({
         title: "Simulating Execution",
         description: "Running test cases through AI simulation...",
       });
 
-      const simulationResponse = await supabase.functions.invoke('simulate-execution', {
+      const simulationPromise = supabase.functions.invoke('simulate-execution', {
         body: {
-          code: activeFile?.content,
-          language: activeFile?.language || language,
-          testCases: question.config.testCases?.filter(tc => !tc.isHidden),
+          code: activeFile.content,
+          language: activeFile.language || language,
+          testCases: question.config.testCases?.filter(tc => !tc.isHidden) || [],
           questionContext: question.question_text
         }
       });
 
-      if (simulationResponse.error) {
-        throw new Error(`Simulation failed: ${simulationResponse.error.message}`);
+      const simulationResponse = await Promise.race([simulationPromise, timeoutPromise]) as any;
+
+      if (simulationResponse?.error) {
+        console.warn('Simulation failed, using fallback:', simulationResponse.error);
+        // Don't throw here, use fallback instead
       }
 
-      const { simulation } = simulationResponse.data;
+      const simulation = simulationResponse?.data?.simulation;
 
-      // Step 3: UI Preview (if applicable)
-      let uiPreview = null;
-      const hasUIFiles = files.some(file => 
-        ['html', 'css', 'javascript'].includes(file.language) ||
-        file.name.endsWith('.html') || file.name.endsWith('.css') || file.name.endsWith('.js')
-      );
-
-      if (hasUIFiles) {
-        toast({
-          title: "Generating UI Preview",
-          description: "Creating visual mockup of your interface...",
-        });
-
-        const previewResponse = await supabase.functions.invoke('generate-ui-preview', {
-          body: {
-            files: files,
-            questionContext: question.question_text
-          }
-        });
-
-        if (!previewResponse.error) {
-          uiPreview = previewResponse.data.preview;
-        }
+      // Process results with fallback
+      let processedResults: any[] = [];
+      
+      if (simulation?.executionResults?.length) {
+        processedResults = simulation.executionResults.map((result: any) => ({
+          passed: result.passed,
+          input: result.input,
+          expectedOutput: result.expectedOutput,
+          actualOutput: result.actualOutput,
+          executionTime: result.executionTime,
+          confidence: result.confidence || (result.passed ? 95 : 60),
+          debuggingHints: result.debuggingHints
+        }));
+      } else {
+        // Fallback results
+        processedResults = (question.config.testCases?.filter(tc => !tc.isHidden) || []).map((testCase) => ({
+          passed: false,
+          input: testCase.input,
+          expectedOutput: testCase.expectedOutput,
+          actualOutput: "Analysis unavailable - please check your code",
+          executionTime: 0,
+          confidence: 20
+        }));
       }
-
-      // Process simulation results into test results format
-      const processedResults = simulation.executionResults?.map((result: any) => ({
-        passed: result.passed,
-        input: result.input,
-        expectedOutput: result.expectedOutput,
-        actualOutput: result.actualOutput,
-        executionTime: result.executionTime,
-        confidence: result.confidence || (result.passed ? 95 : 60),
-        debuggingHints: result.debuggingHints
-      })) || [];
 
       setTestResults(processedResults);
 
@@ -436,31 +453,31 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
       const totalCount = processedResults.length;
       
       toast({
-        title: "AI Evaluation Complete",
-        description: `${passedCount}/${totalCount} tests passed. Overall score: ${analysis.overallScore}/100`,
-        variant: passedCount === totalCount ? "default" : "destructive"
+        title: "Analysis Complete",
+        description: `${passedCount}/${totalCount} tests passed${analysis?.overallScore ? `. Score: ${analysis.overallScore}/100` : ''}`,
+        variant: passedCount === totalCount && passedCount > 0 ? "default" : "destructive"
       });
       
     } catch (error) {
-      console.error('AI evaluation error:', error);
-      toast({
-        title: "Evaluation failed",
-        description: error instanceof Error ? error.message : "An error occurred during AI evaluation",
-        variant: "destructive"
-      });
+      console.error('Code execution error:', error);
       
-      // Fallback to basic simulation
-      const fallbackResults = question.config.testCases?.filter(tc => !tc.isHidden).map((testCase, index) => ({
-        passed: Math.random() > 0.5,
+      // Always provide fallback results on error
+      const fallbackResults = (question.config.testCases?.filter(tc => !tc.isHidden) || []).map((testCase) => ({
+        passed: false,
         input: testCase.input,
         expectedOutput: testCase.expectedOutput,
-        actualOutput: "AI evaluation unavailable",
-        executionTime: Math.floor(Math.random() * 100) + 10,
-        confidence: 30
-      })) || [];
+        actualOutput: "Analysis failed - please try again",
+        executionTime: 0,
+        confidence: 10
+      }));
       
       setTestResults(fallbackResults);
-      // The debounced notifyChange will handle saving
+      
+      toast({
+        title: "Analysis Error",
+        description: "Code analysis failed. Please check your code and try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsRunning(false);
     }

@@ -9,6 +9,8 @@ interface UseAssessmentSessionProps {
   participantId: string;
 }
 
+import { useStableRealtime } from '@/hooks/useStableRealtime';
+
 export const useAssessmentSession = ({ assessmentId, participantId }: UseAssessmentSessionProps) => {
   const { toast } = useToast();
   const [sessionState, setSessionState] = useState<SessionState>('not_started');
@@ -16,64 +18,34 @@ export const useAssessmentSession = ({ assessmentId, participantId }: UseAssessm
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [proctoringActive, setProctoringActive] = useState<boolean>(false);
   const [securityViolations, setSecurityViolations] = useState<any[]>([]);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
 
-  // Real-time subscription for session updates
-  useEffect(() => {
-    if (!assessmentId || !participantId) return;
+  // Use stable realtime connections instead of multiple subscriptions
+  const instanceRealtime = useStableRealtime({
+    table: 'assessment_instances',
+    filter: `assessment_id=eq.${assessmentId} AND participant_id=eq.${participantId}`,
+    onUpdate: (payload) => {
+      console.log('Assessment instance change:', payload);
+      if (payload.new) {
+        const instance = payload.new as any;
+        setSessionState(instance.session_state as SessionState);
+        setTimeRemaining(instance.time_remaining_seconds || 0);
+        setCurrentQuestionIndex(instance.current_question_index || 0);
+        setSecurityViolations(Array.isArray(instance.proctoring_violations) ? instance.proctoring_violations : []);
+      }
+    }
+  });
 
-    // Subscribe to assessment instance changes
-    const instanceChannel = supabase
-      .channel('assessment-instance-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'assessment_instances',
-          filter: `assessment_id=eq.${assessmentId} AND participant_id=eq.${participantId}`
-        },
-        (payload) => {
-          console.log('Assessment instance change:', payload);
-          if (payload.new) {
-            const instance = payload.new as any;
-            setSessionState(instance.session_state as SessionState);
-            setTimeRemaining(instance.time_remaining_seconds || 0);
-            setCurrentQuestionIndex(instance.current_question_index || 0);
-            setSecurityViolations(Array.isArray(instance.proctoring_violations) ? instance.proctoring_violations : []);
-          }
-        }
-      )
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED');
-      });
-
-    // Subscribe to proctoring session changes
-    const proctoringChannel = supabase
-      .channel('proctoring-session-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'proctoring_sessions',
-          filter: `participant_id=eq.${participantId}`
-        },
-        (payload) => {
-          console.log('Proctoring session change:', payload);
-          if (payload.new) {
-            const session = payload.new as any;
-            setProctoringActive(session.status === 'active');
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      instanceChannel.unsubscribe();
-      proctoringChannel.unsubscribe();
-    };
-  }, [assessmentId, participantId]);
+  const proctoringRealtime = useStableRealtime({
+    table: 'proctoring_sessions',
+    filter: `participant_id=eq.${participantId}`,
+    onUpdate: (payload) => {
+      console.log('Proctoring session change:', payload);
+      if (payload.new) {
+        const session = payload.new as any;
+        setProctoringActive(session.status === 'active');
+      }
+    }
+  });
 
   // Auto-save session state periodically
   const saveSessionState = useCallback(async (updates: {
@@ -254,7 +226,7 @@ export const useAssessmentSession = ({ assessmentId, participantId }: UseAssessm
     currentQuestionIndex,
     proctoringActive,
     securityViolations,
-    isConnected,
+    isConnected: instanceRealtime.isConnected && proctoringRealtime.isConnected,
     
     // Actions
     updateSessionState,
