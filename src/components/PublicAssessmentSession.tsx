@@ -75,6 +75,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   useEffect(() => {
     console.log('=== PUBLIC ASSESSMENT SESSION STARTING ===');
     console.log('Share token:', shareToken);
+    console.log('Current URL:', window.location.href);
     initializeSession();
   }, [shareToken]);
 
@@ -83,21 +84,33 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setLoading(true);
       setError(null);
       
+      console.log('=== CALLING TAKE-SHARED-ASSESSMENT FUNCTION ===');
+      console.log('Token being sent:', shareToken);
+      
       // Step 1: Fetch assessment data
       const { data, error: fetchError } = await supabase.functions.invoke('take-shared-assessment', {
         body: { token: shareToken },
       });
 
+      console.log('=== FUNCTION RESPONSE ===');
+      console.log('Data:', data);
+      console.log('Error:', fetchError);
+
       if (fetchError) {
         console.error('Error fetching shared assessment:', fetchError);
-        setError('Failed to load assessment');
+        setError(`Failed to load assessment: ${fetchError.message || 'Unknown error'}`);
         return;
       }
 
       if (!data?.success) {
+        console.error('Function returned unsuccessful:', data);
         setError(data?.error || 'Assessment not available');
         return;
       }
+
+      console.log('=== SETTING ASSESSMENT DATA ===');
+      console.log('Assessment:', data.assessment);
+      console.log('Share config:', data.shareConfig);
 
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
@@ -107,7 +120,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
     } catch (err: any) {
       console.error('Error initializing session:', err);
-      setError('Failed to initialize assessment session');
+      setError(`Failed to initialize assessment session: ${err.message}`);
     } finally {
       setLoading(false);
     }
