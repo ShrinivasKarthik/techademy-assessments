@@ -5,20 +5,19 @@ interface AnimatedCounterProps {
   value: number;
   duration?: number;
   className?: string;
-  prefix?: string;
   suffix?: string;
+  decimals?: number;
 }
 
 export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   value,
-  duration = 2000,
+  duration = 1000,
   className,
-  prefix = '',
-  suffix = ''
+  suffix = '',
+  decimals = 0
 }) => {
-  const [count, setCount] = useState(0);
+  const [displayValue, setDisplayValue] = useState(0);
 
-  console.log('AnimatedCounter: Rendering', { value, count });
   useEffect(() => {
     let startTime: number;
     let animationFrame: number;
@@ -27,8 +26,10 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
       
+      // Easing function for smooth animation
       const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-      setCount(Math.floor(easeOutQuart * value));
+      
+      setDisplayValue(value * easeOutQuart);
 
       if (progress < 1) {
         animationFrame = requestAnimationFrame(animate);
@@ -36,12 +37,17 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
     };
 
     animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
   }, [value, duration]);
 
   return (
-    <span className={cn("font-bold tabular-nums", className)}>
-      {prefix}{count.toLocaleString()}{suffix}
+    <span className={cn("tabular-nums", className)}>
+      {displayValue.toFixed(decimals)}{suffix}
     </span>
   );
 };

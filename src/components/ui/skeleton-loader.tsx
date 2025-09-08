@@ -1,6 +1,42 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
+interface SkeletonLoaderProps {
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({ 
+  className,
+  children 
+}) => {
+  return (
+    <div 
+      className={cn(
+        "animate-pulse bg-muted rounded-md",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+};
+
+export const EvaluationSkeletonCard = () => (
+  <div className="bg-card border rounded-lg p-6 space-y-4">
+    <div className="flex items-center justify-between">
+      <SkeletonLoader className="h-6 w-32" />
+      <SkeletonLoader className="h-4 w-16" />
+    </div>
+    <SkeletonLoader className="h-4 w-full" />
+    <SkeletonLoader className="h-2 w-full" />
+    <div className="flex justify-between">
+      <SkeletonLoader className="h-4 w-20" />
+      <SkeletonLoader className="h-4 w-16" />
+    </div>
+  </div>
+);
+
 interface SkeletonProps {
   className?: string;
 }

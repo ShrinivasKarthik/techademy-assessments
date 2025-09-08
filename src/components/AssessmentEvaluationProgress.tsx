@@ -1,25 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
-  CheckCircle, 
   Clock, 
-  AlertTriangle, 
-  FileText, 
+  CheckCircle, 
+  XCircle, 
+  Loader2, 
   Code, 
-  MessageSquare, 
+  FileText, 
+  MessageSquare,
+  Trophy,
+  AlertCircle,
+  RotateCcw,
+  Wifi,
+  WifiOff,
   Upload,
   Mic,
+  AlertTriangle,
   Brain,
-  Loader2,
   ArrowRight
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useEvaluationRecovery } from '@/hooks/useEvaluationRecovery';
+import { AnimatedCounter } from '@/components/ui/animated-counter';
+import { EvaluationSkeletonCard } from '@/components/ui/skeleton-loader';
+import { ProgressRing } from '@/components/ui/progress-ring';
 
 interface Question {
   id: string;
@@ -41,8 +52,7 @@ interface EvaluationStatus {
   questionId: string;
   status: 'pending' | 'evaluating' | 'completed' | 'error';
   score?: number;
-  maxScore: number;
-  evaluation?: Evaluation;
+  maxScore?: number;
 }
 
 interface AssessmentEvaluationProgressProps {
