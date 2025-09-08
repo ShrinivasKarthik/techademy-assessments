@@ -65,6 +65,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   const [error, setError] = useState<string | null>(null);
   const [proctoringSession, setProctoringSession] = useState<any>(null);
   const [securityViolations, setSecurityViolations] = useState<any[]>([]);
+  const [proctoringData, setProctoringData] = useState<any>(null);
   const [participantInfo, setParticipantInfo] = useState({
     name: '',
     email: ''
@@ -327,22 +328,23 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     console.log('Assessment submitted with final answers:', finalAnswers);
     
     // End proctoring gracefully and collect violations
-    let proctoringData = null;
+    let currentProctoringData = null;
     if (assessment?.proctoring_enabled && proctoringRef.current) {
       console.log('🏁 Ending proctoring system...');
-      proctoringData = proctoringRef.current.getProctoringData();
+      currentProctoringData = proctoringRef.current.getProctoringData();
+      setProctoringData(currentProctoringData);
       proctoringRef.current.endProctoring();
       
       // Save proctoring data to assessment instance
-      if (instance?.id && proctoringData) {
+      if (instance?.id && currentProctoringData) {
         console.log('💾 Saving proctoring data to assessment instance...');
         try {
           const { error: updateError } = await supabase
             .from('assessment_instances')
             .update({
-              proctoring_violations: proctoringData.violations,
-              proctoring_summary: proctoringData.summary,
-              integrity_score: proctoringData.summary.integrity_score
+              proctoring_violations: currentProctoringData.violations,
+              proctoring_summary: currentProctoringData.summary,
+              integrity_score: currentProctoringData.summary.integrity_score
             })
             .eq('id', instance.id);
 
@@ -359,8 +361,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
               .update({
                 status: 'completed',
                 ended_at: new Date().toISOString(),
-                security_events: proctoringData.violations,
-                monitoring_data: proctoringData.summary
+                security_events: currentProctoringData.violations,
+                monitoring_data: currentProctoringData.summary
               })
               .eq('id', proctoringSession.id);
 
@@ -525,6 +527,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                 assessmentId={assessment.id}
                 instance={instance}
                 onSubmission={handleSubmission}
+                proctoringData={proctoringData}
                 onProctoringStop={() => {
                   if (assessment.proctoring_enabled && proctoringRef.current) {
                     console.log('🛑 Assessment requesting proctoring stop...');
@@ -563,6 +566,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
           assessmentId={assessment.id}
           instance={instance}
           onSubmission={handleSubmission}
+          proctoringData={proctoringData}
           onProctoringStop={() => {
             if (assessment.proctoring_enabled && proctoringRef.current) {
               console.log('🛑 Assessment requesting proctoring stop...');

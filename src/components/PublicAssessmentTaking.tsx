@@ -69,13 +69,22 @@ interface PublicAssessmentTakingProps {
   instance: AssessmentInstance;
   onSubmission: (instance: AssessmentInstance) => void;
   onProctoringStop?: () => void;
+  proctoringData?: {
+    violations: any[];
+    summary: {
+      integrity_score: number;
+      violations_count: number;
+      technical_issues: string[];
+    };
+  };
 }
 
 const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   assessmentId,
   instance: initialInstance,
   onSubmission,
-  onProctoringStop
+  onProctoringStop,
+  proctoringData
 }) => {
   const { toast } = useToast();
   const [assessment, setAssessment] = useState<Assessment | null>(null);
@@ -604,6 +613,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
         instance={instance}
         durationTaken={instantResults.durationTaken}
         shareUrl={instantResults.shareUrl}
+        proctoringData={proctoringData}
         onViewFullResults={() => {
           window.location.href = instantResults.shareUrl;
         }}
