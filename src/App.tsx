@@ -15,6 +15,7 @@ import AssessmentListPage from "./pages/AssessmentListPage";
 import TakeAssessmentPage from "./pages/TakeAssessmentPage";
 import AssessmentPreviewPage from "./pages/AssessmentPreviewPage";
 import PublicAssessmentPage from "./pages/PublicAssessmentPage";
+import PublicAssessmentResultsPage from "./pages/PublicAssessmentResultsPage";
 import AssessmentAnalyticsPage from "./pages/AssessmentAnalyticsPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import MonitoringPage from "./pages/MonitoringPage";
@@ -46,7 +47,6 @@ import ContextualHelpPage from "./pages/ContextualHelpPage";
 import ResultsPage from "./pages/ResultsPage";
 import AssessmentResultsPage from "./pages/AssessmentResultsPage";
 import AssessmentEvaluationPage from "./pages/AssessmentEvaluationPage";
-import PublicAssessmentResultsPage from "./pages/PublicAssessmentResultsPage";
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 
