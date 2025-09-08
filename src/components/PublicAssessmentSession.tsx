@@ -86,6 +86,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       
       console.log('=== CALLING TAKE-SHARED-ASSESSMENT FUNCTION ===');
       console.log('Token being sent:', shareToken);
+      console.log('Supabase URL:', 'https://axdwgxtukqqzupboojmx.supabase.co');
       
       // Step 1: Fetch assessment data
       const { data, error: fetchError } = await supabase.functions.invoke('take-shared-assessment', {
@@ -98,13 +99,29 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
       if (fetchError) {
         console.error('Error fetching shared assessment:', fetchError);
-        setError(`Failed to load assessment: ${fetchError.message || 'Unknown error'}`);
+        
+        // Handle specific HTTP status codes
+        if (fetchError.message?.includes('429') || data?.error?.includes('Maximum number')) {
+          setError('You have reached the maximum number of attempts for this assessment. No more attempts are allowed.');
+        } else if (fetchError.message?.includes('410') || data?.error?.includes('expired')) {
+          setError('This assessment link has expired and is no longer available.');
+        } else if (fetchError.message?.includes('404') || data?.error?.includes('not found')) {
+          setError('Assessment not found. Please check the link and try again.');
+        } else {
+          setError(`Failed to load assessment: ${fetchError.message || 'Unknown error'}`);
+        }
         return;
       }
 
       if (!data?.success) {
         console.error('Function returned unsuccessful:', data);
-        setError(data?.error || 'Assessment not available');
+        
+        // Handle max attempts from response data
+        if (data?.error?.includes('Maximum number') || data?.error?.includes('attempts')) {
+          setError(`${data.error} (${data.attemptsUsed || 0}/${data.maxAttempts || 0} attempts used)`);
+        } else {
+          setError(data?.error || 'Assessment not available');
+        }
         return;
       }
 
