@@ -307,6 +307,7 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
       onStatusChange('active');
       
       if (config.cameraRequired && !permissions.camera) {
+        console.log('🚀 Auto-requesting camera permissions for assessment mode...');
         requestPermissions();
       } else if (config.faceDetection) {
         // Start face detection even without camera permissions if already in assessment
@@ -399,15 +400,46 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
     try {
       // Request camera permission
       if (config.cameraRequired) {
+        console.log('📹 Requesting camera and microphone access...');
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true, 
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30 }
+          }, 
           audio: config.microphoneRequired 
         });
         
+        console.log('✅ Media stream obtained:', stream.getTracks().map(t => t.kind));
+        
         if (videoRef.current) {
+          // Clear any existing stream first
+          if (videoRef.current.srcObject) {
+            const oldStream = videoRef.current.srcObject as MediaStream;
+            oldStream.getTracks().forEach(track => track.stop());
+          }
+          
+          // Set the new stream
           videoRef.current.srcObject = stream;
+          
           // Ensure video starts playing
-          await videoRef.current.play().catch(console.error);
+          try {
+            await videoRef.current.play();
+            console.log('✅ Video playback started successfully');
+          } catch (playError) {
+            console.error('❌ Video play error:', playError);
+            // Try to play again after a short delay
+            setTimeout(async () => {
+              try {
+                if (videoRef.current) {
+                  await videoRef.current.play();
+                  console.log('✅ Video playback started on retry');
+                }
+              } catch (retryError) {
+                console.error('❌ Video play retry failed:', retryError);
+              }
+            }, 100);
+          }
           
           // Start REAL face detection if required
           if (config.faceDetection) {
@@ -423,6 +455,8 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
           } else {
             console.log('❌ Face detection not enabled in config');
           }
+        } else {
+          console.error('❌ Video element ref is null');
         }
         
         streamRef.current = stream;
@@ -453,12 +487,19 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
   const cleanup = () => {
     console.log('🧹 Cleaning up proctoring system...');
     
+    // Stop and clear video stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
         track.stop();
         console.log('📹 Stopped media track:', track.kind);
       });
       streamRef.current = null;
+    }
+    
+    // Clear video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      console.log('📹 Cleared video element');
     }
     
     if (faceDetectionIntervalRef.current) {
