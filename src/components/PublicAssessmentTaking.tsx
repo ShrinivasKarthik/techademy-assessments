@@ -68,12 +68,14 @@ interface PublicAssessmentTakingProps {
   assessmentId: string;
   instance: AssessmentInstance;
   onSubmission: (instance: AssessmentInstance) => void;
+  onProctoringStop?: () => void;
 }
 
 const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   assessmentId,
   instance: initialInstance,
   onSubmission,
+  onProctoringStop
 }) => {
   const { toast } = useToast();
   const [assessment, setAssessment] = useState<Assessment | null>(null);
@@ -312,6 +314,9 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   const submitAssessment = async (isAutoSubmit = false) => {
     try {
       setSubmitting(true);
+      
+      // Signal to stop proctoring
+      onProctoringStop?.();
 
       // Calculate duration taken (total time minus remaining time)
       const assessmentDuration = assessment?.duration_minutes || 60;

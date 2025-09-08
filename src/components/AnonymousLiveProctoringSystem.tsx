@@ -31,14 +31,27 @@ interface AnonymousLiveProctoringSystemProps {
   isInAssessment?: boolean; // New prop to indicate if we're in active assessment
 }
 
-const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps> = ({
+interface AnonymousLiveProctoringSystemRef {
+  cleanup: () => void;
+  getViolations: () => SecurityEvent[];
+  getProctoringData: () => {
+    violations: SecurityEvent[];
+    summary: {
+      integrity_score: number;
+      violations_count: number;
+      technical_issues: string[];
+    };
+  };
+}
+
+const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSystemRef, AnonymousLiveProctoringSystemProps>(({
   assessmentId,
   participantId,
   config,
   onSecurityEvent,
   onStatusChange,
   isInAssessment = false
-}) => {
+}, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -443,21 +456,78 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
   };
 
   const cleanup = () => {
+    console.log('🧹 Cleaning up proctoring system...');
+    
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('📹 Stopped media track:', track.kind);
+      });
+      streamRef.current = null;
     }
     
     if (faceDetectionIntervalRef.current) {
       clearInterval(faceDetectionIntervalRef.current);
+      faceDetectionIntervalRef.current = null;
+      console.log('🔍 Stopped face detection interval');
     }
     
+    // Clear all event listeners
     document.removeEventListener('fullscreenchange', checkFullscreen);
     document.removeEventListener('webkitfullscreenchange', checkFullscreen);
     document.removeEventListener('mozfullscreenchange', checkFullscreen);
     document.removeEventListener('MSFullscreenChange', checkFullscreen);
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     document.removeEventListener('keydown', handleKeyDown);
+    
+    // Update status
+    setStatus('stopped');
+    onStatusChange('stopped');
+    
+    console.log('✅ Proctoring cleanup complete');
   };
+
+  const getViolations = () => violations;
+
+  const getProctoringData = () => {
+    const totalViolations = violations.length;
+    const criticalViolations = violations.filter(v => v.severity === 'critical').length;
+    const highViolations = violations.filter(v => v.severity === 'high').length;
+    
+    // Calculate integrity score based on violations
+    let integrityScore = 100;
+    integrityScore -= criticalViolations * 30; // Critical violations reduce score by 30 points
+    integrityScore -= highViolations * 15; // High violations reduce score by 15 points
+    integrityScore -= (totalViolations - criticalViolations - highViolations) * 5; // Other violations reduce by 5 points
+    integrityScore = Math.max(0, integrityScore); // Ensure score doesn't go below 0
+    
+    const technicalIssues: string[] = [];
+    if (!permissions.camera && config.cameraRequired) {
+      technicalIssues.push('Camera access denied');
+    }
+    if (!permissions.microphone && config.microphoneRequired) {
+      technicalIssues.push('Microphone access denied');
+    }
+    if (violations.some(v => v.type === 'camera_blocked')) {
+      technicalIssues.push('Camera blocked during assessment');
+    }
+    
+    return {
+      violations,
+      summary: {
+        integrity_score: integrityScore,
+        violations_count: totalViolations,
+        technical_issues: technicalIssues
+      }
+    };
+  };
+
+  // Expose methods via ref
+  React.useImperativeHandle(ref, () => ({
+    cleanup,
+    getViolations,
+    getProctoringData
+  }), [violations, permissions, config]);
 
   if (!setupComplete) {
     return (
@@ -622,6 +692,7 @@ const AnonymousLiveProctoringSystem: React.FC<AnonymousLiveProctoringSystemProps
       )}
     </div>
   );
-};
+});
 
 export default AnonymousLiveProctoringSystem;
+export type { AnonymousLiveProctoringSystemRef };

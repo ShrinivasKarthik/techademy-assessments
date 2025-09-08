@@ -11,7 +11,8 @@ import {
   BarChart3,
   FileText,
   ExternalLink,
-  RotateCcw
+  RotateCcw,
+  Shield
 } from 'lucide-react';
 
 interface MCQEvaluationResult {
@@ -36,6 +37,14 @@ interface InstantMCQResultsProps {
   shareUrl?: string;
   onRetakeAssessment?: () => void;
   onViewFullResults?: () => void;
+  proctoringData?: {
+    violations: any[];
+    summary: {
+      integrity_score: number;
+      violations_count: number;
+      technical_issues: string[];
+    };
+  };
 }
 
 const InstantMCQResults: React.FC<InstantMCQResultsProps> = ({
@@ -45,7 +54,8 @@ const InstantMCQResults: React.FC<InstantMCQResultsProps> = ({
   durationTaken,
   shareUrl,
   onRetakeAssessment,
-  onViewFullResults
+  onViewFullResults,
+  proctoringData
 }) => {
   const { totalScore, maxPossibleScore, percentage, questionResults } = evaluation;
 
@@ -162,6 +172,46 @@ const InstantMCQResults: React.FC<InstantMCQResultsProps> = ({
             )}
           </AlertDescription>
         </Alert>
+
+        {/* Proctoring Results */}
+        {proctoringData && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Assessment Integrity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Integrity Score</span>
+                  <Badge variant={proctoringData.summary.integrity_score >= 80 ? "default" : "destructive"}>
+                    {proctoringData.summary.integrity_score}%
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Security Violations</span>
+                  <Badge variant={proctoringData.summary.violations_count === 0 ? "default" : "destructive"}>
+                    {proctoringData.summary.violations_count}
+                  </Badge>
+                </div>
+                
+                {proctoringData.summary.technical_issues.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium">Technical Issues:</span>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      {proctoringData.summary.technical_issues.map((issue, index) => (
+                        <li key={index}>• {issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Question Breakdown */}
         <Card>

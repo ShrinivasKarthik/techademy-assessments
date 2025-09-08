@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import PublicAssessmentTaking from './PublicAssessmentTaking';
 import PublicAssessmentResults from './PublicAssessmentResults';
-import AnonymousLiveProctoringSystem from './AnonymousLiveProctoringSystem';
+import AnonymousLiveProctoringSystem, { AnonymousLiveProctoringSystemRef } from './AnonymousLiveProctoringSystem';
 
 interface Assessment {
   id: string;
@@ -71,6 +71,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
   });
   const [isStarting, setIsStarting] = useState(false);
   const [sessionState, setSessionState] = useState<'loading' | 'ready' | 'proctoring_setup' | 'proctoring_check' | 'in_progress' | 'submitted' | 'paused'>('loading');
+  const proctoringRef = useRef<AnonymousLiveProctoringSystemRef>(null);
 
   useEffect(() => {
     console.log('=== PUBLIC ASSESSMENT SESSION STARTING ===');
@@ -317,9 +318,60 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   };
 
-  const handleSubmission = (submittedInstance: AssessmentInstance) => {
-    setInstance(submittedInstance);
-    // Note: PublicAssessmentTaking will handle the redirect properly based on assessment type
+  const handleSubmission = async (finalAnswers: any, evaluatedAnswers?: any) => {
+    console.log('Assessment submitted with final answers:', finalAnswers);
+    
+    // Stop proctoring and collect violations
+    let proctoringData = null;
+    if (assessment?.proctoring_enabled && proctoringRef.current) {
+      console.log('🛑 Stopping proctoring system...');
+      proctoringData = proctoringRef.current.getProctoringData();
+      proctoringRef.current.cleanup();
+      
+      // Save proctoring data to assessment instance
+      if (instance?.id && proctoringData) {
+        console.log('💾 Saving proctoring data to assessment instance...');
+        try {
+          const { error: updateError } = await supabase
+            .from('assessment_instances')
+            .update({
+              proctoring_violations: proctoringData.violations,
+              proctoring_summary: proctoringData.summary,
+              integrity_score: proctoringData.summary.integrity_score
+            })
+            .eq('id', instance.id);
+
+          if (updateError) {
+            console.error('❌ Error saving proctoring data:', updateError);
+          } else {
+            console.log('✅ Proctoring data saved successfully');
+          }
+          
+          // Close proctoring session if exists
+          if (proctoringSession?.id) {
+            const { error: sessionError } = await supabase
+              .from('proctoring_sessions')
+              .update({
+                status: 'completed',
+                ended_at: new Date().toISOString(),
+                security_events: proctoringData.violations,
+                monitoring_data: proctoringData.summary
+              })
+              .eq('id', proctoringSession.id);
+
+            if (sessionError) {
+              console.error('❌ Error closing proctoring session:', sessionError);
+            } else {
+              console.log('✅ Proctoring session closed');
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error handling proctoring data:', error);
+        }
+      }
+    }
+    
+    setInstance(prev => prev ? { ...prev, status: 'submitted' as any } : null);
   };
 
   // Loading state
@@ -467,6 +519,12 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                 assessmentId={assessment.id}
                 instance={instance}
                 onSubmission={handleSubmission}
+                onProctoringStop={() => {
+                  if (assessment.proctoring_enabled && proctoringRef.current) {
+                    console.log('🛑 Assessment requesting proctoring stop...');
+                    proctoringRef.current.cleanup();
+                  }
+                }}
               />
             </div>
             <div className="lg:col-span-1">
@@ -479,6 +537,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
                 </CardHeader>
                 <CardContent>
                   <AnonymousLiveProctoringSystem
+                    ref={proctoringRef}
                     assessmentId={assessment.id}
                     participantId={`anon_${Date.now()}`}
                     config={assessment.proctoring_config || {}}
@@ -498,6 +557,12 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
           assessmentId={assessment.id}
           instance={instance}
           onSubmission={handleSubmission}
+          onProctoringStop={() => {
+            if (assessment.proctoring_enabled && proctoringRef.current) {
+              console.log('🛑 Assessment requesting proctoring stop...');
+              proctoringRef.current.cleanup();
+            }
+          }}
         />
       );
     }
