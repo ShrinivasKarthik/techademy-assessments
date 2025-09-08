@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Shield,
   CheckCircle,
@@ -10,9 +8,7 @@ import {
   Camera,
   Monitor,
   Volume2,
-  Eye,
-  ChevronDown,
-  ChevronUp
+  Eye
 } from 'lucide-react';
 
 interface AssessmentIntegrityCardProps {
@@ -29,8 +25,6 @@ interface AssessmentIntegrityCardProps {
 const AssessmentIntegrityCard: React.FC<AssessmentIntegrityCardProps> = ({
   proctoringData
 }) => {
-  const [violationsExpanded, setViolationsExpanded] = useState(false);
-
   const getViolationIcon = (type: string) => {
     switch (type?.toLowerCase()) {
       case 'camera':
@@ -116,79 +110,66 @@ const AssessmentIntegrityCard: React.FC<AssessmentIntegrityCardProps> = ({
             </div>
           )}
 
-          {/* Detailed Violations List */}
+          {/* Violation Details */}
           <div className="space-y-2">
-            <Collapsible open={violationsExpanded} onOpenChange={setViolationsExpanded}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-between p-0 h-auto font-medium text-sm">
-                  <span>Violation Details</span>
-                  {violationsExpanded ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-2 mt-2">
-                {proctoringData.violations.length === 0 ? (
-                  <div className="text-center py-4 text-sm text-muted-foreground bg-green-50 rounded-lg border border-green-200">
-                    <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-600" />
-                    No violations detected during assessment
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {proctoringData.violations
-                      .sort((a, b) => new Date(b.timestamp || '').getTime() - new Date(a.timestamp || '').getTime())
-                      .map((violation, index) => (
-                      <div
-                        key={index}
-                        className={`p-3 rounded-lg border ${getViolationSeverityColor(violation.severity)} text-sm`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 mt-0.5">
-                            {getViolationIcon(violation.type)}
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium capitalize">
-                                {violation.type?.replace(/_/g, ' ') || 'Security Event'}
-                              </span>
-                              {violation.severity && (
-                                <Badge 
-                                  variant={violation.severity === 'critical' ? 'destructive' : 'secondary'}
-                                  className="text-xs px-2 py-0"
-                                >
-                                  {violation.severity}
-                                </Badge>
-                              )}
-                              {violation.timestamp && (
-                                <span className="text-xs opacity-75">
-                                  {formatViolationTimestamp(violation.timestamp)}
-                                </span>
-                              )}
-                            </div>
-                            {violation.description && (
-                              <p className="text-xs opacity-90">
-                                {violation.description}
-                              </p>
-                            )}
-                            {violation.details && typeof violation.details === 'object' && (
-                              <div className="text-xs opacity-75 space-y-1">
-                                {Object.entries(violation.details).map(([key, value]) => (
-                                  <div key={key}>
-                                    <strong>{key.replace(/_/g, ' ')}:</strong> {String(value)}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+            <h4 className="text-sm font-medium">Violation Details</h4>
+            {proctoringData.violations.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground bg-green-50 rounded-lg border border-green-200">
+                <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-600" />
+                No violations detected during assessment
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {proctoringData.violations
+                  .sort((a, b) => new Date(b.timestamp || '').getTime() - new Date(a.timestamp || '').getTime())
+                  .map((violation, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg border ${getViolationSeverityColor(violation.severity)} text-sm`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        {getViolationIcon(violation.type)}
                       </div>
-                    ))}
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium capitalize">
+                            {violation.type?.replace(/_/g, ' ') || 'Security Event'}
+                          </span>
+                          {violation.severity && (
+                            <Badge 
+                              variant={violation.severity === 'critical' ? 'destructive' : 'secondary'}
+                              className="text-xs px-2 py-0"
+                            >
+                              {violation.severity}
+                            </Badge>
+                          )}
+                          {violation.timestamp && (
+                            <span className="text-xs opacity-75">
+                              {formatViolationTimestamp(violation.timestamp)}
+                            </span>
+                          )}
+                        </div>
+                        {violation.description && (
+                          <p className="text-xs opacity-90">
+                            {violation.description}
+                          </p>
+                        )}
+                        {violation.details && typeof violation.details === 'object' && (
+                          <div className="text-xs opacity-75 space-y-1">
+                            {Object.entries(violation.details).map(([key, value]) => (
+                              <div key={key}>
+                                <strong>{key.replace(/_/g, ' ')}:</strong> {String(value)}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
