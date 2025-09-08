@@ -20,6 +20,9 @@ const PublicAssessmentResultsPage = () => {
       }
 
       try {
+        console.log('=== FETCHING RESULTS ===');
+        console.log('Token:', token);
+        
         // Fetch the assessment instance using the share token
         const { data: instanceData, error: instanceError } = await supabase
           .from('assessment_instances')
@@ -28,7 +31,10 @@ const PublicAssessmentResultsPage = () => {
           .eq('status', 'evaluated')
           .single();
 
+        console.log('Instance query result:', { instanceData, instanceError });
+
         if (instanceError || !instanceData) {
+          console.error('Instance error details:', instanceError);
           setError("Assessment results not found or not yet evaluated");
           setLoading(false);
           return;
@@ -51,7 +57,10 @@ const PublicAssessmentResultsPage = () => {
           .eq('id', instanceData.assessment_id)
           .single();
 
+        console.log('Assessment query result:', { assessmentData, assessmentError });
+
         if (assessmentError || !assessmentData) {
+          console.error('Assessment error details:', assessmentError);
           setError("Assessment details not found");
           setLoading(false);
           return;
