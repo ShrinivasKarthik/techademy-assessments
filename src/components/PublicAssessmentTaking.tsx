@@ -347,9 +347,9 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
             description: "Your assessment has been submitted and evaluated successfully!",
           });
 
-          // For MCQ assessments, redirect directly to results
+          // For MCQ assessments, redirect directly to results with email parameter
           console.log('Redirecting to MCQ results page');
-          window.location.href = `/public/assessment/${instance.share_token}/results`;
+          window.location.href = `/public/assessment/${instance.share_token}/results?email=${encodeURIComponent(instance.participant_email)}`;
           
         } catch (evalErr) {
           console.error('Failed to evaluate MCQ assessment:', evalErr);
