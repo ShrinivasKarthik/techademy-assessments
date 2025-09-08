@@ -299,31 +299,26 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
     checkFullscreen();
     setupEventListeners();
     
-    // Force active status when in assessment mode
+    // Initialize proctoring based on mode
     if (isInAssessment) {
-      console.log('Setting status to active because isInAssessment is true');
+      console.log('In assessment mode - setting up proctoring');
       setSetupComplete(true);
       setStatus('active');
       onStatusChange('active');
       
-      if (config.cameraRequired && !permissions.camera) {
+      // Always request camera permissions for assessment mode
+      if (config.cameraRequired) {
         console.log('🚀 Auto-requesting camera permissions for assessment mode...');
         requestPermissions();
-      } else if (config.faceDetection && !faceDetectionIntervalRef.current) {
-        // Start face detection even without camera permissions if already in assessment
-        console.log('Starting face detection for assessment mode');
-        faceDetectionIntervalRef.current = setInterval(detectFace, 2000);
       }
+    } else {
+      console.log('In setup mode - waiting for user action');
     }
-  }, [isInAssessment, config.cameraRequired, config.faceDetection]);
-
-  // Separate cleanup effect that only runs on actual unmount
-  useEffect(() => {
+    
     return () => {
-      console.log('🧹 Component unmounting - cleaning up resources');
       cleanup();
     };
-  }, []); // Empty dependency array ensures this only runs on mount/unmount
+  }, [isInAssessment]);
 
   // Remove the conflicting effect that was causing infinite loops
   // The status is already properly managed in the main useEffect
@@ -402,102 +397,48 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
 
   const requestPermissions = async () => {
     try {
+      console.log('📹 Requesting permissions...');
+      console.log('Config:', config);
+      
       // Request camera permission
       if (config.cameraRequired) {
-        console.log('📹 Requesting camera and microphone access...');
+        console.log('📹 Requesting camera access...');
         
-        const constraints = {
-          video: {
-            width: { ideal: 640, min: 320 },
-            height: { ideal: 480, min: 240 },
-            frameRate: { ideal: 30, min: 15 }
-          }, 
-          audio: config.microphoneRequired 
-        };
-        
-        console.log('📹 Using constraints:', constraints);
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        console.log('✅ Media stream obtained:', {
-          tracks: stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })),
-          streamId: stream.id
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: config.microphoneRequired || false
         });
         
+        console.log('✅ Got media stream:', stream);
+        console.log('Stream tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
+        
         if (videoRef.current) {
-          // Clear any existing stream first
-          if (videoRef.current.srcObject) {
-            const oldStream = videoRef.current.srcObject as MediaStream;
-            oldStream.getTracks().forEach(track => track.stop());
-            console.log('🧹 Cleared old stream');
-          }
-          
-          // Set the new stream
+          console.log('📹 Setting video srcObject');
           videoRef.current.srcObject = stream;
-          console.log('📹 Set video srcObject to new stream');
           
-          // Wait for video to be ready and then play
-          const playVideo = async () => {
-            try {
-              console.log('🎬 Attempting to play video...');
-              console.log('Video element state:', {
-                readyState: videoRef.current?.readyState,
-                videoWidth: videoRef.current?.videoWidth,
-                videoHeight: videoRef.current?.videoHeight,
-                paused: videoRef.current?.paused
-              });
-              
-              if (videoRef.current) {
-                await videoRef.current.play();
-                console.log('✅ Video playback started successfully');
-              }
-            } catch (playError) {
-              console.error('❌ Video play error:', playError);
-              
-              // Try again with a user interaction approach
-              setTimeout(async () => {
-                try {
-                  if (videoRef.current && videoRef.current.paused) {
-                    await videoRef.current.play();
-                    console.log('✅ Video playback started on retry');
-                  }
-                } catch (retryError) {
-                  console.error('❌ Video play retry failed:', retryError);
-                }
-              }, 500);
-            }
-          };
-
-          // Play immediately if metadata is already loaded, otherwise wait for it
-          if (videoRef.current.readyState >= 1) {
-            await playVideo();
-          } else {
-            videoRef.current.addEventListener('loadedmetadata', playVideo, { once: true });
-          }
-          
-          // Start REAL face detection if required
-          if (config.faceDetection) {
-            console.log('🚀 Starting face detection interval...');
-            console.log('Models loaded:', modelsLoadedRef.current);
-            
-            // Start immediately, then every 2 seconds
-            detectFace();
-            faceDetectionIntervalRef.current = setInterval(() => {
-              console.log('⏰ Face detection interval tick');
-              detectFace();
-            }, 2000); // Every 2 seconds for better real-time experience
-          } else {
-            console.log('❌ Face detection not enabled in config');
-          }
+          // Force play
+          videoRef.current.play().then(() => {
+            console.log('✅ Video is playing');
+          }).catch(err => {
+            console.error('❌ Video play failed:', err);
+          });
         } else {
-          console.error('❌ Video element ref is null');
+          console.error('❌ videoRef.current is null');
         }
         
         streamRef.current = stream;
         setPermissions(prev => ({
           ...prev,
           camera: true,
-          microphone: config.microphoneRequired
+          microphone: config.microphoneRequired || false
         }));
+        
+        // Start face detection if required
+        if (config.faceDetection && modelsLoadedRef.current) {
+          console.log('🚀 Starting face detection...');
+          detectFace();
+          faceDetectionIntervalRef.current = setInterval(detectFace, 2000);
+        }
       }
 
       // Enter fullscreen if required
@@ -507,11 +448,11 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
 
       setSetupComplete(true);
       setStatus('active');
-      console.log('✅ Proctoring setup complete, notifying parent of active status');
       onStatusChange('active');
+      console.log('✅ Permissions setup complete');
+      
     } catch (error) {
-      console.error('Error requesting permissions:', error);
-      // Don't create a security event - this should allow retry
+      console.error('❌ Permission request failed:', error);
       setStatus('stopped');
       onStatusChange('stopped');
     }
@@ -738,15 +679,18 @@ const AnonymousLiveProctoringSystem = React.forwardRef<AnonymousLiveProctoringSy
                 muted
                 playsInline
                 className="w-full h-full object-cover"
-                style={{ minHeight: '240px', minWidth: '320px' }}
                 onLoadedMetadata={() => {
-                  console.log('✅ Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
-                }}
-                onError={(e) => {
-                  console.error('❌ Video element error:', e);
+                  console.log('✅ Video metadata loaded');
+                  console.log('Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
                 }}
                 onCanPlay={() => {
                   console.log('✅ Video can play');
+                }}
+                onPlay={() => {
+                  console.log('✅ Video started playing');
+                }}
+                onError={(e) => {
+                  console.error('❌ Video error:', e);
                 }}
               />
               <canvas
