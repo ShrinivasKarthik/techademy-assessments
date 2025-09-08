@@ -21,11 +21,17 @@ const PublicAssessmentResultsPage = () => {
   const emailParam = urlParams.get('email');
 
   useEffect(() => {
+    console.log('PublicAssessmentResultsPage - useEffect triggered');
+    console.log('Token:', token);
+    console.log('Email param:', emailParam);
+    
     if (emailParam) {
       // If email is in URL, fetch results directly
+      console.log('Email found in URL, fetching results directly');
       fetchResults(emailParam);
     } else {
       // Show email input form
+      console.log('No email in URL, showing email form');
       setShowEmailForm(true);
       setLoading(false);
     }

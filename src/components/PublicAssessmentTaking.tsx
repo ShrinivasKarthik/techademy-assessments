@@ -17,6 +17,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useProgressPersistence } from '@/hooks/useProgressPersistence';
+import { useFrontendMCQEvaluation } from '@/hooks/useFrontendMCQEvaluation';
+import InstantMCQResults from './InstantMCQResults';
 
 // Import question components
 import MCQQuestion from './questions/MCQQuestion';
@@ -85,6 +87,11 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(new Set());
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showInstantResults, setShowInstantResults] = useState(false);
+  const [instantResults, setInstantResults] = useState<any>(null);
+
+  // Frontend MCQ evaluation
+  const { evaluateMCQAssessment, saveBatchResults, evaluating } = useFrontendMCQEvaluation();
 
   // Enhanced progress persistence
   const {
@@ -338,18 +345,35 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       console.log('Assessment submitted, isMCQOnly:', isMCQOnly, 'Questions:', assessment?.questions?.map(q => q.question_type));
       
       if (isMCQOnly) {
-        // For MCQ-only assessments, calculate score instantly
+        // For MCQ-only assessments, calculate score instantly in frontend
         try {
-          await evaluateMCQInstantly();
+          const evaluation = await evaluateMCQAssessment(assessment, answers, instance);
           
-          toast({
-            title: "Assessment Submitted",
-            description: "Your assessment has been submitted and evaluated successfully!",
-          });
-
-          // For MCQ assessments, redirect directly to results with email parameter
-          console.log('Redirecting to MCQ results page');
-          window.location.href = `/public/assessment/${instance.share_token}/results?email=${encodeURIComponent(instance.participant_email)}`;
+          if (evaluation) {
+            // Update the duration taken in the evaluation
+            const actualDurationTaken = (assessment?.duration_minutes || 60) * 60 - timeRemaining;
+            
+            // Save everything to database in batch
+            await saveBatchResults(evaluation, {
+              ...instance,
+              duration_taken_seconds: actualDurationTaken
+            }, answers);
+            
+            // Show instant results
+            setInstantResults({
+              evaluation,
+              durationTaken: actualDurationTaken,
+              shareUrl: `/public/assessment/${instance.share_token}/results?email=${encodeURIComponent(instance.participant_email)}`
+            });
+            setShowInstantResults(true);
+            
+            toast({
+              title: "Assessment Submitted",
+              description: "Your assessment has been evaluated instantly!",
+            });
+          } else {
+            throw new Error('Failed to evaluate assessment');
+          }
           
         } catch (evalErr) {
           console.error('Failed to evaluate MCQ assessment:', evalErr);
@@ -563,6 +587,26 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  // Show instant results if available
+  if (showInstantResults && instantResults) {
+    return (
+      <InstantMCQResults
+        evaluation={instantResults.evaluation}
+        assessment={assessment}
+        instance={instance}
+        durationTaken={instantResults.durationTaken}
+        shareUrl={instantResults.shareUrl}
+        onViewFullResults={() => {
+          window.location.href = instantResults.shareUrl;
+        }}
+        onRetakeAssessment={() => {
+          // Refresh to start a new attempt
+          window.location.reload();
+        }}
+      />
     );
   }
 
