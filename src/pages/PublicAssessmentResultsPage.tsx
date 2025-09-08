@@ -61,31 +61,31 @@ const PublicAssessmentResultsPage = () => {
         return;
       }
 
-        // Fetch the assessment details
-        const { data: assessmentData, error: assessmentError } = await supabase
-          .from('assessments')
-          .select(`
-            *,
-            questions (
-              id,
-              title,
-              question_type,
-              points,
-              order_index,
-              config
-            )
-          `)
-          .eq('id', instanceData.assessment_id)
-          .single();
+      // Fetch the assessment details
+      const { data: assessmentData, error: assessmentError } = await supabase
+        .from('assessments')
+        .select(`
+          *,
+          questions (
+            id,
+            title,
+            question_type,
+            points,
+            order_index,
+            config
+          )
+        `)
+        .eq('id', instanceData.assessment_id)
+        .single();
 
-        console.log('Assessment query result:', { assessmentData, assessmentError });
+      console.log('Assessment query result:', { assessmentData, assessmentError });
 
-        if (assessmentError || !assessmentData) {
-          console.error('Assessment error details:', assessmentError);
-          setError("Assessment details not found");
-          setLoading(false);
-          return;
-        }
+      if (assessmentError || !assessmentData) {
+        console.error('Assessment error details:', assessmentError);
+        setError("Assessment details not found");
+        setLoading(false);
+        return;
+      }
 
       setInstance(instanceData);
       setAssessment(assessmentData);
