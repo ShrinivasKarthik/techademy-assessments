@@ -337,18 +337,9 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       const isMCQOnly = assessment?.questions?.every(q => q.question_type === 'mcq');
       
       if (isMCQOnly) {
-        // For MCQ-only assessments, evaluate immediately and show results
+        // For MCQ-only assessments, calculate score instantly
         try {
-          const { data: evaluationResult, error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
-            body: { instanceId: instance.id }
-          });
-
-          if (evalError) {
-            console.error('Error triggering evaluation:', evalError);
-            throw evalError;
-          }
-
-          console.log('MCQ evaluation completed successfully:', evaluationResult);
+          await evaluateMCQInstantly();
           
           toast({
             title: "Assessment Submitted",
@@ -405,6 +396,92 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const evaluateMCQInstantly = async () => {
+    if (!assessment) return;
+
+    // Get all submissions for this instance
+    const { data: submissions, error: submissionsError } = await supabase
+      .from('submissions')
+      .select('id, question_id, answer')
+      .eq('instance_id', instance.id);
+
+    if (submissionsError) {
+      throw new Error('Failed to fetch submissions for evaluation');
+    }
+
+    // Create a map of submissions by question ID
+    const submissionMap = new Map();
+    submissions?.forEach(submission => {
+      submissionMap.set(submission.question_id, submission.answer);
+    });
+
+    let totalScore = 0;
+    let maxPossibleScore = 0;
+
+    // Evaluate each MCQ question
+    for (const question of assessment.questions) {
+      if (question.question_type !== 'mcq') continue;
+
+      maxPossibleScore += question.points || 0;
+      const submission = submissionMap.get(question.id);
+      
+      if (!submission || !question.config?.options) continue;
+
+      // Get selected options from submission
+      const selectedOptions = submission.selectedOptions || [];
+      
+      // Find correct options
+      const correctOptions = question.config.options
+        .filter((option: any) => option.isCorrect)
+        .map((option: any) => option.id);
+
+      // Check if answer is correct (exact match)
+      const isCorrect = selectedOptions.length === correctOptions.length &&
+                       selectedOptions.every((selected: any) => correctOptions.includes(selected)) &&
+                       correctOptions.every((correct: any) => selectedOptions.includes(correct));
+
+      const score = isCorrect ? (question.points || 0) : 0;
+      totalScore += score;
+
+      // Insert evaluation record
+      const submissionRecord = submissions?.find((s: any) => s.question_id === question.id);
+      if (submissionRecord) {
+        await supabase
+          .from('evaluations')
+          .insert({
+            submission_id: submissionRecord.id,
+            score: score,
+            max_score: question.points || 0,
+            integrity_score: 100, // Assume no proctoring issues for instant evaluation
+            evaluator_type: 'automatic',
+            ai_feedback: {
+              question_type: 'mcq',
+              evaluation_method: 'instant_automatic',
+              timestamp: new Date().toISOString()
+            }
+          });
+      }
+    }
+
+    // Calculate final percentage
+    const finalScore = totalScore;
+    const percentage = maxPossibleScore > 0 ? Math.round((finalScore / maxPossibleScore) * 100) : 0;
+
+    // Update the assessment instance with final scores
+    await supabase
+      .from('assessment_instances')
+      .update({
+        total_score: finalScore,
+        max_possible_score: maxPossibleScore,
+        integrity_score: 100,
+        status: 'evaluated',
+        evaluation_status: 'completed',
+      })
+      .eq('id', instance.id);
+
+    console.log(`Instant MCQ evaluation completed: ${finalScore}/${maxPossibleScore} (${percentage}%)`);
   };
 
   const formatTime = (seconds: number) => {

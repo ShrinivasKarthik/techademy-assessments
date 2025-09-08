@@ -258,15 +258,27 @@ function evaluateMCQ(submission: any, question: any): number {
       questionPoints: question.points
     });
 
-    // Check if selected options match correct options exactly
-    const isCorrect = selectedOptions.length === correctOptions.length &&
-                     selectedOptions.every((selected: any) => correctOptions.includes(selected)) &&
-                     correctOptions.every((correct: any) => selectedOptions.includes(correct));
+    // For single-answer MCQ, check if the single selected option is correct
+    if (selectedOptions.length === 1 && correctOptions.length === 1) {
+      const isCorrect = selectedOptions[0] === correctOptions[0];
+      const score = isCorrect ? (question.points || 0) : 0;
+      console.log('Single MCQ Score awarded:', score);
+      return score;
+    }
 
-    const score = isCorrect ? (question.points || 0) : 0;
-    console.log('MCQ Score awarded:', score);
-    
-    return score;
+    // For multiple-answer MCQ, check if selected options match correct options exactly
+    if (selectedOptions.length > 1 || correctOptions.length > 1) {
+      const isCorrect = selectedOptions.length === correctOptions.length &&
+                       selectedOptions.every((selected: any) => correctOptions.includes(selected)) &&
+                       correctOptions.every((correct: any) => selectedOptions.includes(correct));
+
+      const score = isCorrect ? (question.points || 0) : 0;
+      console.log('Multiple MCQ Score awarded:', score);
+      return score;
+    }
+
+    // Single selection but multiple correct options - partial scoring not implemented
+    return 0;
   } catch (error) {
     console.error('Error in evaluateMCQ:', error);
     return 0;
