@@ -102,10 +102,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setAssessment(data.assessment);
       setShareConfig(data.shareConfig);
       
-      // Step 2: Check for existing instance
-      await checkExistingInstance(data.assessment.id);
-      
-      // Step 3: Set ready state
+      // Always start fresh - no resuming of previous attempts
       setSessionState('ready');
 
     } catch (err: any) {
@@ -116,36 +113,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
     }
   };
 
-  const checkExistingInstance = async (assessmentId: string) => {
-    try {
-      const { data: instances, error } = await supabase
-        .from('assessment_instances')
-        .select('*')
-        .eq('share_token', shareToken)
-        .eq('is_anonymous', true)
-        .eq('assessment_id', assessmentId)
-        .order('started_at', { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.error('Error checking existing instance:', error);
-        return;
-      }
-
-      if (instances && instances.length > 0) {
-        const existingInstance = instances[0];
-        setInstance(existingInstance);
-        
-        if (existingInstance.status === 'submitted') {
-          setSessionState('submitted');
-        } else if (existingInstance.session_state === 'in_progress') {
-          setSessionState('in_progress');
-        }
-      }
-    } catch (err) {
-      console.error('Error checking existing instance:', err);
-    }
-  };
+  // Removed checkExistingInstance - always create fresh attempts
 
   const validateParticipantInfo = () => {
     if (!shareConfig) return false;
@@ -177,8 +145,8 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       setIsStarting(true);
       setError(null);
 
-      // Use the database function to safely create or find instance
-      const { data: instanceData, error: instanceError } = await supabase
+      // Use the new database function that handles attempt logic
+      const { data: result, error: instanceError } = await supabase
         .rpc('find_or_create_anonymous_instance', {
           p_assessment_id: assessment.id,
           p_share_token: shareToken,
@@ -187,35 +155,30 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
           p_duration_minutes: assessment.duration_minutes
         });
 
-      if (instanceError) {
-        console.error('Error creating/finding instance:', instanceError);
-        
-        // If it's a duplicate key error, try to find existing instance
-        if (instanceError.message?.includes('idx_assessment_instances_anonymous_unique')) {
-          console.log('Duplicate key error - attempting to find existing instance');
-          const { data: existingInstance, error: findError } = await supabase
-            .from('assessment_instances')
-            .select('*')
-            .eq('assessment_id', assessment.id)
-            .eq('share_token', shareToken)
-            .eq('is_anonymous', true)
-            .is('participant_id', null)
-            .order('started_at', { ascending: false })
-            .limit(1)
-            .single();
+      if (instanceError || !result || result.length === 0) {
+        console.error('Error creating instance:', instanceError);
+        setError('Failed to start assessment');
+        return;
+      }
 
-          if (findError || !existingInstance) {
-            setError('Failed to start assessment: unable to create or find assessment instance');
-            return;
-          }
+      const firstResult = result[0];
+      
+      // Check if attempts are exhausted
+      if (!firstResult.instance_data) {
+        setError(firstResult.message || 'No more attempts available');
+        return;
+      }
 
-          setInstance(existingInstance);
-        } else {
-          setError(`Failed to start assessment: ${instanceError.message}`);
-          return;
-        }
-      } else {
-        setInstance(instanceData);
+      // Parse the instance data and show attempt info
+      const newInstance = firstResult.instance_data as unknown as AssessmentInstance;
+      setInstance(newInstance);
+      
+      // Show attempt information
+      if (firstResult.attempts_remaining !== undefined) {
+        toast({
+          title: "Assessment Started",
+          description: firstResult.message + ` (${firstResult.attempts_remaining} attempts remaining)`,
+        });
       }
 
       if (assessment.proctoring_enabled) {
@@ -309,8 +272,7 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
 
   const handleSubmission = (submittedInstance: AssessmentInstance) => {
     setInstance(submittedInstance);
-    // Redirect to evaluation progress page instead of final results
-    window.location.href = `/assessment/${submittedInstance.assessment_id}/evaluation/${submittedInstance.id}`;
+    // Note: PublicAssessmentTaking will handle the redirect properly based on assessment type
   };
 
   // Loading state

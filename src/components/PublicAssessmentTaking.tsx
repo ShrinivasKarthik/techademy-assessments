@@ -335,6 +335,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
 
       // Check if this is a pure MCQ assessment
       const isMCQOnly = assessment?.questions?.every(q => q.question_type === 'mcq');
+      console.log('Assessment submitted, isMCQOnly:', isMCQOnly, 'Questions:', assessment?.questions?.map(q => q.question_type));
       
       if (isMCQOnly) {
         // For MCQ-only assessments, calculate score instantly
@@ -347,6 +348,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
           });
 
           // For MCQ assessments, redirect directly to results
+          console.log('Redirecting to MCQ results page');
           window.location.href = `/public/assessment/${instance.share_token}/results`;
           
         } catch (evalErr) {
@@ -381,6 +383,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
         });
 
         // Redirect to evaluation progress page for mixed assessments
+        console.log('Redirecting to evaluation progress page');
         window.location.href = `/assessment/${instance.assessment_id}/evaluation/${instance.id}`;
       }
       

@@ -1297,31 +1297,11 @@ export type Database = {
           p_share_token: string
         }
         Returns: {
-          assessment_id: string
-          current_question_index: number | null
-          duration_taken_seconds: number | null
-          evaluation_retry_count: number | null
-          evaluation_status: string | null
-          evaluation_timeout_at: string | null
-          id: string
-          integrity_score: number | null
-          is_anonymous: boolean
-          max_possible_score: number | null
-          participant_email: string | null
-          participant_id: string | null
-          participant_name: string | null
-          proctoring_started_at: string | null
-          proctoring_summary: Json | null
-          proctoring_violations: Json | null
-          questions_answered: number | null
-          session_state: string | null
-          share_token: string | null
-          started_at: string
-          status: Database["public"]["Enums"]["submission_status"]
-          submitted_at: string | null
-          time_remaining_seconds: number | null
-          total_score: number | null
-        }
+          attempts_remaining: number
+          instance_data: Json
+          message: string
+          should_redirect_to_results: boolean
+        }[]
       }
       get_current_user_email: {
         Args: Record<PropertyKey, never>
