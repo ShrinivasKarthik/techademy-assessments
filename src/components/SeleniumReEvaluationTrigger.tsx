@@ -27,7 +27,9 @@ export function SeleniumReEvaluationTrigger() {
     try {
       console.log('Starting Selenium re-evaluation...');
       
-      const { data, error } = await supabase.functions.invoke('re-evaluate-selenium-submissions');
+      const { data, error } = await supabase.functions.invoke('trigger-evaluations', {
+        body: { forceSeleniumReEvaluation: true }
+      });
       
       if (error) {
         throw error;
