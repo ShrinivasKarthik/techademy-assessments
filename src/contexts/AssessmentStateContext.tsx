@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, memo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { useStableRealtime } from '@/hooks/useStableRealtime';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { realtimeManager } from '@/hooks/useRealtimeConnectionManager';
