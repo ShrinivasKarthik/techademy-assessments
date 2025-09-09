@@ -29,11 +29,13 @@ import {
   Settings,
   Lightbulb,
   FileCode,
-  PlayCircle
+  PlayCircle,
+  Save
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import SeleniumTemplateSelector from '@/components/SeleniumTemplateSelector';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface TestCase {
   input: string;
@@ -101,6 +103,9 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
   const [isGeneratingTestCases, setIsGeneratingTestCases] = useState(false);
   const [isGeneratingRubric, setIsGeneratingRubric] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [saveTemplateDialog, setSaveTemplateDialog] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
 
   const languages = [
     { value: 'javascript', label: 'JavaScript' },
@@ -352,6 +357,48 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
     });
   };
 
+  const handleSaveAsTemplate = () => {
+    if (!templateName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter a name for your template",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const customTemplate = {
+      id: `custom-${Date.now()}`,
+      name: templateName,
+      description: templateDescription || 'Custom Selenium template',
+      language: config.language || 'selenium-java',
+      category: 'custom' as const,
+      starterCode: config.starterCode || '',
+      testScenarios: (config.testCases || []).map(tc => ({
+        scenario: tc.description || tc.input,
+        expectedResult: tc.expectedOutput,
+        webElements: tc.explanation ? [tc.explanation] : []
+      })),
+      icon: <Save className="w-4 h-4" />,
+      isCustom: true
+    };
+
+    // Save to localStorage
+    const existingTemplates = JSON.parse(localStorage.getItem('customSeleniumTemplates') || '[]');
+    const updatedTemplates = [...existingTemplates, customTemplate];
+    localStorage.setItem('customSeleniumTemplates', JSON.stringify(updatedTemplates));
+
+    toast({
+      title: "Template Saved",
+      description: `"${templateName}" has been saved as a custom template`,
+    });
+
+    // Reset form
+    setTemplateName('');
+    setTemplateDescription('');
+    setSaveTemplateDialog(false);
+  };
+
   const isSeleniumLanguage = (lang: string | undefined) => lang?.startsWith('selenium-') || false;
 
   const testCasesByCategory = {
@@ -438,10 +485,56 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
               {isSeleniumLanguage(config.language) && (
                 <div className="space-y-4">
                   <div className="border rounded-lg p-4 bg-muted/50">
-                    <Label className="text-lg font-semibold mb-4 block">Selenium Test Templates</Label>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Choose from pre-built Selenium test scenarios to get started quickly
-                    </p>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <Label className="text-lg font-semibold block">Selenium Test Templates</Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Choose from pre-built Selenium test scenarios or save your own
+                        </p>
+                      </div>
+                      <Dialog open={saveTemplateDialog} onOpenChange={setSaveTemplateDialog}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="flex items-center gap-2">
+                            <Save className="w-4 h-4" />
+                            Save as Template
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Save Custom Selenium Template</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="template-name">Template Name *</Label>
+                              <Input
+                                id="template-name"
+                                value={templateName}
+                                onChange={(e) => setTemplateName(e.target.value)}
+                                placeholder="e.g., User Registration Flow"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="template-description">Description</Label>
+                              <Textarea
+                                id="template-description"
+                                value={templateDescription}
+                                onChange={(e) => setTemplateDescription(e.target.value)}
+                                placeholder="Describe what this template tests..."
+                                rows={3}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setSaveTemplateDialog(false)}>
+                                Cancel
+                              </Button>
+                              <Button onClick={handleSaveAsTemplate}>
+                                Save Template
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                     <SeleniumTemplateSelector
                       language={config.language?.replace('selenium-', '') || 'java'}
                       onSelect={handleSeleniumTemplateSelect}

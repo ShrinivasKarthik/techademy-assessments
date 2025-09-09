@@ -1,15 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Monitor, Globe, Smartphone, Database } from 'lucide-react';
+import { Monitor, Globe, Smartphone, Database, Save, Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 interface SeleniumTemplate {
   id: string;
   name: string;
   description: string;
   language: string;
-  category: 'basic' | 'intermediate' | 'advanced';
+  category: 'basic' | 'intermediate' | 'advanced' | 'custom';
   starterCode: string;
   testScenarios: Array<{
     scenario: string;
@@ -17,6 +18,7 @@ interface SeleniumTemplate {
     webElements?: string[];
   }>;
   icon: React.ReactNode;
+  isCustom?: boolean;
 }
 
 interface SeleniumTemplateSelectorProps {
@@ -337,15 +339,37 @@ export const SeleniumTemplateSelector: React.FC<SeleniumTemplateSelectorProps> =
   onSelect,
   language
 }) => {
-  const filteredTemplates = seleniumTemplates.filter(
-    template => template.language === language || language === 'all'
+  const [customTemplates, setCustomTemplates] = useState<SeleniumTemplate[]>([]);
+
+  useEffect(() => {
+    // Load custom templates from localStorage
+    const stored = JSON.parse(localStorage.getItem('customSeleniumTemplates') || '[]');
+    setCustomTemplates(stored);
+  }, []);
+
+  const allTemplates = [...seleniumTemplates, ...customTemplates];
+  const filteredTemplates = allTemplates.filter(
+    template => template.language === language || language === 'all' || 
+    (template.language.includes('selenium-') && language === template.language.replace('selenium-', ''))
   );
+
+  const handleDeleteCustomTemplate = (templateId: string) => {
+    const updatedCustomTemplates = customTemplates.filter(t => t.id !== templateId);
+    setCustomTemplates(updatedCustomTemplates);
+    localStorage.setItem('customSeleniumTemplates', JSON.stringify(updatedCustomTemplates));
+    
+    toast({
+      title: "Template Deleted",
+      description: "Custom template has been removed",
+    });
+  };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'basic': return 'bg-green-100 text-green-800';
       case 'intermediate': return 'bg-yellow-100 text-yellow-800';
       case 'advanced': return 'bg-red-100 text-red-800';
+      case 'custom': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -366,9 +390,24 @@ export const SeleniumTemplateSelector: React.FC<SeleniumTemplateSelectorProps> =
                   {template.icon}
                   {template.name}
                 </div>
-                <Badge className={getCategoryColor(template.category)}>
-                  {template.category}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className={getCategoryColor(template.category)}>
+                    {template.category}
+                  </Badge>
+                  {template.isCustom && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCustomTemplate(template.id);
+                      }}
+                      className="h-6 w-6 p-0 hover:bg-red-100"
+                    >
+                      <Trash2 className="w-3 h-3 text-red-500" />
+                    </Button>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
