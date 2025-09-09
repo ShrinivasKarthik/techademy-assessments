@@ -15,21 +15,27 @@ export const useFormPersistence = <T>(
   const [isDirty, setIsDirty] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-  // Load persisted data on mount
+  // Load persisted data on mount only
   useEffect(() => {
     if (!enabled) return;
 
-    try {
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        const parsedData = JSON.parse(saved);
-        setFormData(parsedData);
-        setLastSaved(new Date(parsedData._timestamp || Date.now()));
+    // Only load from localStorage if we haven't initialized form data yet
+    // This prevents overwriting user changes when the component re-renders
+    if (JSON.stringify(formData) === JSON.stringify(initialData)) {
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          const parsedData = JSON.parse(saved);
+          // Remove the timestamp before setting form data
+          const { _timestamp, ...actualData } = parsedData;
+          setFormData(actualData);
+          setLastSaved(new Date(_timestamp || Date.now()));
+        }
+      } catch (error) {
+        console.warn('Failed to load persisted form data:', error);
       }
-    } catch (error) {
-      console.warn('Failed to load persisted form data:', error);
     }
-  }, [key, enabled]);
+  }, [key, enabled]); // Don't include formData or initialData in deps
 
   // Auto-save dirty data
   useEffect(() => {
