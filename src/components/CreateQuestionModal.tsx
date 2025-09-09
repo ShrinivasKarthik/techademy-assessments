@@ -24,6 +24,8 @@ import { Question } from "@/hooks/useQuestionBank";
 import EnhancedQuestionBuilders from "./EnhancedQuestionBuilders";
 import { useSkills } from "@/hooks/useSkills";
 import { useToast } from "@/hooks/use-toast";
+import { useFormPersistence } from "@/hooks/useFormPersistence";
+import { useNavigationProtection } from "@/hooks/useNavigationProtection";
 
 interface CreateQuestionModalProps {
   question?: Question | null;
@@ -71,7 +73,7 @@ export default function CreateQuestionModal({
   onClose,
   onSave,
 }: CreateQuestionModalProps) {
-  const [formData, setFormData] = useState({
+  const defaultFormData = {
     question_text: '',
     question_type: 'mcq' as Question['question_type'],
     difficulty: 'intermediate' as Question['difficulty'],
@@ -80,6 +82,28 @@ export default function CreateQuestionModal({
     tags: [] as string[],
     skills: [] as string[],
     is_template: false,
+  };
+
+  const { formData, updateFormData, isDirty, clearPersistedData } = useFormPersistence(
+    question ? {
+      question_text: question.question_text || '',
+      question_type: question.question_type,
+      difficulty: question.difficulty,
+      points: question.points,
+      config: question.config || {},
+      tags: question.tags || [],
+      skills: question.skills?.map(s => s.name) || [],
+      is_template: question.is_template,
+    } : defaultFormData,
+    { 
+      key: question ? `edit-question-${question.id}` : 'create-question-modal', 
+      enabled: isOpen 
+    }
+  );
+
+  const { protectedNavigate, clearProtection } = useNavigationProtection({
+    enabled: isDirty && isOpen,
+    message: 'You have unsaved changes to your question. Are you sure you want to close?'
   });
 
   const [newTag, setNewTag] = useState('');
@@ -91,9 +115,13 @@ export default function CreateQuestionModal({
   const { skills: availableSkills, getOrCreateSkills, suggestSkillsForQuestion } = useSkills();
   const { toast } = useToast();
 
+  // Only reset form when switching between edit/create modes, not on every modal open
   useEffect(() => {
+    if (!isOpen) return;
+    
     if (question) {
-      setFormData({
+      // Editing mode - only update if it's a different question
+      const questionData = {
         question_text: question.question_text || '',
         question_type: question.question_type,
         difficulty: question.difficulty,
@@ -102,54 +130,39 @@ export default function CreateQuestionModal({
         tags: question.tags || [],
         skills: question.skills?.map(s => s.name) || [],
         is_template: question.is_template,
-      });
-    } else {
-      // Reset form for new question
-      setFormData({
-        question_text: '',
-        question_type: 'mcq',
-        difficulty: 'intermediate',
-        points: 10,
-        config: {},
-        tags: [],
-        skills: [],
-        is_template: false,
-      });
+      };
+      updateFormData(questionData);
     }
-  }, [question, isOpen]);
+  }, [question?.id]); // Only depend on question ID, not isOpen
 
   const handleAddTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()]
-      }));
+      updateFormData({
+        tags: [...formData.tags, newTag.trim()]
+      });
       setNewTag('');
     }
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
+    updateFormData({
+      tags: formData.tags.filter(tag => tag !== tagToRemove)
+    });
   };
 
   const handleAddSkill = () => {
     if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        skills: [...prev.skills, newSkill.trim()]
-      }));
+      updateFormData({
+        skills: [...formData.skills, newSkill.trim()]
+      });
       setNewSkill('');
     }
   };
 
   const handleRemoveSkill = (skillToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      skills: prev.skills.filter(skill => skill !== skillToRemove)
-    }));
+    updateFormData({
+      skills: formData.skills.filter(skill => skill !== skillToRemove)
+    });
   };
 
   const handleSuggestSkills = async () => {
@@ -173,10 +186,9 @@ export default function CreateQuestionModal({
         // Add only new skills that aren't already selected
         const newSkills = suggestedSkills.filter(skill => !formData.skills.includes(skill));
         if (newSkills.length > 0) {
-          setFormData(prev => ({
-            ...prev,
-            skills: [...prev.skills, ...newSkills]
-          }));
+          updateFormData({
+            skills: [...formData.skills, ...newSkills]
+          });
           toast({
             title: "Skills Suggested",
             description: `Added ${newSkills.length} suggested skill(s)`,
@@ -205,19 +217,18 @@ export default function CreateQuestionModal({
   };
 
   const handleTemplateSelect = (template: any) => {
-    setFormData(prev => ({
-      ...prev,
+    updateFormData({
       question_text: template.template_config.question_text || '',
       question_type: template.question_type,
       config: template.template_config || {},
       tags: template.template_config.tags || [],
       skills: template.template_config.skills || [],
-    }));
+    });
     setShowTemplates(false);
   };
 
   const handleConfigUpdate = (config: any) => {
-    setFormData(prev => ({ ...prev, config }));
+    updateFormData({ config });
   };
 
   const handleSubmit = async () => {
@@ -239,15 +250,32 @@ export default function CreateQuestionModal({
         points: 1,
         skills: skillObjects.map(s => ({ name: s.name }))
       });
+      
+      // Clear form persistence after successful save
+      clearPersistedData();
+      clearProtection();
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle modal close with protection
+  const handleClose = () => {
+    if (isDirty) {
+      const confirmed = window.confirm('You have unsaved changes to your question. Are you sure you want to close?');
+      if (!confirmed) return;
+    }
+    clearPersistedData();
+    clearProtection();
+    onClose();
+  };
+  };
+  };
+
   const selectedQuestionType = questionTypeOptions.find(opt => opt.type === formData.question_type);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -286,7 +314,7 @@ export default function CreateQuestionModal({
             <Textarea
               id="question-text"
               value={formData.question_text}
-              onChange={(e) => setFormData(prev => ({ ...prev, question_text: e.target.value }))}
+              onChange={(e) => updateFormData({ question_text: e.target.value })}
               placeholder="What do you want to ask? Write your question here..."
               className="min-h-[120px] text-base resize-none"
               rows={5}
@@ -309,11 +337,10 @@ export default function CreateQuestionModal({
                         ? 'ring-2 ring-primary bg-primary/5' 
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => setFormData(prev => ({ 
-                      ...prev, 
+                    onClick={() => updateFormData({ 
                       question_type: option.type,
                       config: {} // Reset config when type changes
-                    }))}
+                    })}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
@@ -358,11 +385,11 @@ export default function CreateQuestionModal({
           <div className="grid grid-cols-1 gap-4 p-4 bg-muted/30 rounded-lg">
             <div className="space-y-2">
               <Label>Difficulty</Label>
-              <Select 
-                value={formData.difficulty} 
-                onValueChange={(value: Question['difficulty']) => 
-                  setFormData(prev => ({ ...prev, difficulty: value }))
-                }
+                <Select 
+                  value={formData.difficulty} 
+                  onValueChange={(value: Question['difficulty']) => 
+                    updateFormData({ difficulty: value })
+                  }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -472,7 +499,7 @@ export default function CreateQuestionModal({
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-6 border-t">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button 
@@ -488,3 +515,5 @@ export default function CreateQuestionModal({
     </Dialog>
   );
 }
+
+export default CreateQuestionModal;
