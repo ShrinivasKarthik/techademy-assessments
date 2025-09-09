@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Mic, MicOff, Send, MessageCircle, Clock, User, Bot, Volume2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import InterviewVoiceAnalyzer from '@/components/interview/InterviewVoiceAnalyzer';
@@ -51,13 +52,34 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Enhanced hooks
+  // Use dynamic WebSocket URL based on current location
+  const wsUrl = `wss://axdwgxtukqqzupboojmx.functions.supabase.co/interview-bot`;
+  
   const { 
     isConnected, 
     connectionState, 
     lastMessage, 
     sendMessage: sendWebSocketMessage,
     retry: retryConnection
-  } = useInterviewWebSocket(sessionId || undefined);
+  } = useInterviewWebSocket(sessionId || undefined, wsUrl);
+
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced auto-scroll logic
+  const scrollToBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  }, []);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
+  }, [messages, scrollToBottom]);
 
   const {
     canRecover,
@@ -533,8 +555,9 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
       {/* Messages */}
       <Card>
         <CardContent className="p-4">
-          <div className="space-y-4 h-[500px] overflow-y-auto border rounded-lg p-3">
-            {messages.map((message, index) => (
+          <ScrollArea className="h-[500px] border rounded-lg p-4 mb-4 bg-muted/5" ref={scrollAreaRef}>
+            <div className="space-y-4" id="messages-container">
+              {messages.map((message, index) => (
               <div
                 key={index}
                 className={`flex gap-3 ${
@@ -567,6 +590,7 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
             ))}
             <div ref={messagesEndRef} />
           </div>
+        </ScrollArea>
         </CardContent>
       </Card>
 
@@ -603,8 +627,12 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
                 disabled={mode === 'voice' && !isConnected}
                 size="lg"
                 variant={audioProcessing.isRecording ? 'destructive' : 'default'}
-                className={`w-20 h-20 rounded-full transition-all ${
-                  audioProcessing.isRecording ? 'animate-pulse bg-red-500 hover:bg-red-600' : ''
+                className={`w-20 h-20 rounded-full transition-all duration-300 ${
+                  audioProcessing.isRecording 
+                    ? 'bg-red-500 text-white shadow-lg scale-105 animate-pulse' 
+                    : audioProcessing.isProcessing
+                    ? 'bg-yellow-500 text-white'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
                 }`}
               >
                 {audioProcessing.isRecording ? (
@@ -615,7 +643,7 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
               </Button>
               <div className="flex flex-col items-center gap-2">
                 <p className="text-sm text-muted-foreground">
-                  {audioProcessing.isRecording ? 'Recording... Click to stop' : 'Click to start recording'}
+                  {audioProcessing.isRecording ? 'Recording... Click to stop' : audioProcessing.isProcessing ? 'Processing...' : 'Click to start recording'}
                 </p>
                 {mode === 'voice' && !isConnected && (
                   <p className="text-xs text-red-500">

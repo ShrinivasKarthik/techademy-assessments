@@ -10,7 +10,7 @@ export interface InterviewWebSocketMessage {
   error?: string;
 }
 
-export const useInterviewWebSocket = (sessionId?: string) => {
+export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isConnected, setIsConnected] = useState(false);
@@ -28,14 +28,14 @@ export const useInterviewWebSocket = (sessionId?: string) => {
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN || !sessionId) return;
 
-    const wsUrl = getWebSocketUrl();
+    const wsUrlToUse = wsUrl || getWebSocketUrl();
     setConnectionState('connecting');
     
     try {
-      wsRef.current = new WebSocket(wsUrl);
+      wsRef.current = new WebSocket(wsUrlToUse);
 
       wsRef.current.onopen = () => {
-        console.log('Interview WebSocket connected');
+        console.log('Interview WebSocket connected to:', wsUrlToUse);
         setIsConnected(true);
         setConnectionState('connected');
         reconnectAttempts.current = 0;
@@ -110,7 +110,7 @@ export const useInterviewWebSocket = (sessionId?: string) => {
         variant: "destructive",
       });
     }
-  }, [sessionId, user?.id, toast, getWebSocketUrl]);
+  }, [sessionId, user?.id, toast, getWebSocketUrl, wsUrl]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

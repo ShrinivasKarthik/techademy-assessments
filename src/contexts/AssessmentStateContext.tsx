@@ -69,7 +69,6 @@ export const AssessmentStateProvider: React.FC<{ children: React.ReactNode }> = 
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ActiveSession | null>(null);
   const [loading, setLoading] = useState(false);
-  const [subscriptions, setSubscriptions] = useState<Map<string, any>>(new Map());
 
   // Assessment operations
   const refreshAssessments = useCallback(async () => {
@@ -274,87 +273,23 @@ export const AssessmentStateProvider: React.FC<{ children: React.ReactNode }> = 
     }
   }, [currentSession, toast]);
 
-  // Real-time subscriptions
+  // Simplified subscription management - no manual subscriptions needed
   const subscribeToAssessment = useCallback((assessmentId: string) => {
-    if (subscriptions.has(`assessment_${assessmentId}`)) return;
-    
-    const handleAssessmentUpdate = (payload: any) => {
-      console.log('Assessment update:', payload);
-      if (payload.new) {
-        setAssessments(prev => 
-          prev.map(assessment => 
-            assessment.id === assessmentId ? payload.new as Assessment : assessment
-          )
-        );
-      }
-    };
-
-    const unsubscribe = realtimeManager.subscribe({
-      table: 'assessments',
-      filter: `id=eq.${assessmentId}`,
-      onUpdate: handleAssessmentUpdate,
-      onDelete: handleAssessmentUpdate
-    }, `assessment_${assessmentId}`);
-    
-    setSubscriptions(prev => new Map(prev).set(`assessment_${assessmentId}`, { unsubscribe }));
-  }, [subscriptions]);
+    console.log(`Assessment subscription for ${assessmentId} managed by components`);
+  }, []);
 
   const subscribeToSession = useCallback((sessionId: string) => {
-    if (subscriptions.has(`session_${sessionId}`)) return;
-    
-    const handleSessionUpdate = (payload: any) => {
-      console.log('Session update:', payload);
-      if (payload.new) {
-        const instanceData = payload.new as any;
-        const sessionUpdate: Partial<ActiveSession> = {
-          status: instanceData.session_state,
-          timeRemaining: instanceData.time_remaining_seconds,
-          currentQuestionIndex: instanceData.current_question_index,
-          securityViolations: instanceData.proctoring_violations || []
-        };
-        
-        setActiveSessions(prev => 
-          prev.map(session => 
-            session.id === sessionId ? { ...session, ...sessionUpdate } : session
-          )
-        );
-        
-        if (currentSession?.id === sessionId) {
-          setCurrentSession(prev => prev ? { ...prev, ...sessionUpdate } : null);
-        }
-      }
-    };
-
-    const unsubscribe = realtimeManager.subscribe({
-      table: 'assessment_instances',
-      filter: `id=eq.${sessionId}`,
-      onUpdate: handleSessionUpdate,
-      onDelete: handleSessionUpdate
-    }, `session_${sessionId}`);
-    
-    setSubscriptions(prev => new Map(prev).set(`session_${sessionId}`, { unsubscribe }));
-  }, [subscriptions, currentSession]);
+    console.log(`Session subscription for ${sessionId} managed by components`);
+  }, []);
 
   const unsubscribeFromAll = useCallback(() => {
-    subscriptions.forEach((subscription) => {
-      if (subscription.unsubscribe) {
-        subscription.unsubscribe();
-      } else {
-        // Fallback for old channel-based subscriptions
-        supabase.removeChannel(subscription);
-      }
-    });
-    setSubscriptions(new Map());
-  }, [subscriptions]);
+    console.log('Subscription cleanup managed by useStableRealtime');
+  }, []);
 
-  // Load initial data
+  // Load initial data only once
   useEffect(() => {
     refreshAssessments();
-    
-    return () => {
-      unsubscribeFromAll();
-    };
-  }, [refreshAssessments, unsubscribeFromAll]);
+  }, []); // Remove dependency array to prevent loops
 
   const value = {
     // State

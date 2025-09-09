@@ -63,10 +63,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // Only establish realtime connections for authenticated users
+  // Stable realtime subscriptions - only setup if user is authenticated and profile is loaded
   const shouldEnableRealtime = !!(user && profile);
 
-  const assessmentRealtime = useStableRealtime({
+  // Use a single conditional hook setup to prevent subscription loops
+  useStableRealtime({
     table: 'assessments',
     onUpdate: shouldEnableRealtime ? (payload) => {
       if (payload.new.status === 'published' && payload.old.status !== 'published') {
@@ -82,7 +83,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } : undefined
   });
 
-  const instanceRealtime = useStableRealtime({
+  useStableRealtime({
     table: 'assessment_instances',
     onInsert: shouldEnableRealtime ? (payload) => {
       // Notify instructors when someone starts their assessment
@@ -134,7 +135,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } : undefined
   });
 
-  const evaluationRealtime = useStableRealtime({
+  useStableRealtime({
     table: 'evaluations',
     onInsert: shouldEnableRealtime ? (payload) => {
       // Notify when evaluation is complete
