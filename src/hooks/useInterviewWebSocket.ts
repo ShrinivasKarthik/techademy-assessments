@@ -29,6 +29,7 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN || !sessionId) return;
 
     const wsUrlToUse = wsUrl || getWebSocketUrl();
+    console.log('Attempting to connect to WebSocket:', wsUrlToUse);
     setConnectionState('connecting');
     
     try {
@@ -52,6 +53,7 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
             timestamp: Date.now(),
             sessionId
           };
+          console.log('Sending init message:', initMessage);
           wsRef.current.send(JSON.stringify(initMessage));
         }
       };
@@ -91,13 +93,18 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
 
       wsRef.current.onerror = (error) => {
         console.error('Interview WebSocket error:', error);
+        console.error('WebSocket URL was:', wsUrlToUse);
+        console.error('Session ID:', sessionId);
         setConnectionState('disconnected');
         
-        toast({
-          title: "Connection Error", 
-          description: "Failed to connect to interview service",
-          variant: "destructive",
-        });
+        // Only show error toast if we haven't already exceeded max attempts
+        if (reconnectAttempts.current === 0) {
+          toast({
+            title: "Connection Error", 
+            description: "Failed to connect to interview service. Retrying...",
+            variant: "destructive",
+          });
+        }
       };
 
     } catch (error) {
@@ -110,7 +117,7 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
         variant: "destructive",
       });
     }
-  }, [sessionId, user?.id, toast, getWebSocketUrl, wsUrl]);
+  }, [sessionId, user?.id, toast, getWebSocketUrl, wsUrl])
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

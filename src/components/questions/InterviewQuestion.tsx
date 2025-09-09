@@ -53,7 +53,7 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
 
   // Enhanced hooks
   // Use dynamic WebSocket URL based on current location
-  const wsUrl = `wss://axdwgxtukqqzupboojmx.functions.supabase.co/interview-bot`;
+  const wsUrl = `wss://axdwgxtukqqzupboojmx.functions.supabase.co/functions/v1/interview-bot`;
   
   const { 
     isConnected, 
