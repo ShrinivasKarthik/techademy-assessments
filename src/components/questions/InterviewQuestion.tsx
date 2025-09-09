@@ -3,11 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Send, MessageCircle, Clock, User, Bot, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Send, MessageCircle, Clock, User, Bot, Volume2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import InterviewVoiceAnalyzer from '@/components/interview/InterviewVoiceAnalyzer';
 import InterviewSentimentTracker from '@/components/interview/InterviewSentimentTracker';
 import { supabase } from '@/integrations/supabase/client';
+import { useInterviewWebSocket } from '@/hooks/useInterviewWebSocket';
+import { useInterviewSessionRecovery } from '@/hooks/useInterviewSessionRecovery';
+import { useEnhancedAudioProcessing } from '@/hooks/useEnhancedAudioProcessing';
 
 interface InterviewQuestionProps {
   question: {
@@ -39,18 +42,32 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [mode, setMode] = useState<'text' | 'voice'>('text');
-  const [isConnected, setIsConnected] = useState(false);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced hooks
+  const { 
+    isConnected, 
+    connectionState, 
+    lastMessage, 
+    sendMessage: sendWebSocketMessage,
+    retry: retryConnection
+  } = useInterviewWebSocket(sessionId || undefined);
+
+  const {
+    canRecover,
+    isRecovering,
+    recoverSession,
+    clearRecovery,
+    checkForRecovery
+  } = useInterviewSessionRecovery(question.id, instanceId);
+
+  const audioProcessing = useEnhancedAudioProcessing();
 
   const { toast } = useToast();
 
@@ -120,70 +137,44 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
         variant: "destructive",
       });
     }
-  }, [question.id, instanceId, interviewType, duration, config]);
+  }, [question.id, instanceId, interviewType, duration, config, toast]);
 
-  // Initialize session on mount
+  // Check for recovery on mount and handle recovery flow
   useEffect(() => {
-    initializeSession();
-  }, [initializeSession]);
+    const handleInitialLoad = async () => {
+      const recoveryData = await checkForRecovery();
+      if (recoveryData.canRecover) {
+        toast({
+          title: "Session Available",
+          description: "Found an incomplete interview session. Would you like to continue?",
+        });
+      } else {
+        // No recovery needed, initialize new session
+        initializeSession();
+      }
+    };
 
-  const connectWebSocket = useCallback(() => {
-    if (mode !== 'voice' || !sessionId) return;
+    handleInitialLoad();
+  }, [initializeSession, toast]);
 
-    try {
-      const projectId = 'axdwgxtukqqzupboojmx'; // Your Supabase project ID
-      wsRef.current = new WebSocket(`wss://${projectId}.functions.supabase.co/interview-bot`);
-
-      wsRef.current.onopen = () => {
-        setIsConnected(true);
-        console.log('WebSocket connected');
-        
-        // Send session info
-        wsRef.current?.send(JSON.stringify({
-          type: 'init_session',
-          session_id: sessionId,
-          interview_type: interviewType
-        }));
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'ai_response') {
-            const aiMessage: Message = {
-              speaker: 'assistant',
-              content: data.content,
-              timestamp: new Date(),
-              type: 'text'
-            };
-            setMessages(prev => [...prev, aiMessage]);
-            
-            // Save to database
-            saveMessage(aiMessage);
-          } else if (data.type === 'audio_response') {
-            // Handle audio playback
-            playAudioResponse(data.audio);
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setIsConnected(false);
-      };
-
-      wsRef.current.onclose = () => {
-        setIsConnected(false);
-        console.log('WebSocket disconnected');
-      };
-
-    } catch (error) {
-      console.error('Failed to connect WebSocket:', error);
+  // Handle WebSocket messages
+  useEffect(() => {
+    if (lastMessage && sessionId) {
+      if (lastMessage.type === 'ai_response') {
+        const aiMessage: Message = {
+          speaker: 'assistant',
+          content: lastMessage.data.content,
+          timestamp: new Date(),
+          type: 'text'
+        };
+        setMessages(prev => [...prev, aiMessage]);
+        saveMessage(aiMessage);
+      } else if (lastMessage.type === 'audio_response') {
+        // Handle audio playback
+        playAudioResponse(lastMessage.data.audio);
+      }
     }
-  }, [mode, sessionId, interviewType]);
+  }, [lastMessage, sessionId]);
 
   const saveMessage = async (message: Message) => {
     if (!sessionId) return;
@@ -219,13 +210,15 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
       // Save user message
       await saveMessage(userMessage);
 
-      if (mode === 'voice' && wsRef.current?.readyState === WebSocket.OPEN) {
+      if (mode === 'voice' && isConnected) {
         // Send via WebSocket for voice mode
-        wsRef.current.send(JSON.stringify({
+        sendWebSocketMessage({
           type: 'user_message',
-          content: currentMessage,
-          session_id: sessionId
-        }));
+          data: {
+            content: currentMessage,
+            session_id: sessionId
+          }
+        });
       } else {
         // Use direct API call for text mode
         const { data, error } = await supabase.functions.invoke('interview-bot', {
@@ -261,62 +254,42 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
   };
 
   const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 24000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
+    if (!audioProcessing.hasPermission) {
+      const granted = await audioProcessing.requestPermissions();
+      if (!granted) return;
+    }
 
-      audioContextRef.current = new AudioContext({ sampleRate: 24000 });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      
-      const audioChunks: Blob[] = [];
-
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        
-        // Convert to base64 and send
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64Audio = reader.result?.toString().split(',')[1];
-          if (base64Audio && wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({
-              type: 'audio_message',
-              audio: base64Audio,
-              session_id: sessionId
-            }));
-          }
-        };
-        reader.readAsDataURL(audioBlob);
-      };
-
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-
-    } catch (error) {
-      console.error('Failed to start recording:', error);
+    const success = await audioProcessing.startRecording();
+    if (!success) {
       toast({
-        title: "Recording Error",
-        description: "Failed to access microphone",
+        title: "Recording Failed",
+        description: "Could not start recording. Please check microphone permissions.",
         variant: "destructive",
       });
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
+  const stopRecording = async () => {
+    const audioBlob = await audioProcessing.stopRecording();
+    
+    if (audioBlob && isConnected) {
+      try {
+        const base64Audio = await audioProcessing.convertBlobToBase64(audioBlob);
+        sendWebSocketMessage({
+          type: 'audio_message',
+          data: {
+            audio: base64Audio,
+            session_id: sessionId
+          }
+        });
+      } catch (error) {
+        console.error('Failed to send audio:', error);
+        toast({
+          title: "Audio Error",
+          description: "Failed to send audio message",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -328,13 +301,12 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
         audioArray[i] = audioData.charCodeAt(i);
       }
 
-      if (audioContextRef.current) {
-        const audioBuffer = await audioContextRef.current.decodeAudioData(audioArray.buffer);
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContextRef.current.destination);
-        source.start(0);
-      }
+      const audioContext = new AudioContext();
+      const audioBuffer = await audioContext.decodeAudioData(audioArray.buffer);
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      source.start(0);
     } catch (error) {
       console.error('Failed to play audio:', error);
     }
@@ -391,20 +363,49 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
     }
   };
 
-  // Connect WebSocket when switching to voice mode
+  // Cleanup on unmount
   useEffect(() => {
-    if (mode === 'voice' && sessionId) {
-      connectWebSocket();
-    }
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      audioProcessing.cleanup();
+      if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [mode, sessionId, connectWebSocket]);
+  }, [audioProcessing]);
 
   return (
     <div className="space-y-6">
+      {/* Recovery Notice */}
+      {canRecover && !sessionId && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-orange-600" />
+                <p className="text-sm text-orange-800">
+                  You have an incomplete interview session. Would you like to resume?
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={clearRecovery}
+                  disabled={isRecovering}
+                >
+                  Start New
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={recoverSession}
+                  disabled={isRecovering}
+                >
+                  {isRecovering ? 'Resuming...' : 'Resume'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -446,9 +447,22 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
             <Volume2 className="w-4 h-4 mr-2" />
             Voice
             {mode === 'voice' && (
-              <Badge variant="outline" className="ml-2 text-xs">
-                {isConnected ? 'Connected' : 'Connecting...'}
-              </Badge>
+              <div className="flex items-center gap-1 ml-2">
+                <Badge variant="outline" className="text-xs">
+                  {connectionState === 'connected' ? 'Connected' : 
+                   connectionState === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                </Badge>
+                {connectionState === 'disconnected' && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={retryConnection}
+                    className="h-6 w-6 p-0 ml-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
             )}
           </Button>
         </div>
@@ -523,21 +537,31 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
           ) : (
             <div className="flex flex-col items-center gap-4">
               <Button
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={!isConnected}
+                onClick={audioProcessing.isRecording ? stopRecording : startRecording}
+                disabled={mode === 'voice' && !isConnected}
                 size="lg"
-                variant={isRecording ? 'destructive' : 'default'}
+                variant={audioProcessing.isRecording ? 'destructive' : 'default'}
                 className="w-20 h-20 rounded-full"
               >
-                {isRecording ? (
+                {audioProcessing.isRecording ? (
                   <MicOff className="w-8 h-8" />
                 ) : (
                   <Mic className="w-8 h-8" />
                 )}
               </Button>
-              <p className="text-sm text-muted-foreground">
-                {isRecording ? 'Recording... Click to stop' : 'Click to start recording'}
-              </p>
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-sm text-muted-foreground">
+                  {audioProcessing.isRecording ? 'Recording... Click to stop' : 'Click to start recording'}
+                </p>
+                {audioProcessing.audioLevel > 0 && (
+                  <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-100"
+                      style={{ width: `${audioProcessing.audioLevel * 100}%` }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
@@ -561,8 +585,8 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
         </div>
       )}
 
-      {/* Complete Interview */}
-      <div className="flex justify-center">
+      {/* Complete Interview Button */}
+      <div className="flex justify-center pt-6">
         <Button
           onClick={completeInterview}
           variant="outline"
