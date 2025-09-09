@@ -27,7 +27,7 @@ serve(async (req) => {
         assessment_id,
         started_at,
         questions_answered,
-        assessments!inner(duration_minutes)
+        assessments!assessment_instances_assessment_id_fkey(duration_minutes)
       `)
       .eq('status', 'in_progress');
 

@@ -405,12 +405,11 @@ const AdminDashboard: React.FC = () => {
 
       {/* Detailed Management */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
-          <TabsTrigger value="results">Results</TabsTrigger>
           <TabsTrigger value="proctoring">Proctoring</TabsTrigger>
         </TabsList>
 
@@ -519,10 +518,6 @@ const AdminDashboard: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="results" className="space-y-4">
-          <AdminResultsDashboard />
         </TabsContent>
 
         <TabsContent value="proctoring">
@@ -753,27 +748,17 @@ const AdminResultsDashboard: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                Assessment Results Management
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                View and manage all assessment submissions, scores, and proctoring data
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Assessment Results Management
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  View and manage all assessment submissions, scores, and proctoring data
+                </p>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={cleanupStuckAssessments} variant="outline" className="gap-2">
-                <AlertTriangle className="w-4 h-4" />
-                Cleanup Stuck
-              </Button>
-              <Button onClick={triggerBatchEvaluation} className="gap-2">
-                <Zap className="w-4 h-4" />
-                Evaluate Pending
-              </Button>
-            </div>
-          </div>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-6">
