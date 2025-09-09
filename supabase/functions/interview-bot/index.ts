@@ -89,6 +89,11 @@ function handleWebSocketConnection(req: Request) {
 
   socket.onopen = () => {
     console.log('WebSocket connection opened');
+    // Send connection confirmation
+    socket.send(JSON.stringify({ 
+      type: 'connection_confirmed',
+      timestamp: new Date().toISOString()
+    }));
   };
 
   socket.onmessage = async (event) => {
@@ -97,9 +102,16 @@ function handleWebSocketConnection(req: Request) {
       console.log('WebSocket message received:', data);
 
       if (data.type === 'init_session') {
-        sessionId = data.session_id;
-        interviewType = data.interview_type || 'behavioral';
+        sessionId = data.data?.sessionId || data.session_id;
+        interviewType = data.data?.interview_type || data.interview_type || 'behavioral';
         console.log(`Session initialized: ${sessionId}, type: ${interviewType}`);
+        
+        // Send initialization confirmation
+        socket.send(JSON.stringify({
+          type: 'session_initialized',
+          sessionId: sessionId,
+          interviewType: interviewType
+        }));
         return;
       }
 
@@ -110,15 +122,17 @@ function handleWebSocketConnection(req: Request) {
 
       if (data.type === 'user_message') {
         // Handle text message
-        const response = await processUserMessage(data.content, sessionId, interviewType);
+        const message = data.data?.content || data.content;
+        const response = await processUserMessage(message, sessionId, interviewType);
         socket.send(JSON.stringify({
           type: 'ai_response',
-          content: response
+          data: { content: response }
         }));
 
       } else if (data.type === 'audio_message') {
         // Handle audio message - convert to text first then process
-        const transcript = await transcribeAudio(data.audio);
+        const audioData = data.data?.audio || data.audio;
+        const transcript = await transcribeAudio(audioData);
         if (transcript) {
           const response = await processUserMessage(transcript, sessionId, interviewType);
           
@@ -127,13 +141,13 @@ function handleWebSocketConnection(req: Request) {
           
           socket.send(JSON.stringify({
             type: 'ai_response',
-            content: response
+            data: { content: response }
           }));
 
           if (audioResponse) {
             socket.send(JSON.stringify({
               type: 'audio_response',
-              audio: audioResponse
+              data: { audio: audioResponse }
             }));
           }
         }

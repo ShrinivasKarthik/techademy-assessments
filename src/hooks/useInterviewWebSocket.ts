@@ -21,7 +21,7 @@ export const useInterviewWebSocket = (sessionId?: string) => {
   const maxReconnectAttempts = 5;
 
   const getWebSocketUrl = useCallback(() => {
-    return `wss://axdwgxtukqqzupboojmx.functions.supabase.co/interview-bot`;
+    return `wss://axdwgxtukqqzupboojmx.functions.supabase.co/functions/v1/interview-bot`;
   }, []);
 
   const connect = useCallback(() => {
@@ -45,7 +45,8 @@ export const useInterviewWebSocket = (sessionId?: string) => {
             type: 'init_session',
             data: { 
               sessionId, 
-              userId: user?.id 
+              userId: user?.id,
+              interview_type: 'behavioral'
             },
             timestamp: Date.now(),
             sessionId

@@ -1,5 +1,11 @@
 project_id = "axdwgxtukqqzupboojmx"
 
+[functions.interview-bot]
+verify_jwt = false
+
+[functions.interview-intelligence]
+verify_jwt = false
+
 [functions.cleanup-stuck-instances]
 verify_jwt = false
 
