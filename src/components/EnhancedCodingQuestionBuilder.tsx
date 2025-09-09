@@ -259,8 +259,8 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
       const response = await supabase.functions.invoke('generate-test-cases', {
         body: {
           problemDescription: config.description,
-          language: config.language,
-          difficulty: 'medium',
+          language: config.language || 'javascript',
+          difficulty: config.difficulty || 'medium',
           existingTestCases: config.testCases
         }
       });
