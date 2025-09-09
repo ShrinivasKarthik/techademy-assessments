@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Mic, MicOff, Send, MessageCircle, Clock, User, Bot, Volume2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import InterviewVoiceAnalyzer from '@/components/interview/InterviewVoiceAnalyzer';
+import InterviewSentimentTracker from '@/components/interview/InterviewSentimentTracker';
 import { supabase } from '@/integrations/supabase/client';
 
 interface InterviewQuestionProps {
@@ -349,6 +351,26 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
             conversation_log: JSON.stringify(messages)
           })
           .eq('id', sessionId);
+
+        // Auto-trigger comprehensive interview intelligence analysis
+        toast({
+          title: "Processing Interview",
+          description: "Generating comprehensive analysis...",
+        });
+
+        try {
+          await supabase.functions.invoke('interview-intelligence', {
+            body: { session_id: sessionId }
+          });
+          
+          toast({
+            title: "Analysis Complete",
+            description: "Interview insights have been generated",
+          });
+        } catch (analysisError) {
+          console.error('Failed to generate interview analysis:', analysisError);
+          // Don't block completion on analysis failure
+        }
       }
 
       // Complete the question
@@ -520,6 +542,24 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Real-Time Analysis Components */}
+      {sessionId && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <InterviewVoiceAnalyzer 
+            sessionId={sessionId}
+            onMetricsUpdate={(metrics) => {
+              console.log('Voice metrics updated:', metrics);
+            }}
+          />
+          <InterviewSentimentTracker 
+            sessionId={sessionId}
+            onSentimentUpdate={(sentiment) => {
+              console.log('Sentiment updated:', sentiment);
+            }}
+          />
+        </div>
+      )}
 
       {/* Complete Interview */}
       <div className="flex justify-center">

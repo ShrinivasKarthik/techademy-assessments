@@ -47,6 +47,8 @@ import ContextualHelpPage from "./pages/ContextualHelpPage";
 import ResultsPage from "./pages/ResultsPage";
 import AssessmentResultsPage from "./pages/AssessmentResultsPage";
 import AssessmentEvaluationPage from "./pages/AssessmentEvaluationPage";
+import InterviewAnalyticsPage from "./pages/InterviewAnalyticsPage";
+import ConversationIntelligencePage from "./pages/ConversationIntelligencePage";
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 
@@ -246,6 +248,19 @@ const App = () => (
             <Route path="/public/assessment/:token/results" element={<PublicAssessmentResultsPage />} />
             {/* Public evaluation route for both authenticated and anonymous users */}
             <Route path="/assessment/:assessmentId/evaluation/:instanceId" element={<AssessmentEvaluationPage />} />
+            
+            {/* Interview Analytics Routes */}
+            <Route path="/interview-analytics/:sessionId" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <InterviewAnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/conversation-intelligence/:sessionId" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <ConversationIntelligencePage />
+              </ProtectedRoute>
+            } />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

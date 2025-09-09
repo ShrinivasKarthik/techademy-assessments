@@ -21,6 +21,7 @@ import {
   Mic
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import InterviewAnalyticsSection from "@/components/InterviewAnalyticsSection";
 
 interface DetailedResult {
   id: string;
@@ -292,10 +293,11 @@ const AssessmentResultsPage = () => {
 
         {/* Detailed Results Tabs */}
         <Tabs defaultValue="questions" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="questions">Question Breakdown</TabsTrigger>
             <TabsTrigger value="proctoring">Proctoring Report</TabsTrigger>
             <TabsTrigger value="analytics">Performance Analytics</TabsTrigger>
+            <TabsTrigger value="interview">Interview Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="questions" className="space-y-4">
@@ -531,6 +533,10 @@ const AssessmentResultsPage = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="interview" className="space-y-4">
+            <InterviewAnalyticsSection assessmentId={assessmentId} instanceId={instanceId} />
           </TabsContent>
         </Tabs>
       </div>

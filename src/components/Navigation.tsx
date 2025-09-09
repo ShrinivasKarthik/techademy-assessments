@@ -100,7 +100,8 @@ const Navigation = () => {
               { name: "Predictive Analytics", href: "/predictive-analytics", icon: Brain },
               { name: "Learning Paths", href: "/learning-paths", icon: TrendingUp },
               { name: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3 },
-              { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
+              { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp },
+              { name: "Interview Analytics", href: "/advanced-analytics", icon: MessageSquare }
             ]
           },
           {
@@ -157,7 +158,8 @@ const Navigation = () => {
               { name: "Predictive Analytics", href: "/predictive-analytics", icon: Brain },
               { name: "Learning Paths", href: "/learning-paths", icon: TrendingUp },
               { name: "Cohort Analysis", href: "/cohort-analysis", icon: BarChart3 },
-              { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp }
+              { name: "Skills Analytics", href: "/skills-analytics", icon: TrendingUp },
+              { name: "Interview Analytics", href: "/advanced-analytics", icon: MessageSquare }
             ]
           },
           {
