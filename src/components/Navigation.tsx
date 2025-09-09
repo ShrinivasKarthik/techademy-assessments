@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/contexts/AuthContext";
-import { NotificationBell } from "./NotificationSystem";
+import { StableNotificationBell } from "@/components/stable/StableNotificationSystem";
 import { 
   BarChart3, 
   Users, 
@@ -239,7 +239,7 @@ const Navigation = () => {
             
             {user ? (
               <>
-                <NotificationBell />
+                <StableNotificationBell />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
