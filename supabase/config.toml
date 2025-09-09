@@ -1,5 +1,8 @@
 project_id = "axdwgxtukqqzupboojmx"
 
+[functions.re-evaluate-selenium-submissions]
+verify_jwt = false
+
 [functions.evaluate-selenium-code]
 
 [functions.trigger-evaluations]
