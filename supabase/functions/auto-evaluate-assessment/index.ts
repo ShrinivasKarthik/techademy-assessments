@@ -167,9 +167,16 @@ serve(async (req) => {
                 if (question.question_type === 'subjective') {
                   aiScore = await evaluateSubjectiveWithAI(submission, question);
                 } else if (question.question_type === 'coding') {
-                  // Check if this is a Selenium assessment by looking at question config
-                  const isSeleniumQuestion = question.config?.questionType === 'selenium' || 
-                                           question.config?.language === 'selenium' ||
+                  // Check if this is a Selenium assessment by looking at question config and submission content
+                  const isSeleniumQuestion = question.config?.language?.includes('selenium') || 
+                                           question.config?.questionType === 'selenium' ||
+                                           (submission.answer?.files && submission.answer.files.length > 0 &&
+                                            typeof submission.answer.files[0]?.content === 'string' && 
+                                            (submission.answer.files[0].content.includes('WebDriver') || 
+                                             submission.answer.files[0].content.includes('selenium') ||
+                                             submission.answer.files[0].content.includes('driver.find') ||
+                                             submission.answer.files[0].content.includes('By.xpath') ||
+                                             submission.answer.files[0].content.includes('By.id'))) ||
                                            (typeof submission.answer?.code === 'string' && 
                                             (submission.answer.code.includes('WebDriver') || 
                                              submission.answer.code.includes('selenium') ||
@@ -478,11 +485,11 @@ async function evaluateSeleniumWithAI(submission: any, question: any): Promise<{
   try {
     console.log('Starting Selenium evaluation with detailed feedback');
     
-    // Call the evaluate-selenium-code function
+    // Call the evaluate-selenium-code function with proper data structure
     const response = await supabase.functions.invoke('evaluate-selenium-code', {
       body: {
-        code: submission.answer?.code || '',
-        language: submission.answer?.language || 'javascript',
+        code: submission.answer?.files?.[0]?.content || submission.answer?.code || '',
+        language: submission.answer?.files?.[0]?.language || question.config?.language || 'java',
         testCases: question.config?.testCases || [],
         executionMode: 'selenium',
         debugMode: true,
