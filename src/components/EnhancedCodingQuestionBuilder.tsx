@@ -271,8 +271,18 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
 
       const { testCases, starterCodeTemplate, hints } = response.data;
 
+      // Convert AI test cases to the format expected by the component
+      const formattedTestCases = testCases.map((tc: any) => ({
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        description: tc.description,
+        weight: tc.points || 1,
+        isHidden: !tc.isVisible
+      }));
+
       updateConfig({
-        testCases: [...config.testCases, ...testCases],
+        testCases: [...config.testCases, ...formattedTestCases],
         starterCode: config.starterCode || starterCodeTemplate,
         hints: [...(config.hints || []), ...(hints || [])]
       });
