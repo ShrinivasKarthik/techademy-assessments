@@ -321,24 +321,75 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
                   
                    {evaluation?.ai_feedback ? (
                      <div className="mt-3 p-3 bg-muted rounded-lg">
-                       <div className="text-sm space-y-2">
-                         <div>
-                           <strong>AI Feedback:</strong> Evaluated using {evaluation.ai_feedback.evaluation_method} 
-                           {evaluation.ai_feedback.confidence && ` with ${Math.round(evaluation.ai_feedback.confidence * 100)}% confidence`}
-                         </div>
-                         {evaluation.ai_feedback.detailed_feedback && (
-                           <div className="text-xs text-muted-foreground">
-                             {evaluation.ai_feedback.detailed_feedback}
+                       <div className="text-sm space-y-3">
+                         {/* Show Selenium-specific feedback if available */}
+                         {evaluation.ai_feedback.seleniumScore ? (
+                           <div className="space-y-3">
+                             <div>
+                               <strong>Selenium Analysis:</strong> Overall Score {evaluation.ai_feedback.seleniumScore.overallScore}/100
+                             </div>
+                             
+                             {/* Locator Analysis */}
+                             {evaluation.ai_feedback.locatorAnalysis && evaluation.ai_feedback.locatorAnalysis.length > 0 && (
+                               <div className="text-xs">
+                                 <strong>Locator Quality:</strong>
+                                 <ul className="list-disc ml-4 mt-1 space-y-1">
+                                   {evaluation.ai_feedback.locatorAnalysis.slice(0, 3).map((loc: any, i: number) => (
+                                     <li key={i}>
+                                       <code className="bg-gray-100 px-1 rounded text-xs">{loc.locator}</code> - {loc.stability}
+                                       {loc.recommendation && <div className="text-muted-foreground mt-1">{loc.recommendation}</div>}
+                                     </li>
+                                   ))}
+                                 </ul>
+                               </div>
+                             )}
+                             
+                             {/* Best Practice Violations */}
+                             {evaluation.ai_feedback.bestPracticeViolations && evaluation.ai_feedback.bestPracticeViolations.length > 0 && (
+                               <div className="text-xs">
+                                 <strong>Issues Found:</strong>
+                                 <ul className="list-disc ml-4 mt-1">
+                                   {evaluation.ai_feedback.bestPracticeViolations.slice(0, 3).map((violation: string, i: number) => (
+                                     <li key={i} className="text-red-600">{violation}</li>
+                                   ))}
+                                 </ul>
+                               </div>
+                             )}
+                             
+                             {/* Improvements */}
+                             {evaluation.ai_feedback.improvements && evaluation.ai_feedback.improvements.length > 0 && (
+                               <div className="text-xs">
+                                 <strong>Recommendations:</strong>
+                                 <ul className="list-disc ml-4 mt-1">
+                                   {evaluation.ai_feedback.improvements.slice(0, 3).map((improvement: string, i: number) => (
+                                     <li key={i} className="text-green-600">{improvement}</li>
+                                   ))}
+                                 </ul>
+                               </div>
+                             )}
                            </div>
-                         )}
-                         {evaluation.ai_feedback.improvements && evaluation.ai_feedback.improvements.length > 0 && (
-                           <div className="text-xs">
-                             <strong>Improvements:</strong>
-                             <ul className="list-disc ml-4 mt-1">
-                               {evaluation.ai_feedback.improvements.slice(0, 3).map((improvement: string, i: number) => (
-                                 <li key={i}>{improvement}</li>
-                               ))}
-                             </ul>
+                         ) : (
+                           /* Standard AI feedback display */
+                           <div>
+                             <div>
+                               <strong>AI Feedback:</strong> Evaluated using {evaluation.ai_feedback.evaluation_method} 
+                               {evaluation.ai_feedback.confidence && ` with ${Math.round(evaluation.ai_feedback.confidence * 100)}% confidence`}
+                             </div>
+                             {evaluation.ai_feedback.detailed_feedback && (
+                               <div className="text-xs text-muted-foreground">
+                                 {evaluation.ai_feedback.detailed_feedback}
+                               </div>
+                             )}
+                             {evaluation.ai_feedback.improvements && evaluation.ai_feedback.improvements.length > 0 && (
+                               <div className="text-xs">
+                                 <strong>Improvements:</strong>
+                                 <ul className="list-disc ml-4 mt-1">
+                                   {evaluation.ai_feedback.improvements.slice(0, 3).map((improvement: string, i: number) => (
+                                     <li key={i}>{improvement}</li>
+                                   ))}
+                                 </ul>
+                               </div>
+                             )}
                            </div>
                          )}
                        </div>

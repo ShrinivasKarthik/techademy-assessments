@@ -203,7 +203,11 @@ Return a comprehensive analysis as valid JSON:
   console.log('AI Response Content:', aiContent);
 
   try {
-    const result = JSON.parse(aiContent);
+    // Strip markdown code blocks before parsing
+    const cleanContent = aiContent.replace(/^```json\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    console.log('Cleaned AI Content:', cleanContent);
+    
+    const result = JSON.parse(cleanContent);
     
     // Enhance with additional Selenium-specific features
     if (options.debugMode) {
