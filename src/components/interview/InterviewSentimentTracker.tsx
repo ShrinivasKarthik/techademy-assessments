@@ -47,6 +47,32 @@ const InterviewSentimentTracker: React.FC<InterviewSentimentTrackerProps> = ({
     }
   });
 
+  const parseDbSentimentData = (dbData: any): SentimentData => {
+    return {
+      sentimentScore: dbData?.sentiment_score || 0,
+      emotionDetected: dbData?.emotion_detected || 'neutral',
+      confidenceLevel: dbData?.confidence_level || 0,
+      emotionalProgression: Array.isArray(dbData?.emotional_progression) ? 
+        dbData.emotional_progression.filter((item: any) => 
+          item && typeof item === 'object' && 
+          'timestamp' in item && 
+          'sentiment' in item && 
+          'emotion' in item
+        ) : [],
+      toneAnalysis: (dbData?.tone_analysis && typeof dbData.tone_analysis === 'object') ? {
+        professional: dbData.tone_analysis.professional || 0,
+        casual: dbData.tone_analysis.casual || 0,
+        formal: dbData.tone_analysis.formal || 0,
+        enthusiastic: dbData.tone_analysis.enthusiastic || 0
+      } : {
+        professional: 0,
+        casual: 0,
+        formal: 0,
+        enthusiastic: 0
+      }
+    };
+  };
+
   useEffect(() => {
     if (!sessionId) return;
 
@@ -60,19 +86,8 @@ const InterviewSentimentTracker: React.FC<InterviewSentimentTrackerProps> = ({
         .limit(1);
 
       if (data && data.length > 0) {
-        const latest = data[0];
-        setSentimentData({
-          sentimentScore: latest.sentiment_score || 0,
-          emotionDetected: latest.emotion_detected || 'neutral',
-          confidenceLevel: latest.confidence_level || 0,
-          emotionalProgression: Array.isArray(latest.emotional_progression) ? latest.emotional_progression : [],
-          toneAnalysis: (typeof latest.tone_analysis === 'object' && latest.tone_analysis) ? latest.tone_analysis as any : {
-            professional: 0,
-            casual: 0,
-            formal: 0,
-            enthusiastic: 0
-          }
-        });
+        const parsedData = parseDbSentimentData(data[0]);
+        setSentimentData(parsedData);
       }
     };
 
@@ -90,24 +105,13 @@ const InterviewSentimentTracker: React.FC<InterviewSentimentTrackerProps> = ({
           filter: `session_id=eq.${sessionId}`
         },
         (payload) => {
-          const newData = payload.new;
-        const updatedSentiment = {
-          sentimentScore: (newData as any).sentiment_score || 0,
-          emotionDetected: (newData as any).emotion_detected || 'neutral',
-          confidenceLevel: (newData as any).confidence_level || 0,
-          emotionalProgression: Array.isArray((newData as any).emotional_progression) ? (newData as any).emotional_progression : [],
-          toneAnalysis: (typeof (newData as any).tone_analysis === 'object' && (newData as any).tone_analysis) ? (newData as any).tone_analysis : {
-            professional: 0,
-            casual: 0,
-            formal: 0,
-            enthusiastic: 0
-          }
-        };
-          
-          setSentimentData(updatedSentiment);
-          
-          if (onSentimentUpdate) {
-            onSentimentUpdate(updatedSentiment);
+          if (payload.new && typeof payload.new === 'object') {
+            const updatedSentiment = parseDbSentimentData(payload.new);
+            setSentimentData(updatedSentiment);
+            
+            if (onSentimentUpdate) {
+              onSentimentUpdate(updatedSentiment);
+            }
           }
         }
       )

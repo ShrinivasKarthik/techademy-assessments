@@ -61,6 +61,72 @@ const ConversationIntelligenceEngine: React.FC<ConversationIntelligenceEnginePro
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
 
+  const parseDbData = (dbData: any): ConversationIntelligenceData => {
+    return {
+      conversationQualityScore: dbData?.conversation_quality_score || 0,
+      skillsDemonstrated: Array.isArray(dbData?.skills_demonstrated) 
+        ? dbData.skills_demonstrated.filter((item: any) => typeof item === 'string') 
+        : [],
+      communicationPatterns: dbData?.communication_patterns && typeof dbData.communication_patterns === 'object' 
+        ? {
+            averageResponseLength: dbData.communication_patterns.averageResponseLength || 0,
+            questionToAnswerRatio: dbData.communication_patterns.questionToAnswerRatio || 0,
+            topicTransitions: dbData.communication_patterns.topicTransitions || 0,
+            clarificationRequests: dbData.communication_patterns.clarificationRequests || 0
+          }
+        : {
+            averageResponseLength: 0,
+            questionToAnswerRatio: 0,
+            topicTransitions: 0,
+            clarificationRequests: 0
+          },
+      personalityInsights: dbData?.personality_insights && typeof dbData.personality_insights === 'object'
+        ? {
+            communicationStyle: dbData.personality_insights.communicationStyle || 'unknown',
+            confidence: dbData.personality_insights.confidence || 0,
+            analyticalThinking: dbData.personality_insights.analyticalThinking || 0,
+            creativity: dbData.personality_insights.creativity || 0,
+            leadership: dbData.personality_insights.leadership || 0
+          }
+        : {
+            communicationStyle: 'unknown',
+            confidence: 0,
+            analyticalThinking: 0,
+            creativity: 0,
+            leadership: 0
+          },
+      competencyAnalysis: dbData?.competency_analysis && typeof dbData.competency_analysis === 'object'
+        ? {
+            technicalCompetency: dbData.competency_analysis.technicalCompetency || 0,
+            problemSolving: dbData.competency_analysis.problemSolving || 0,
+            teamwork: dbData.competency_analysis.teamwork || 0,
+            adaptability: dbData.competency_analysis.adaptability || 0
+          }
+        : {
+            technicalCompetency: 0,
+            problemSolving: 0,
+            teamwork: 0,
+            adaptability: 0
+          },
+      conversationFlowScore: dbData?.conversation_flow_score || 0,
+      engagementMetrics: dbData?.engagement_metrics && typeof dbData.engagement_metrics === 'object'
+        ? {
+            interactionDensity: dbData.engagement_metrics.interactionDensity || 0,
+            responseTime: dbData.engagement_metrics.responseTime || 0,
+            questionEngagement: dbData.engagement_metrics.questionEngagement || 0
+          }
+        : {
+            interactionDensity: 0,
+            responseTime: 0,
+            questionEngagement: 0
+          },
+      aiInsights: dbData?.ai_insights || {},
+      recommendations: Array.isArray(dbData?.recommendations) 
+        ? dbData.recommendations.filter((item: any) => typeof item === 'string') 
+        : []
+    };
+  };
+
   useEffect(() => {
     const fetchIntelligenceData = async () => {
       try {
@@ -74,58 +140,8 @@ const ConversationIntelligenceEngine: React.FC<ConversationIntelligenceEnginePro
         if (error) {
           console.error('Error fetching conversation intelligence:', error);
         } else if (data && data.length > 0) {
-          const latest = data[0];
-          setIntelligenceData({
-            conversationQualityScore: latest.conversation_quality_score || 0,
-            skillsDemonstrated: Array.isArray(latest.skills_demonstrated) ? latest.skills_demonstrated.filter(item => typeof item === 'string') : [],
-            communicationPatterns: (typeof latest.communication_patterns === 'object' && latest.communication_patterns) ? {
-              averageResponseLength: (latest.communication_patterns as any).averageResponseLength || 0,
-              questionToAnswerRatio: (latest.communication_patterns as any).questionToAnswerRatio || 0,
-              topicTransitions: (latest.communication_patterns as any).topicTransitions || 0,
-              clarificationRequests: (latest.communication_patterns as any).clarificationRequests || 0
-            } : {
-              averageResponseLength: 0,
-              questionToAnswerRatio: 0,
-              topicTransitions: 0,
-              clarificationRequests: 0
-            },
-            personalityInsights: (typeof latest.personality_insights === 'object' && latest.personality_insights) ? {
-              communicationStyle: (latest.personality_insights as any).communicationStyle || 'unknown',
-              confidence: (latest.personality_insights as any).confidence || 0,
-              analyticalThinking: (latest.personality_insights as any).analyticalThinking || 0,
-              creativity: (latest.personality_insights as any).creativity || 0,
-              leadership: (latest.personality_insights as any).leadership || 0
-            } : {
-              communicationStyle: 'unknown',
-              confidence: 0,
-              analyticalThinking: 0,
-              creativity: 0,
-              leadership: 0
-            },
-            competencyAnalysis: (typeof latest.competency_analysis === 'object' && latest.competency_analysis) ? {
-              technicalCompetency: (latest.competency_analysis as any).technicalCompetency || 0,
-              problemSolving: (latest.competency_analysis as any).problemSolving || 0,
-              teamwork: (latest.competency_analysis as any).teamwork || 0,
-              adaptability: (latest.competency_analysis as any).adaptability || 0
-            } : {
-              technicalCompetency: 0,
-              problemSolving: 0,
-              teamwork: 0,
-              adaptability: 0
-            },
-            conversationFlowScore: latest.conversation_flow_score || 0,
-            engagementMetrics: (typeof latest.engagement_metrics === 'object' && latest.engagement_metrics) ? {
-              interactionDensity: (latest.engagement_metrics as any).interactionDensity || 0,
-              responseTime: (latest.engagement_metrics as any).responseTime || 0,
-              questionEngagement: (latest.engagement_metrics as any).questionEngagement || 0
-            } : {
-              interactionDensity: 0,
-              responseTime: 0,
-              questionEngagement: 0
-            },
-            aiInsights: latest.ai_insights || {},
-            recommendations: Array.isArray(latest.recommendations) ? latest.recommendations.filter(item => typeof item === 'string') : []
-          });
+          const parsedData = parseDbData(data[0]);
+          setIntelligenceData(parsedData);
         }
       } catch (error) {
         console.error('Error fetching intelligence data:', error);
@@ -166,43 +182,13 @@ const ConversationIntelligenceEngine: React.FC<ConversationIntelligenceEnginePro
             filter: `session_id=eq.${sessionId}`
           },
           (payload) => {
-            const newData = payload.new;
-            const updatedData = {
-              conversationQualityScore: newData.conversation_quality_score || 0,
-              skillsDemonstrated: Array.isArray(newData.skills_demonstrated) ? newData.skills_demonstrated : [],
-              communicationPatterns: (typeof newData.communication_patterns === 'object' && newData.communication_patterns) ? newData.communication_patterns as any : {
-                averageResponseLength: 0,
-                questionToAnswerRatio: 0,
-                topicTransitions: 0,
-                clarificationRequests: 0
-              },
-              personalityInsights: (typeof newData.personality_insights === 'object' && newData.personality_insights) ? newData.personality_insights as any : {
-                communicationStyle: 'unknown',
-                confidence: 0,
-                analyticalThinking: 0,
-                creativity: 0,
-                leadership: 0
-              },
-              competencyAnalysis: (typeof newData.competency_analysis === 'object' && newData.competency_analysis) ? newData.competency_analysis as any : {
-                technicalCompetency: 0,
-                problemSolving: 0,
-                teamwork: 0,
-                adaptability: 0
-              },
-              conversationFlowScore: newData.conversation_flow_score || 0,
-              engagementMetrics: (typeof newData.engagement_metrics === 'object' && newData.engagement_metrics) ? newData.engagement_metrics as any : {
-                interactionDensity: 0,
-                responseTime: 0,
-                questionEngagement: 0
-              },
-              aiInsights: newData.ai_insights || {},
-              recommendations: Array.isArray(newData.recommendations) ? newData.recommendations : []
-            };
-            
-            setIntelligenceData(updatedData);
-            
-            if (onInsightsUpdate) {
-              onInsightsUpdate(updatedData);
+            if (payload.new && typeof payload.new === 'object') {
+              const updatedData = parseDbData(payload.new);
+              setIntelligenceData(updatedData);
+              
+              if (onInsightsUpdate) {
+                onInsightsUpdate(updatedData);
+              }
             }
           }
         )

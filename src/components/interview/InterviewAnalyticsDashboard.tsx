@@ -52,6 +52,16 @@ const InterviewAnalyticsDashboard: React.FC<InterviewAnalyticsDashboardProps> = 
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkData[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const parseBenchmarkData = (dbData: any[]): BenchmarkData[] => {
+    return dbData.map(item => ({
+      roleType: item.role_type,
+      industry: item.industry,
+      experienceLevel: item.experience_level,
+      benchmarkData: item.benchmark_data,
+      performanceThresholds: item.performance_thresholds
+    }));
+  };
+
   useEffect(() => {
     const fetchAnalyticsData = async () => {
       try {
@@ -77,8 +87,8 @@ const InterviewAnalyticsDashboard: React.FC<InterviewAnalyticsDashboardProps> = 
             timeManagementScore: latest.time_management_score || 0,
             engagementScore: latest.engagement_score || 0,
             performanceData: latest.performance_data || {},
-            improvementAreas: Array.isArray(latest.improvement_areas) ? latest.improvement_areas.filter(item => typeof item === 'string') : [],
-            strengths: Array.isArray(latest.strengths) ? latest.strengths.filter(item => typeof item === 'string') : []
+            improvementAreas: Array.isArray(latest.improvement_areas) ? latest.improvement_areas.filter((item: any) => typeof item === 'string') : [],
+            strengths: Array.isArray(latest.strengths) ? latest.strengths.filter((item: any) => typeof item === 'string') : []
           });
         }
 
@@ -90,8 +100,8 @@ const InterviewAnalyticsDashboard: React.FC<InterviewAnalyticsDashboardProps> = 
 
         if (benchmarkError) {
           console.error('Error fetching benchmarks:', benchmarkError);
-        } else {
-          setBenchmarkData(benchmarks || []);
+        } else if (benchmarks) {
+          setBenchmarkData(parseBenchmarkData(benchmarks));
         }
 
       } catch (error) {
@@ -389,12 +399,14 @@ const InterviewAnalyticsDashboard: React.FC<InterviewAnalyticsDashboardProps> = 
                       <Badge variant="outline">{benchmark.industry}</Badge>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                      {Object.entries(benchmark.benchmarkData).map(([key, value]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="capitalize">{key.replace('_', ' ')}:</span>
-                          <span className="font-medium">{value}%</span>
-                        </div>
-                      ))}
+                      {benchmark.benchmarkData && typeof benchmark.benchmarkData === 'object' && 
+                        Object.entries(benchmark.benchmarkData).map(([key, value]) => (
+                          <div key={key} className="flex justify-between">
+                            <span className="capitalize">{key.replace('_', ' ')}:</span>
+                            <span className="font-medium">{String(value)}%</span>
+                          </div>
+                        ))
+                      }
                     </div>
                   </div>
                 ))}
