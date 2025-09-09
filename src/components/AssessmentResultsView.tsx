@@ -288,8 +288,8 @@ const AssessmentResultsView: React.FC = () => {
         <EnhancedResultsDisplay 
           assessmentId={selectedAssessment}
           instanceId={selectedParticipant.id}
-          assessment={undefined}
-          instance={undefined}
+          assessment={selectedAssessmentData}
+          instance={selectedParticipant}
         />
       </div>
     );

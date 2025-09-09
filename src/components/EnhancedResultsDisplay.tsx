@@ -209,7 +209,7 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
           <CardContent className="p-4 text-center">
             <Clock className="w-8 h-8 text-primary mx-auto mb-2" />
             <div className="text-2xl font-bold">
-              {formatDuration(instance.duration_taken_seconds || 0)}
+              {formatDuration(instance?.duration_taken_seconds || instance?.duration_taken || 0)}
             </div>
             <div className="text-sm text-muted-foreground">Time Taken</div>
           </CardContent>
@@ -219,7 +219,7 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
           <CardContent className="p-4 text-center">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
             <div className="text-2xl font-bold">
-              {instance.questions_answered || evaluations.length}
+              {instance?.questions_answered || evaluations.length}
             </div>
             <div className="text-sm text-muted-foreground">Questions Answered</div>
           </CardContent>
