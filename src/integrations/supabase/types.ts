@@ -508,6 +508,54 @@ export type Database = {
           },
         ]
       }
+      conversation_intelligence: {
+        Row: {
+          ai_insights: Json | null
+          communication_patterns: Json | null
+          competency_analysis: Json | null
+          conversation_flow_score: number | null
+          conversation_quality_score: number | null
+          created_at: string
+          engagement_metrics: Json | null
+          id: string
+          personality_insights: Json | null
+          recommendations: Json | null
+          session_id: string
+          skills_demonstrated: Json | null
+          updated_at: string
+        }
+        Insert: {
+          ai_insights?: Json | null
+          communication_patterns?: Json | null
+          competency_analysis?: Json | null
+          conversation_flow_score?: number | null
+          conversation_quality_score?: number | null
+          created_at?: string
+          engagement_metrics?: Json | null
+          id?: string
+          personality_insights?: Json | null
+          recommendations?: Json | null
+          session_id: string
+          skills_demonstrated?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          ai_insights?: Json | null
+          communication_patterns?: Json | null
+          competency_analysis?: Json | null
+          conversation_flow_score?: number | null
+          conversation_quality_score?: number | null
+          created_at?: string
+          engagement_metrics?: Json | null
+          id?: string
+          personality_insights?: Json | null
+          recommendations?: Json | null
+          session_id?: string
+          skills_demonstrated?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       evaluations: {
         Row: {
           ai_feedback: Json | null
@@ -604,6 +652,93 @@ export type Database = {
         }
         Relationships: []
       }
+      interview_benchmarks: {
+        Row: {
+          benchmark_data: Json
+          created_at: string
+          experience_level: string | null
+          id: string
+          industry: string | null
+          performance_thresholds: Json
+          role_type: string
+          updated_at: string
+        }
+        Insert: {
+          benchmark_data?: Json
+          created_at?: string
+          experience_level?: string | null
+          id?: string
+          industry?: string | null
+          performance_thresholds?: Json
+          role_type: string
+          updated_at?: string
+        }
+        Update: {
+          benchmark_data?: Json
+          created_at?: string
+          experience_level?: string | null
+          id?: string
+          industry?: string | null
+          performance_thresholds?: Json
+          role_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      interview_performance_metrics: {
+        Row: {
+          behavioral_score: number | null
+          communication_score: number | null
+          created_at: string
+          engagement_score: number | null
+          id: string
+          improvement_areas: Json | null
+          overall_score: number | null
+          performance_data: Json | null
+          response_relevance_score: number | null
+          session_id: string
+          strengths: Json | null
+          structure_score: number | null
+          technical_score: number | null
+          time_management_score: number | null
+          updated_at: string
+        }
+        Insert: {
+          behavioral_score?: number | null
+          communication_score?: number | null
+          created_at?: string
+          engagement_score?: number | null
+          id?: string
+          improvement_areas?: Json | null
+          overall_score?: number | null
+          performance_data?: Json | null
+          response_relevance_score?: number | null
+          session_id: string
+          strengths?: Json | null
+          structure_score?: number | null
+          technical_score?: number | null
+          time_management_score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          behavioral_score?: number | null
+          communication_score?: number | null
+          created_at?: string
+          engagement_score?: number | null
+          id?: string
+          improvement_areas?: Json | null
+          overall_score?: number | null
+          performance_data?: Json | null
+          response_relevance_score?: number | null
+          session_id?: string
+          strengths?: Json | null
+          structure_score?: number | null
+          technical_score?: number | null
+          time_management_score?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       interview_responses: {
         Row: {
           content: string
@@ -641,6 +776,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      interview_sentiment_analysis: {
+        Row: {
+          confidence_level: number | null
+          created_at: string
+          emotion_detected: string | null
+          emotional_progression: Json | null
+          id: string
+          response_id: string | null
+          sentiment_score: number
+          session_id: string
+          tone_analysis: Json | null
+          updated_at: string
+        }
+        Insert: {
+          confidence_level?: number | null
+          created_at?: string
+          emotion_detected?: string | null
+          emotional_progression?: Json | null
+          id?: string
+          response_id?: string | null
+          sentiment_score: number
+          session_id: string
+          tone_analysis?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          confidence_level?: number | null
+          created_at?: string
+          emotion_detected?: string | null
+          emotional_progression?: Json | null
+          id?: string
+          response_id?: string | null
+          sentiment_score?: number
+          session_id?: string
+          tone_analysis?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       interview_sessions: {
         Row: {
@@ -692,6 +866,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      interview_voice_metrics: {
+        Row: {
+          clarity_score: number | null
+          confidence_score: number | null
+          created_at: string
+          filler_word_count: number | null
+          id: string
+          metadata: Json | null
+          pause_duration_avg: number | null
+          pause_frequency: number | null
+          response_id: string | null
+          session_id: string
+          speech_rate: number | null
+          voice_quality_score: number | null
+          volume_consistency: number | null
+        }
+        Insert: {
+          clarity_score?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          filler_word_count?: number | null
+          id?: string
+          metadata?: Json | null
+          pause_duration_avg?: number | null
+          pause_frequency?: number | null
+          response_id?: string | null
+          session_id: string
+          speech_rate?: number | null
+          voice_quality_score?: number | null
+          volume_consistency?: number | null
+        }
+        Update: {
+          clarity_score?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          filler_word_count?: number | null
+          id?: string
+          metadata?: Json | null
+          pause_duration_avg?: number | null
+          pause_frequency?: number | null
+          response_id?: string | null
+          session_id?: string
+          speech_rate?: number | null
+          voice_quality_score?: number | null
+          volume_consistency?: number | null
+        }
+        Relationships: []
       }
       proctoring_reports: {
         Row: {
