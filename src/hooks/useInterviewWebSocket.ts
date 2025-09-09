@@ -7,6 +7,7 @@ export interface InterviewWebSocketMessage {
   data: any;
   timestamp: number;
   sessionId?: string;
+  error?: string;
 }
 
 export const useInterviewWebSocket = (sessionId?: string) => {

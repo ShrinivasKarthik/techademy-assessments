@@ -57,6 +57,7 @@ export const useEnhancedAudioProcessing = () => {
 
   const startRecording = useCallback(async (): Promise<boolean> => {
     try {
+      console.log('Starting recording...');
       setState(prev => ({ ...prev, isProcessing: true }));
 
       // Request fresh stream
@@ -70,6 +71,7 @@ export const useEnhancedAudioProcessing = () => {
         }
       });
 
+      console.log('Got media stream:', stream.getAudioTracks());
       streamRef.current = stream;
       audioChunksRef.current = [];
 
@@ -94,18 +96,24 @@ export const useEnhancedAudioProcessing = () => {
 
       levelCheckIntervalRef.current = setInterval(checkAudioLevel, 100);
 
-      // Set up MediaRecorder
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Set up MediaRecorder with better error handling
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+        
+      console.log('Using MIME type:', mimeType);
+      
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
 
       mediaRecorderRef.current.ondataavailable = (event) => {
+        console.log('Audio data chunk received:', event.data.size);
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorderRef.current.onstop = () => {
+        console.log('MediaRecorder stopped');
         setState(prev => ({ ...prev, isRecording: false, isProcessing: false }));
         
         if (levelCheckIntervalRef.current) {
@@ -119,7 +127,7 @@ export const useEnhancedAudioProcessing = () => {
         
         toast({
           title: "Recording Error",
-          description: "Failed to record audio. Please try again.",
+          description: `Recording failed: ${event.error?.message || 'Unknown error'}`,
           variant: "destructive",
         });
         
@@ -127,7 +135,9 @@ export const useEnhancedAudioProcessing = () => {
       };
 
       // Start recording
-      mediaRecorderRef.current.start();
+      mediaRecorderRef.current.start(100); // Collect data every 100ms
+      console.log('Recording started');
+      
       setState(prev => ({ 
         ...prev, 
         isRecording: true, 
@@ -140,9 +150,18 @@ export const useEnhancedAudioProcessing = () => {
     } catch (error) {
       console.error('Failed to start recording:', error);
       
+      let errorMessage = 'Could not access microphone';
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Microphone permission denied. Please allow access and try again.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = 'No microphone found. Please check your device.';
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage = 'Recording not supported in this browser.';
+      }
+      
       toast({
         title: "Recording Failed",
-        description: "Could not access microphone. Please check permissions.",
+        description: errorMessage,
         variant: "destructive",
       });
       

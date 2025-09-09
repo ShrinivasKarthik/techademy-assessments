@@ -160,6 +160,8 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
   // Handle WebSocket messages
   useEffect(() => {
     if (lastMessage && sessionId) {
+      console.log('Processing WebSocket message:', lastMessage);
+      
       if (lastMessage.type === 'ai_response') {
         const aiMessage: Message = {
           speaker: 'assistant',
@@ -167,14 +169,38 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
           timestamp: new Date(),
           type: 'text'
         };
-        setMessages(prev => [...prev, aiMessage]);
+        
+        // Replace the processing placeholder or add new message
+        setMessages(prev => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && lastMsg.speaker === 'user' && lastMsg.content === '[Processing voice message...]') {
+            // Update the processing message with actual transcription if available
+            return [...prev.slice(0, -1), 
+              { ...lastMsg, content: lastMessage.data.transcription || '[Voice message]', type: 'audio' },
+              aiMessage
+            ];
+          }
+          return [...prev, aiMessage];
+        });
+        
         saveMessage(aiMessage);
       } else if (lastMessage.type === 'audio_response') {
         // Handle audio playback
         playAudioResponse(lastMessage.data.audio);
+      } else if (lastMessage.type === 'connection_confirmed') {
+        console.log('WebSocket connection confirmed');
+      } else if (lastMessage.type === 'session_initialized') {
+        console.log('Session initialized:', lastMessage);
+      } else if (lastMessage.type === 'error') {
+        console.error('WebSocket error received:', lastMessage);
+        toast({
+          title: "Voice Error",
+          description: lastMessage.error || "An error occurred with voice processing",
+          variant: "destructive",
+        });
       }
     }
-  }, [lastMessage, sessionId]);
+  }, [lastMessage, sessionId, toast]);
 
   const saveMessage = async (message: Message) => {
     if (!sessionId) return;
@@ -270,26 +296,62 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
   };
 
   const stopRecording = async () => {
+    console.log('Stopping recording...', { isConnected, sessionId });
     const audioBlob = await audioProcessing.stopRecording();
     
-    if (audioBlob && isConnected) {
-      try {
-        const base64Audio = await audioProcessing.convertBlobToBase64(audioBlob);
-        sendWebSocketMessage({
-          type: 'audio_message',
-          data: {
-            audio: base64Audio,
-            session_id: sessionId
-          }
-        });
-      } catch (error) {
-        console.error('Failed to send audio:', error);
-        toast({
-          title: "Audio Error",
-          description: "Failed to send audio message",
-          variant: "destructive",
-        });
+    if (!audioBlob) {
+      console.error('No audio blob received from recording');
+      toast({
+        title: "Recording Error",
+        description: "No audio data was recorded. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Audio blob received:', { size: audioBlob.size, type: audioBlob.type });
+
+    if (!isConnected) {
+      console.error('WebSocket not connected');
+      toast({
+        title: "Connection Error",
+        description: "Not connected to voice service. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const base64Audio = await audioProcessing.convertBlobToBase64(audioBlob);
+      console.log('Sending audio message via WebSocket...');
+      
+      const success = sendWebSocketMessage({
+        type: 'audio_message',
+        data: {
+          audio: base64Audio,
+          session_id: sessionId
+        }
+      });
+
+      if (success) {
+        console.log('Audio message sent successfully');
+        // Add user message placeholder while processing
+        const userMessage: Message = {
+          speaker: 'user',
+          content: '[Processing voice message...]',
+          timestamp: new Date(),
+          type: 'audio'
+        };
+        setMessages(prev => [...prev, userMessage]);
       }
+      
+    } catch (error) {
+      console.error('Failed to send audio:', error);
+      toast({
+        title: "Audio Error",
+        description: `Failed to send audio message: ${error.message}`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -471,7 +533,7 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
       {/* Messages */}
       <Card>
         <CardContent className="p-4">
-          <div className="space-y-4 max-h-96 overflow-y-auto">
+          <div className="space-y-4 h-[500px] overflow-y-auto border rounded-lg p-3">
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -541,7 +603,9 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
                 disabled={mode === 'voice' && !isConnected}
                 size="lg"
                 variant={audioProcessing.isRecording ? 'destructive' : 'default'}
-                className="w-20 h-20 rounded-full"
+                className={`w-20 h-20 rounded-full transition-all ${
+                  audioProcessing.isRecording ? 'animate-pulse bg-red-500 hover:bg-red-600' : ''
+                }`}
               >
                 {audioProcessing.isRecording ? (
                   <MicOff className="w-8 h-8" />
@@ -553,6 +617,11 @@ const InterviewQuestion: React.FC<InterviewQuestionProps> = ({
                 <p className="text-sm text-muted-foreground">
                   {audioProcessing.isRecording ? 'Recording... Click to stop' : 'Click to start recording'}
                 </p>
+                {mode === 'voice' && !isConnected && (
+                  <p className="text-xs text-red-500">
+                    Voice service not connected
+                  </p>
+                )}
                 {audioProcessing.audioLevel > 0 && (
                   <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
                     <div 

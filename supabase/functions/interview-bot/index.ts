@@ -132,24 +132,42 @@ function handleWebSocketConnection(req: Request) {
       } else if (data.type === 'audio_message') {
         // Handle audio message - convert to text first then process
         const audioData = data.data?.audio || data.audio;
+        console.log('Received audio message, transcribing...');
+        
         const transcript = await transcribeAudio(audioData);
+        console.log('Transcription result:', transcript);
+        
         if (transcript) {
           const response = await processUserMessage(transcript, sessionId, interviewType);
           
-          // Generate speech response
-          const audioResponse = await generateSpeechResponse(response);
-          
+          // Send text response with transcription
           socket.send(JSON.stringify({
             type: 'ai_response',
-            data: { content: response }
+            data: { 
+              content: response,
+              transcription: transcript
+            }
           }));
 
-          if (audioResponse) {
-            socket.send(JSON.stringify({
-              type: 'audio_response',
-              data: { audio: audioResponse }
-            }));
+          // Generate speech response
+          try {
+            const audioResponse = await generateSpeechResponse(response);
+            if (audioResponse) {
+              socket.send(JSON.stringify({
+                type: 'audio_response',
+                data: { audio: audioResponse }
+              }));
+            }
+          } catch (speechError) {
+            console.error('Speech generation failed:', speechError);
+            // Continue without audio response
           }
+        } else {
+          console.error('Transcription failed');
+          socket.send(JSON.stringify({
+            type: 'error',
+            error: 'Failed to transcribe audio. Please try again.'
+          }));
         }
       }
 
