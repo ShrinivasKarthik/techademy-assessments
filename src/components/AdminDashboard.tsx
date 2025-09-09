@@ -673,38 +673,6 @@ const AdminResultsDashboard: React.FC = () => {
     }
   };
 
-  const cleanupStuckAssessments = async () => {
-    try {
-      toast({
-        title: "Starting cleanup",
-        description: "Auto-submitting stuck assessments and triggering evaluations...",
-      });
-
-      const { data, error } = await supabase.functions.invoke('cleanup-stuck-assessments');
-
-      if (error) {
-        throw error;
-      }
-
-      const result = data as any;
-      toast({
-        title: "Cleanup completed",
-        description: `Auto-submitted ${result.processed} stuck assessments. Triggered ${result.evaluations_triggered} evaluations.`,
-      });
-
-      // Reload data after cleanup
-      setTimeout(loadResultsData, 2000);
-
-    } catch (error) {
-      console.error('Error during cleanup:', error);
-      toast({
-        title: "Cleanup failed",
-        description: error.message || "Please try again later.",
-        variant: "destructive"
-      });
-    }
-  };
-
   const filteredResults = results.filter(result => {
     const matchesSearch = result.assessmentTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          result.participantEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||

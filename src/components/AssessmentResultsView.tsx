@@ -16,7 +16,8 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -185,6 +186,40 @@ const AssessmentResultsView: React.FC = () => {
     return <Badge className="bg-red-100 text-red-800">Low</Badge>;
   };
 
+  const cleanupStuckAssessments = async () => {
+    try {
+      toast({
+        title: "Starting cleanup",
+        description: "Auto-submitting stuck assessments and triggering evaluations...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('cleanup-stuck-assessments');
+
+      if (error) {
+        throw error;
+      }
+
+      const result = data as any;
+      toast({
+        title: "Cleanup completed",
+        description: `Auto-submitted ${result.processed} stuck assessments. Triggered ${result.evaluations_triggered} evaluations.`,
+      });
+
+      // Reload results if an assessment is selected
+      if (selectedAssessment) {
+        setTimeout(loadAssessmentResults, 2000);
+      }
+
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      toast({
+        title: "Cleanup failed",
+        description: error.message || "Please try again later.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredParticipants = participants.filter(p =>
     p.participant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.participant_email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -255,6 +290,10 @@ const AssessmentResultsView: React.FC = () => {
             <div className="flex items-center justify-between">
               <CardTitle>Participant Results</CardTitle>
               <div className="flex gap-2">
+                <Button onClick={cleanupStuckAssessments} variant="outline" size="sm" className="gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Cleanup Stuck
+                </Button>
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input

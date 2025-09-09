@@ -18,7 +18,6 @@ import PublicAssessmentPage from "./pages/PublicAssessmentPage";
 import PublicAssessmentResultsPage from "./pages/PublicAssessmentResultsPage";
 import AssessmentAnalyticsPage from "./pages/AssessmentAnalyticsPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
-import AdminResultsPage from "./pages/AdminResultsPage";
 import MonitoringPage from "./pages/MonitoringPage";
 import ProctoringPage from "./pages/ProctoringPage";
 import AdvancedAnalyticsPage from "./pages/AdvancedAnalyticsPage";
@@ -109,11 +108,6 @@ const App = () => (
             <Route path="/admin" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboardPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/results" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AdminResultsPage />
               </ProtectedRoute>
             } />
             <Route path="/instructor/students" element={
