@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -255,35 +256,33 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
     }
 
     try {
-      // This would call an AI service to generate test cases
-      const generatedTestCases: TestCase[] = [
-        {
-          id: Date.now().toString(),
-          input: '[]',
-          expectedOutput: '[]',
-          description: 'Empty input case',
-          weight: 1,
-          isHidden: false
-        },
-        {
-          id: (Date.now() + 1).toString(),
-          input: '[1, 2, 3]',
-          expectedOutput: '[1, 2, 3]',
-          description: 'Basic test case',
-          weight: 2,
-          isHidden: false
+      const response = await supabase.functions.invoke('generate-test-cases', {
+        body: {
+          problemDescription: config.description,
+          language: config.language,
+          difficulty: 'medium',
+          existingTestCases: config.testCases
         }
-      ];
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const { testCases, starterCodeTemplate, hints } = response.data;
 
       updateConfig({
-        testCases: [...config.testCases, ...generatedTestCases]
+        testCases: [...config.testCases, ...testCases],
+        starterCode: config.starterCode || starterCodeTemplate,
+        hints: [...(config.hints || []), ...(hints || [])]
       });
 
       toast({
         title: "Test Cases Generated",
-        description: `Added ${generatedTestCases.length} AI-generated test cases`
+        description: `Generated ${testCases.length} comprehensive test cases with AI assistance.`
       });
     } catch (error: any) {
+      console.error('Test case generation error:', error);
       toast({
         title: "Generation Failed",
         description: error.message,
