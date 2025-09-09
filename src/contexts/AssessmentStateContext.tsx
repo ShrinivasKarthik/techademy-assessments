@@ -4,7 +4,6 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { useStableRealtime } from '@/hooks/useStableRealtime';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { realtimeManager } from '@/hooks/useRealtimeConnectionManager';
 
 // Types for centralized state
 interface ActiveSession {

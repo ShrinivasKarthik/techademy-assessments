@@ -4,8 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { AssessmentStateProvider } from "@/contexts/AssessmentStateContext";
-import { NotificationProvider } from "@/components/NotificationSystem";
+import { StableAssessmentStateProvider } from "@/components/stable/StableAssessmentStateProvider";
+import { StableNotificationProvider } from "@/components/stable/StableNotificationSystem";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
@@ -58,8 +58,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <AssessmentStateProvider>
-          <NotificationProvider>
+        <StableAssessmentStateProvider>
+          <StableNotificationProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -265,8 +265,8 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-      </NotificationProvider>
-    </AssessmentStateProvider>
+      </StableNotificationProvider>
+    </StableAssessmentStateProvider>
   </AuthProvider>
   </TooltipProvider>
 </QueryClientProvider>
