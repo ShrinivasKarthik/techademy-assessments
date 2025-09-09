@@ -74,10 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }, 0);
         } else {
           setProfile(null);
-          // Redirect to auth page when user signs out
-          if (event === 'SIGNED_OUT') {
-            window.location.href = '/auth';
-          }
+          // Note: Navigation to auth page is handled by ProtectedRoute components
         }
         
         setLoading(false);

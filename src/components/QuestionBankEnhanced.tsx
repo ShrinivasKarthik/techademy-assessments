@@ -124,7 +124,7 @@ const QuestionBankEnhanced = () => {
             questions={filteredQuestions}
             onQuestionsUpdated={() => {
               // Refetch questions after batch operations
-              window.location.reload();
+              fetchQuestions();
             }}
           />
         </TabsContent>

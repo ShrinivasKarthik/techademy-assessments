@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { useEnhancedCodeExecution } from '@/hooks/useEnhancedCodeExecution';
 import { useToast } from '@/hooks/use-toast';
+import { useFormPersistence } from '@/hooks/useFormPersistence';
+import { useNavigationProtection } from '@/hooks/useNavigationProtection';
 
 interface TestCase {
   id: string;
@@ -76,7 +78,7 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
     executionHistory
   } = useEnhancedCodeExecution();
 
-  const [config, setConfig] = useState<CodingQuestionConfig>({
+  const defaultConfig: CodingQuestionConfig = {
     title: '',
     description: '',
     language: 'javascript',
@@ -91,6 +93,17 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
       memoryMB: 128
     },
     ...initialConfig
+  };
+
+  const { formData: config, updateFormData: updateConfig, isDirty, forceSave, clearPersistedData } = useFormPersistence(
+    defaultConfig,
+    { key: 'coding-question-builder', enabled: true }
+  );
+
+  const { protectedNavigate, clearProtection } = useNavigationProtection({
+    enabled: isDirty,
+    message: 'You have unsaved changes to your question. Are you sure you want to leave?',
+    onNavigation: forceSave
   });
 
   const [activeTab, setActiveTab] = useState('basic');
@@ -99,9 +112,6 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [optimizations, setOptimizations] = useState<any[]>([]);
 
-  const updateConfig = (updates: Partial<CodingQuestionConfig>) => {
-    setConfig(prev => ({ ...prev, ...updates }));
-  };
 
   const addTestCase = () => {
     const newTestCase: TestCase = {
@@ -399,6 +409,10 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
     }
 
     onSave(config);
+    
+    // Clear form persistence and navigation protection after successful save
+    clearPersistedData();
+    clearProtection();
     
     toast({
       title: "Question Saved",

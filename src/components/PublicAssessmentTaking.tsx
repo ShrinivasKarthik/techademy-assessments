@@ -618,11 +618,16 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
           durationTaken={instantResults.durationTaken}
           shareUrl={instantResults.shareUrl}
           onViewFullResults={() => {
-            window.location.href = instantResults.shareUrl;
+            if (instantResults.shareUrl) {
+              window.open(instantResults.shareUrl, '_blank');
+            }
           }}
           onRetakeAssessment={() => {
-            // Refresh to start a new attempt
-            window.location.reload();
+            // Reset state to start a new attempt
+            setCurrentQuestionIndex(0);
+            setAnswers({});
+            setInstantResults(null);
+            setTimeRemaining(assessment?.duration_minutes ? assessment.duration_minutes * 60 : 0);
           }}
         />
       );
@@ -637,11 +642,16 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
           shareUrl={instantResults.shareUrl}
           proctoringData={proctoringData}
           onViewFullResults={() => {
-            window.location.href = instantResults.shareUrl;
+            if (instantResults.shareUrl) {
+              window.open(instantResults.shareUrl, '_blank');
+            }
           }}
           onRetakeAssessment={() => {
-            // Refresh to start a new attempt
-            window.location.reload();
+            // Reset state to start a new attempt
+            setCurrentQuestionIndex(0);
+            setAnswers({});
+            setInstantResults(null);
+            setTimeRemaining(assessment?.duration_minutes ? assessment.duration_minutes * 60 : 0);
           }}
         />
       );

@@ -85,10 +85,16 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => window.location.reload()}
+                  onClick={() => {
+                    // Reset the error boundary state
+                    this.setState({ hasError: false, error: null });
+                    // Force a re-render by updating key
+                    window.location.hash = Math.random().toString();
+                    window.location.hash = '';
+                  }}
                   className="flex-1"
                 >
-                  Refresh Page
+                  Reset Component
                 </Button>
               </div>
             </CardContent>
