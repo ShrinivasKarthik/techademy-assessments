@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.trigger-evaluation]
 verify_jwt = false
+
+[functions.cleanup-stuck-assessments]
+verify_jwt = false
