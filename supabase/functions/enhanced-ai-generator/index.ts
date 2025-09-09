@@ -18,6 +18,7 @@ serve(async (req) => {
   }
 
   try {
+    const requestBody = await req.json();
     const { 
       type, 
       skills = [], 
@@ -25,8 +26,9 @@ serve(async (req) => {
       count = 1, 
       context = '',
       assessmentContext = null,
-      questionType = null
-    } = await req.json();
+      questionType = null,
+      questionData = null
+    } = requestBody;
 
     console.log('Enhanced AI Generator Request:', { type, skills, difficulty, count, context, questionType });
 
@@ -51,7 +53,6 @@ serve(async (req) => {
       results = await generateSkillTargetedQuestion(skills, difficulty, context, supabase, userId, questionType);
     } else if (type === 'auto_tag') {
       // Auto-tag existing questions with skills
-      const { questionData } = await req.json();
       results = await autoTagQuestion(questionData);
     } else if (type === 'recommend_questions') {
       // Recommend questions based on assessment context
