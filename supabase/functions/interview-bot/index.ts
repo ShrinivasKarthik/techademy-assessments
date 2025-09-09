@@ -90,10 +90,14 @@ function handleWebSocketConnection(req: Request) {
   socket.onopen = () => {
     console.log('WebSocket connection opened');
     // Send connection confirmation
-    socket.send(JSON.stringify({ 
-      type: 'connection_confirmed',
-      timestamp: new Date().toISOString()
-    }));
+    try {
+      socket.send(JSON.stringify({ 
+        type: 'connection_confirmed',
+        timestamp: new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error('Error sending connection confirmation:', error);
+    }
   };
 
   socket.onmessage = async (event) => {
@@ -102,7 +106,7 @@ function handleWebSocketConnection(req: Request) {
       console.log('WebSocket message received:', data);
 
       if (data.type === 'init_session') {
-        sessionId = data.data?.sessionId || data.session_id;
+        sessionId = data.data?.sessionId || data.sessionId;
         interviewType = data.data?.interview_type || data.interview_type || 'behavioral';
         console.log(`Session initialized: ${sessionId}, type: ${interviewType}`);
         
@@ -110,13 +114,17 @@ function handleWebSocketConnection(req: Request) {
         socket.send(JSON.stringify({
           type: 'session_initialized',
           sessionId: sessionId,
-          interviewType: interviewType
+          interviewType: interviewType,
+          status: 'ready'
         }));
         return;
       }
 
       if (!sessionId) {
-        socket.send(JSON.stringify({ error: 'Session not initialized' }));
+        socket.send(JSON.stringify({ 
+          type: 'error',
+          error: 'Session not initialized. Please send init_session first.' 
+        }));
         return;
       }
 
@@ -173,7 +181,14 @@ function handleWebSocketConnection(req: Request) {
 
     } catch (error) {
       console.error('WebSocket message error:', error);
-      socket.send(JSON.stringify({ error: error.message }));
+      try {
+        socket.send(JSON.stringify({ 
+          type: 'error',
+          error: error.message || 'An unexpected error occurred'
+        }));
+      } catch (sendError) {
+        console.error('Failed to send error message:', sendError);
+      }
     }
   };
 
@@ -181,8 +196,11 @@ function handleWebSocketConnection(req: Request) {
     console.error('WebSocket error:', error);
   };
 
-  socket.onclose = () => {
-    console.log('WebSocket connection closed');
+  socket.onclose = (event) => {
+    console.log('WebSocket connection closed:', event.code, event.reason);
+    if (sessionId) {
+      console.log(`Session ${sessionId} connection closed`);
+    }
   };
 
   return response;
