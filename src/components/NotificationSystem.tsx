@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRealtimeV2 } from '@/hooks/useRealtime';
+import { useStableRealtime } from '@/hooks/useStableRealtime';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -66,7 +66,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Only establish realtime connections for authenticated users
   const shouldEnableRealtime = !!(user && profile);
 
-  const assessmentRealtime = useRealtimeV2({
+  const assessmentRealtime = useStableRealtime({
     table: 'assessments',
     onUpdate: shouldEnableRealtime ? (payload) => {
       if (payload.new.status === 'published' && payload.old.status !== 'published') {
@@ -82,7 +82,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } : undefined
   });
 
-  const instanceRealtime = useRealtimeV2({
+  const instanceRealtime = useStableRealtime({
     table: 'assessment_instances',
     onInsert: shouldEnableRealtime ? (payload) => {
       // Notify instructors when someone starts their assessment
@@ -134,7 +134,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } : undefined
   });
 
-  const evaluationRealtime = useRealtimeV2({
+  const evaluationRealtime = useStableRealtime({
     table: 'evaluations',
     onInsert: shouldEnableRealtime ? (payload) => {
       // Notify when evaluation is complete

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { realtimeManager } from '@/hooks/useRealtimeConnectionManager';
 
 // Types for centralized state
 interface ActiveSession {
@@ -277,76 +278,71 @@ export const AssessmentStateProvider: React.FC<{ children: React.ReactNode }> = 
   const subscribeToAssessment = useCallback((assessmentId: string) => {
     if (subscriptions.has(`assessment_${assessmentId}`)) return;
     
-    const channel = supabase
-      .channel(`assessment_${assessmentId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'assessments',
-          filter: `id=eq.${assessmentId}`
-        },
-        (payload) => {
-          console.log('Assessment update:', payload);
-          if (payload.new) {
-            setAssessments(prev => 
-              prev.map(assessment => 
-                assessment.id === assessmentId ? payload.new as Assessment : assessment
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
+    const handleAssessmentUpdate = (payload: any) => {
+      console.log('Assessment update:', payload);
+      if (payload.new) {
+        setAssessments(prev => 
+          prev.map(assessment => 
+            assessment.id === assessmentId ? payload.new as Assessment : assessment
+          )
+        );
+      }
+    };
+
+    const unsubscribe = realtimeManager.subscribe({
+      table: 'assessments',
+      filter: `id=eq.${assessmentId}`,
+      onUpdate: handleAssessmentUpdate,
+      onDelete: handleAssessmentUpdate
+    }, `assessment_${assessmentId}`);
     
-    setSubscriptions(prev => new Map(prev).set(`assessment_${assessmentId}`, channel));
+    setSubscriptions(prev => new Map(prev).set(`assessment_${assessmentId}`, { unsubscribe }));
   }, [subscriptions]);
 
   const subscribeToSession = useCallback((sessionId: string) => {
     if (subscriptions.has(`session_${sessionId}`)) return;
     
-    const channel = supabase
-      .channel(`session_${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'assessment_instances',
-          filter: `id=eq.${sessionId}`
-        },
-        (payload) => {
-          console.log('Session update:', payload);
-          if (payload.new) {
-            const instanceData = payload.new as any;
-            const sessionUpdate: Partial<ActiveSession> = {
-              status: instanceData.session_state,
-              timeRemaining: instanceData.time_remaining_seconds,
-              currentQuestionIndex: instanceData.current_question_index,
-              securityViolations: instanceData.proctoring_violations || []
-            };
-            
-            setActiveSessions(prev => 
-              prev.map(session => 
-                session.id === sessionId ? { ...session, ...sessionUpdate } : session
-              )
-            );
-            
-            if (currentSession?.id === sessionId) {
-              setCurrentSession(prev => prev ? { ...prev, ...sessionUpdate } : null);
-            }
-          }
+    const handleSessionUpdate = (payload: any) => {
+      console.log('Session update:', payload);
+      if (payload.new) {
+        const instanceData = payload.new as any;
+        const sessionUpdate: Partial<ActiveSession> = {
+          status: instanceData.session_state,
+          timeRemaining: instanceData.time_remaining_seconds,
+          currentQuestionIndex: instanceData.current_question_index,
+          securityViolations: instanceData.proctoring_violations || []
+        };
+        
+        setActiveSessions(prev => 
+          prev.map(session => 
+            session.id === sessionId ? { ...session, ...sessionUpdate } : session
+          )
+        );
+        
+        if (currentSession?.id === sessionId) {
+          setCurrentSession(prev => prev ? { ...prev, ...sessionUpdate } : null);
         }
-      )
-      .subscribe();
+      }
+    };
+
+    const unsubscribe = realtimeManager.subscribe({
+      table: 'assessment_instances',
+      filter: `id=eq.${sessionId}`,
+      onUpdate: handleSessionUpdate,
+      onDelete: handleSessionUpdate
+    }, `session_${sessionId}`);
     
-    setSubscriptions(prev => new Map(prev).set(`session_${sessionId}`, channel));
+    setSubscriptions(prev => new Map(prev).set(`session_${sessionId}`, { unsubscribe }));
   }, [subscriptions, currentSession]);
 
   const unsubscribeFromAll = useCallback(() => {
-    subscriptions.forEach((channel) => {
-      supabase.removeChannel(channel);
+    subscriptions.forEach((subscription) => {
+      if (subscription.unsubscribe) {
+        subscription.unsubscribe();
+      } else {
+        // Fallback for old channel-based subscriptions
+        supabase.removeChannel(subscription);
+      }
     });
     setSubscriptions(new Map());
   }, [subscriptions]);
