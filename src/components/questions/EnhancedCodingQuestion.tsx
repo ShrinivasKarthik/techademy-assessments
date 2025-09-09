@@ -114,7 +114,11 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
     { value: 'cpp', label: 'C++', extension: 'cpp' },
     { value: 'html', label: 'HTML', extension: 'html' },
     { value: 'css', label: 'CSS', extension: 'css' },
-    { value: 'json', label: 'JSON', extension: 'json' }
+    { value: 'json', label: 'JSON', extension: 'json' },
+    { value: 'selenium-java', label: 'Selenium + Java', extension: 'java' },
+    { value: 'selenium-python', label: 'Selenium + Python', extension: 'py' },
+    { value: 'selenium-csharp', label: 'Selenium + C#', extension: 'cs' },
+    { value: 'selenium-javascript', label: 'Selenium + JavaScript', extension: 'js' }
   ];
 
   // Helper functions
@@ -370,6 +374,59 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
     setIsRunning(true);
     
     try {
+      // Check if this is a Selenium test
+      const isSeleniumTest = language.startsWith('selenium-') || 
+        activeFile.content.toLowerCase().includes('webdriver') ||
+        activeFile.content.toLowerCase().includes('selenium');
+
+      if (isSeleniumTest) {
+        // Use Selenium-specific evaluation
+        toast({
+          title: "Running Selenium Analysis",
+          description: "Analyzing web automation code with Selenium expertise...",
+        });
+
+        const seleniumResponse = await supabase.functions.invoke('evaluate-selenium-code', {
+          body: {
+            code: activeFile.content,
+            language: activeFile.language || language,
+            testCases: question.config.testCases?.filter(tc => !tc.isHidden) || [],
+            executionMode: 'selenium',
+            debugMode: false,
+            performanceAnalysis: true
+          }
+        });
+
+        if (seleniumResponse?.error) {
+          throw new Error(`Selenium analysis failed: ${seleniumResponse.error.message}`);
+        }
+
+        const seleniumResult = seleniumResponse?.data;
+        
+        // Convert Selenium results to standard format
+        const processedResults = seleniumResult?.testResults?.map((result: any) => ({
+          passed: result.passed,
+          input: result.scenario,
+          expectedOutput: 'Web automation scenario completed',
+          actualOutput: result.simulatedResult,
+          executionTime: result.executionTime,
+          confidence: result.confidence,
+          debuggingHints: [`Web elements: ${result.webElementsFound?.join(', ')}`]
+        })) || [];
+
+        setTestResults(processedResults);
+
+        const passedCount = processedResults.filter((r: any) => r.passed).length;
+        const totalCount = processedResults.length;
+        
+        toast({
+          title: "Selenium Analysis Complete",
+          description: `${passedCount}/${totalCount} scenarios passed. Selenium Score: ${seleniumResult?.seleniumScore?.overallScore || 0}/100`,
+          variant: passedCount === totalCount && passedCount > 0 ? "default" : "destructive"
+        });
+        
+        return;
+      }
       // Step 1: Code Analysis with timeout
       toast({
         title: "Running AI Analysis",
