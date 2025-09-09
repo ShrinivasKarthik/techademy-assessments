@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Code, FileText, Upload, Mic, HelpCircle, Sparkles } from 'lucide-react';
+import { Plus, X, Code, FileText, Upload, Mic, HelpCircle, Sparkles, MessageCircle } from 'lucide-react';
 import AdvancedCodingQuestionBuilder from './questions/AdvancedCodingQuestionBuilder';
+import InterviewBuilder from './EnhancedQuestionBuilders/InterviewBuilder';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -53,6 +54,12 @@ interface QuestionConfig {
     maxDurationSeconds: number;
     allowRerecording: boolean;
     instructions: string;
+  };
+  interview?: {
+    interview_type: 'technical' | 'behavioral' | 'situational';
+    duration_minutes: number;
+    instructions: string;
+    evaluation_criteria: string[];
   };
 }
 
@@ -492,6 +499,8 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
         return <Upload className="w-5 h-5" />;
       case 'audio':
         return <Mic className="w-5 h-5" />;
+      case 'interview':
+        return <MessageCircle className="w-5 h-5" />;
       default:
         return <HelpCircle className="w-5 h-5" />;
     }
@@ -509,9 +518,27 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
         return 'File Upload Configuration';
       case 'audio':
         return 'Audio Response Configuration';
+      case 'interview':
+        return 'Interview Configuration';
       default:
         return 'Question Configuration';
     }
+  };
+
+  const renderInterviewBuilder = () => {
+    const interviewConfig = (config && config.interview_type) ? config : {
+      interview_type: 'behavioral',
+      duration_minutes: 30,
+      instructions: '',
+      evaluation_criteria: []
+    };
+
+    return (
+      <InterviewBuilder
+        config={interviewConfig}
+        onConfigChange={onConfigChange}
+      />
+    );
   };
 
   const renderBuilder = () => {
@@ -526,6 +553,8 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
         return renderFileUploadBuilder();
       case 'audio':
         return renderAudioBuilder();
+      case 'interview':
+        return renderInterviewBuilder();
       default:
         return <div>Select a question type to configure</div>;
     }

@@ -26,6 +26,7 @@ import SubjectiveQuestion from './questions/SubjectiveQuestion';
 import EnhancedCodingQuestion from './questions/EnhancedCodingQuestion';
 import FileUploadQuestion from './questions/FileUploadQuestion';
 import AudioQuestion from './questions/AudioQuestion';
+import InterviewQuestion from './questions/InterviewQuestion';
 
 interface Question {
   id: string;
@@ -592,6 +593,12 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
         return <FileUploadQuestion {...questionProps} />;
       case 'audio':
         return <AudioQuestion {...questionProps} />;
+      case 'interview':
+        return <InterviewQuestion 
+          {...questionProps} 
+          instanceId={instance?.id} 
+          onComplete={(answer: any) => saveAnswer(question.id, answer)}
+        />;
       default:
         return <div>Unsupported question type: {question.question_type}</div>;
     }
