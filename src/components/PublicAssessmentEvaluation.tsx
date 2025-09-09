@@ -17,6 +17,7 @@ import {
   Mic
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useStableRealtime } from '@/hooks/useStableRealtime';
 import { useToast } from '@/hooks/use-toast';
 
 interface PublicAssessmentEvaluationProps {
@@ -87,46 +88,32 @@ const PublicAssessmentEvaluation: React.FC<PublicAssessmentEvaluationProps> = ({
 
   const setupRealtimeSubscriptions = () => {
     // Subscribe to evaluation updates
-    const evaluationsChannel = supabase
-      .channel('public_evaluations')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'evaluations'
-        },
-        (payload) => {
-          updateProgress();
-        }
-      )
-      .subscribe();
+  // Real-time subscriptions using useStableRealtime
+  useStableRealtime({
+    table: 'evaluations',
+    onInsert: () => {
+      updateProgress();
+    }
+  });
 
-    // Subscribe to instance updates
-    const instanceChannel = supabase
-      .channel('public_instance')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'assessment_instances',
-          filter: `id=eq.${instanceId}`
-        },
-        (payload) => {
-          if (payload.new.status === 'evaluated') {
-            setIsComplete(true);
-            setTotalScore(payload.new.total_score || 0);
-            setEvaluationProgress(100);
-          }
-        }
-      )
-      .subscribe();
+  useStableRealtime({
+    table: 'assessment_instances',
+    filter: `id=eq.${instanceId}`,
+    onUpdate: (payload) => {
+      if (payload.new.status === 'evaluated') {
+        setIsComplete(true);
+        setTotalScore(payload.new.total_score || 0);
+        setEvaluationProgress(100);
+      }
+    }
+  });
 
+  const setupRealtimeSubscriptions = () => {
+    // Subscriptions now handled by useStableRealtime hooks above
     return () => {
-      supabase.removeChannel(evaluationsChannel);
-      supabase.removeChannel(instanceChannel);
+      // Cleanup handled by useStableRealtime
     };
+  };
   };
 
   const updateProgress = async () => {

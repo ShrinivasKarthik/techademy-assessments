@@ -12,7 +12,7 @@ import {
   Brain, Zap, Bell, MapPin, Battery, Signal
 } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { useRealtime } from '@/hooks/useRealtime';
+import { useStableRealtime } from '@/hooks/useStableRealtime';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -96,7 +96,19 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
   const { isConnected, lastMessage, sendMessage, connect, disconnect } = useWebSocket();
 
   // Supabase real-time subscriptions
-  const { subscribe, unsubscribe } = useRealtime();
+  const { isConnected: realtimeConnected } = useStableRealtime({
+    table: 'assessment_instances',
+    onUpdate: (payload) => {
+      loadInitialSessions();
+    }
+  });
+
+  useStableRealtime({
+    table: 'proctoring_sessions',
+    onUpdate: (payload) => {
+      handleProctoringUpdate(payload.new);
+    }
+  });
 
   useEffect(() => {
     if (isMonitoring) {
@@ -119,22 +131,8 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
       // Initialize enhanced monitoring systems
       connect();
       
-      // Subscribe to assessment instances
-      subscribe({
-        channel: 'assessment-monitoring',
-        table: 'assessment_instances',
-        filter: 'status=in.("in_progress","proctoring_check")',
-        callback: handleAssessmentUpdate
-      });
-
-      // Subscribe to proctoring sessions
-      subscribe({
-        channel: 'proctoring-monitoring', 
-        table: 'proctoring_sessions',
-        filter: 'status=eq.active',
-        callback: handleProctoringUpdate
-      });
-
+      // Real-time subscriptions now handled by useStableRealtime hooks above
+      
       // Load initial data
       await loadInitialSessions();
       
@@ -155,14 +153,13 @@ const EnhancedRealTimeMonitoring: React.FC = () => {
         variant: "destructive"
       });
     }
-  }, [connect, subscribe]);
+  }, [connect]);
 
   const stopMonitoring = useCallback(() => {
     disconnect();
-    unsubscribe('assessment-monitoring');
-    unsubscribe('proctoring-monitoring');
+    // Real-time subscriptions cleanup is handled by useStableRealtime
     setIsMonitoring(false);
-  }, [disconnect, unsubscribe]);
+  }, [disconnect]);
 
   const loadInitialSessions = async () => {
     // Load active sessions with enhanced data

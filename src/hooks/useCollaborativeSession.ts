@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useStableRealtime } from './useStableRealtime';
 
 export interface CollaborativeUser {
   id: string;
@@ -267,44 +268,40 @@ export const useCollaborativeSession = (assessmentId: string) => {
     }));
   }, [user, profile, sessionId]);
 
-  // Set up real-time subscriptions for database changes
-  useEffect(() => {
-    if (!sessionId) return;
+  // Real-time subscriptions using useStableRealtime
+  useStableRealtime({
+    table: 'collaborative_comments',
+    filter: `session_id=eq.${sessionId}`,
+    onInsert: (payload) => {
+      console.log('Comment inserted:', payload);
+      // Handle real-time comment updates from database
+    },
+    onUpdate: (payload) => {
+      console.log('Comment updated:', payload);
+      // Handle real-time comment updates from database  
+    },
+    onDelete: (payload) => {
+      console.log('Comment deleted:', payload);
+      // Handle real-time comment updates from database
+    }
+  });
 
-    const channel = supabase
-      .channel(`collaborative_session_${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'collaborative_comments',
-          filter: `session_id=eq.${sessionId}`
-        },
-        (payload) => {
-          console.log('Comment change:', payload);
-          // Handle real-time comment updates from database
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'collaborators',
-          filter: `session_id=eq.${sessionId}`
-        },
-        (payload) => {
-          console.log('Collaborator change:', payload);
-          // Handle real-time collaborator updates from database
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [sessionId]);
+  useStableRealtime({
+    table: 'collaborators',
+    filter: `session_id=eq.${sessionId}`,
+    onInsert: (payload) => {
+      console.log('Collaborator joined:', payload);
+      // Handle real-time collaborator updates from database
+    },
+    onUpdate: (payload) => {
+      console.log('Collaborator updated:', payload);
+      // Handle real-time collaborator updates from database
+    },
+    onDelete: (payload) => {
+      console.log('Collaborator left:', payload);
+      // Handle real-time collaborator updates from database
+    }
+  });
 
   // Auto-connect when component mounts
   useEffect(() => {

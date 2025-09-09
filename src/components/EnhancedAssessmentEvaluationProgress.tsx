@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useEvaluationRecovery } from '@/hooks/useEvaluationRecovery';
+import { useStableRealtime } from '@/hooks/useStableRealtime';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { EvaluationSkeletonCard } from '@/components/ui/skeleton-loader';
 import { ProgressRing } from '@/components/ui/progress-ring';
@@ -328,60 +329,43 @@ const EnhancedAssessmentEvaluationProgress: React.FC<EnhancedAssessmentEvaluatio
     }
   };
 
+  // Real-time subscriptions using useStableRealtime
+  useStableRealtime({
+    table: 'evaluations',
+    onInsert: () => {
+      console.log('New evaluation received');
+      updateEvaluationProgress();
+    }
+  });
+
+  useStableRealtime({
+    table: 'assessment_instances',
+    filter: `id=eq.${instanceId}`,
+    onUpdate: (payload) => {
+      console.log('Instance status updated:', payload);
+      setInstance(payload.new);
+      
+      // Handle evaluation status changes
+      if (payload.new.evaluation_status === 'completed') {
+        updateEvaluationProgress();
+        clearProgress(instanceId);
+        
+        // Haptic feedback on mobile
+        if ('vibrate' in navigator) {
+          navigator.vibrate([200, 100, 200]);
+        }
+      }
+      
+      if (payload.new.evaluation_status === 'failed') {
+        setError('Evaluation failed. Please try again.');
+      }
+    }
+  });
+
   const setupRealtimeSubscriptions = () => {
-    // Subscribe to evaluations table for real-time updates
-    const evaluationsChannel = supabase
-      .channel('evaluations-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'evaluations'
-        },
-        () => {
-          console.log('New evaluation received');
-          updateEvaluationProgress();
-        }
-      )
-      .subscribe();
-
-    // Subscribe to assessment_instances for status updates
-    const instanceChannel = supabase
-      .channel('instance-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'assessment_instances',
-          filter: `id=eq.${instanceId}`
-        },
-        (payload) => {
-          console.log('Instance status updated:', payload);
-          setInstance(payload.new);
-          
-          // Handle evaluation status changes
-          if (payload.new.evaluation_status === 'completed') {
-            updateEvaluationProgress();
-            clearProgress(instanceId);
-            
-            // Haptic feedback on mobile
-            if ('vibrate' in navigator) {
-              navigator.vibrate([200, 100, 200]);
-            }
-          }
-          
-          if (payload.new.evaluation_status === 'failed') {
-            setError('Evaluation failed. Please try again.');
-          }
-        }
-      )
-      .subscribe();
-
+    // Subscriptions now handled by useStableRealtime hooks above
     return () => {
-      supabase.removeChannel(evaluationsChannel);
-      supabase.removeChannel(instanceChannel);
+      // Cleanup handled by useStableRealtime
     };
   };
 

@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useEvaluationRecovery } from '@/hooks/useEvaluationRecovery';
+import { useStableRealtime } from '@/hooks/useStableRealtime';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { EvaluationSkeletonCard } from '@/components/ui/skeleton-loader';
 import { ProgressRing } from '@/components/ui/progress-ring';
@@ -225,43 +226,26 @@ const AssessmentEvaluationProgress: React.FC<AssessmentEvaluationProgressProps> 
     }
   };
 
+  // Real-time subscriptions using useStableRealtime
+  useStableRealtime({
+    table: 'evaluations',
+    onInsert: (payload) => {
+      handleEvaluationUpdate(payload.new);
+    }
+  });
+
+  useStableRealtime({
+    table: 'assessment_instances',
+    filter: `id=eq.${instanceId}`,
+    onUpdate: (payload) => {
+      handleInstanceUpdate(payload.new);
+    }
+  });
+
   const setupRealtimeSubscriptions = () => {
-    // Subscribe to evaluation updates
-    const evaluationsChannel = supabase
-      .channel('evaluations_progress')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'evaluations'
-        },
-        (payload) => {
-          handleEvaluationUpdate(payload.new);
-        }
-      )
-      .subscribe();
-
-    // Subscribe to instance updates
-    const instanceChannel = supabase
-      .channel('instance_progress')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'assessment_instances',
-          filter: `id=eq.${instanceId}`
-        },
-        (payload) => {
-          handleInstanceUpdate(payload.new);
-        }
-      )
-      .subscribe();
-
+    // Subscriptions now handled by useStableRealtime hooks above
     return () => {
-      supabase.removeChannel(evaluationsChannel);
-      supabase.removeChannel(instanceChannel);
+      // Cleanup handled by useStableRealtime
     };
   };
 

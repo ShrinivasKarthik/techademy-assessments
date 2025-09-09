@@ -4,6 +4,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Mic, Volume2, Clock, TrendingUp, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useStableRealtime } from '@/hooks/useStableRealtime';
 
 interface VoiceMetrics {
   speechRate: number;
@@ -45,47 +46,35 @@ const InterviewVoiceAnalyzer: React.FC<InterviewVoiceAnalyzerProps> = ({
   useEffect(() => {
     if (!sessionId) return;
 
-    // Subscribe to real-time voice metrics updates
-    const channel = supabase
-      .channel('voice-metrics-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'interview_voice_metrics',
-          filter: `session_id=eq.${sessionId}`
-        },
-        (payload) => {
-          const newMetrics = payload.new;
-          setVoiceMetrics({
-            speechRate: newMetrics.speech_rate || 0,
-            pauseFrequency: newMetrics.pause_frequency || 0,
-            volumeConsistency: newMetrics.volume_consistency || 0,
-            clarityScore: newMetrics.clarity_score || 0,
-            confidenceScore: newMetrics.confidence_score || 0,
-            fillerWordCount: newMetrics.filler_word_count || 0,
-            voiceQualityScore: newMetrics.voice_quality_score || 0
-          });
-          
-          if (onMetricsUpdate) {
-            onMetricsUpdate({
-              speechRate: newMetrics.speech_rate || 0,
-              pauseFrequency: newMetrics.pause_frequency || 0,
-              volumeConsistency: newMetrics.volume_consistency || 0,
-              clarityScore: newMetrics.clarity_score || 0,
-              confidenceScore: newMetrics.confidence_score || 0,
-              fillerWordCount: newMetrics.filler_word_count || 0,
-              voiceQualityScore: newMetrics.voice_quality_score || 0
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+  // Real-time subscription for voice analysis updates  
+  useStableRealtime({
+    table: 'interview_voice_metrics',
+    filter: `session_id=eq.${sessionId}`,
+    onInsert: (payload) => {
+      const newMetrics = payload.new;
+      setVoiceMetrics({
+        speechRate: newMetrics.speech_rate || 0,
+        pauseFrequency: newMetrics.pause_frequency || 0,
+        volumeConsistency: newMetrics.volume_consistency || 0,
+        clarityScore: newMetrics.clarity_score || 0,
+        confidenceScore: newMetrics.confidence_score || 0,
+        fillerWordCount: newMetrics.filler_word_count || 0,
+        voiceQualityScore: newMetrics.voice_quality_score || 0
+      });
+      
+      if (onMetricsUpdate) {
+        onMetricsUpdate({
+          speechRate: newMetrics.speech_rate || 0,
+          pauseFrequency: newMetrics.pause_frequency || 0,
+          volumeConsistency: newMetrics.volume_consistency || 0,
+          clarityScore: newMetrics.clarity_score || 0,
+          confidenceScore: newMetrics.confidence_score || 0,
+          fillerWordCount: newMetrics.filler_word_count || 0,
+          voiceQualityScore: newMetrics.voice_quality_score || 0
+        });
+      }
+    }
+  });
   }, [sessionId, onMetricsUpdate]);
 
   const getScoreColor = (score: number) => {

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRealtime } from '@/hooks/useRealtime';
+import { useStableRealtime } from '@/hooks/useStableRealtime';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useToast } from '@/hooks/use-toast';
 import AssessmentMonitoringStatus from './AssessmentMonitoringStatus';
@@ -75,8 +75,19 @@ const LiveMonitoring: React.FC = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   
-  // Real-time subscription hooks
-  const { subscribe, unsubscribe, isConnected } = useRealtime();
+  // Real-time subscription hooks  
+  const { isConnected } = useStableRealtime({
+    table: 'assessment_instances',
+    onInsert: (payload) => {
+      loadActiveParticipants();
+    },
+    onUpdate: (payload) => {
+      loadActiveParticipants();
+    },
+    onDelete: (payload) => {
+      loadActiveParticipants();
+    }
+  });
   
   // WebSocket for live monitoring
   const webSocketUrl = isConnected ? 'wss://axdwgxtukqqzupboojmx.supabase.co/realtime/v1/websocket' : undefined;
@@ -264,35 +275,13 @@ const LiveMonitoring: React.FC = () => {
     setStats(newStats);
   };
 
-  // Set up real-time subscriptions
+  // Real-time subscriptions now handled by useStableRealtime above
   useEffect(() => {
     if (isConnected && monitoringStatus === 'active') {
-      const subscriptionId = subscribe({
-        channel: 'assessment_monitoring',
-        table: 'assessment_instances',
-        callback: (payload) => {
-          console.log('Assessment instance update:', payload);
-          loadActiveParticipants();
-        }
-      });
-
-      const proctoringSubscriptionId = subscribe({
-        channel: 'proctoring_monitoring',
-        table: 'proctoring_sessions',
-        callback: (payload) => {
-          console.log('Proctoring session update:', payload);
-          if (payload.eventType === 'UPDATE' && payload.new) {
-            updateParticipantFromProctoringData(payload.new);
-          }
-        }
-      });
-
-      return () => {
-        if (subscriptionId) unsubscribe(subscriptionId);
-        if (proctoringSubscriptionId) unsubscribe(proctoringSubscriptionId);
-      };
+      // Load initial participants when monitoring becomes active
+      loadActiveParticipants();
     }
-  }, [isConnected, monitoringStatus, subscribe, unsubscribe]);
+  }, [isConnected, monitoringStatus]);
 
   const updateParticipantFromProctoringData = (proctoringData: any) => {
     setParticipants(prev => prev.map(participant => {
