@@ -13,7 +13,11 @@ serve(async (req) => {
   }
 
   try {
-    const { problemDescription, language, difficulty, existingTestCases } = await req.json();
+    console.log('=== Test Case Generation Started ===');
+    const requestBody = await req.json();
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+    
+    const { problemDescription, language, difficulty, existingTestCases } = requestBody;
 
     // Enhanced input validation
     if (!problemDescription || !language || !difficulty) {

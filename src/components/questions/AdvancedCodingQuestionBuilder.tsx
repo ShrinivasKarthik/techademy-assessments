@@ -159,23 +159,72 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
 
     setIsGeneratingTestCases(true);
     try {
+      console.log('Generating test cases with params:', {
+        problemDescription: questionDescription,
+        language: config.language,
+        difficulty,
+        existingTestCases: config.testCases?.length || 0
+      });
+
       const response = await supabase.functions.invoke('generate-test-cases', {
         body: {
           problemDescription: questionDescription,
           language: config.language,
           difficulty,
-          existingTestCases: config.testCases
+          existingTestCases: config.testCases || []
         }
       });
 
+      console.log('Raw Supabase response:', response);
+
+      // Check for Supabase function errors first
       if (response.error) {
-        throw new Error(response.error.message);
+        console.error('Supabase function error:', response.error);
+        throw new Error(`Function error: ${response.error.message || response.error}`);
       }
 
-      const { testCases, starterCodeTemplate, hints, commonMistakes, optimizationTips } = response.data;
+      // Check if we got valid data
+      if (!response.data) {
+        console.error('No data in response:', response);
+        throw new Error('No data received from test case generation function');
+      }
 
+      console.log('Response data:', response.data);
+
+      // Handle both direct data and wrapped responses
+      const responseData = response.data;
+      
+      // Check if this is an error response disguised as success
+      if (responseData.error) {
+        console.error('Function returned error:', responseData.error);
+        throw new Error(responseData.error);
+      }
+
+      // Extract the data with fallbacks
+      const testCases = responseData.testCases || [];
+      const starterCodeTemplate = responseData.starterCodeTemplate || '';
+      const hints = responseData.hints || [];
+      const commonMistakes = responseData.commonMistakes || [];
+      const optimizationTips = responseData.optimizationTips || [];
+      const warning = responseData.warning;
+
+      console.log('Extracted data:', {
+        testCasesCount: testCases.length,
+        hasStarterCode: !!starterCodeTemplate,
+        hintsCount: hints.length,
+        mistakesCount: commonMistakes.length,
+        tipsCount: optimizationTips.length,
+        warning
+      });
+
+      // Validate we got actual test cases
+      if (!testCases || testCases.length === 0) {
+        throw new Error('No test cases were generated. Please provide a more specific problem description.');
+      }
+
+      // Update the configuration
       updateConfig({
-        testCases: [...config.testCases, ...testCases],
+        testCases: [...(config.testCases || []), ...testCases],
         starterCode: config.starterCode || starterCodeTemplate,
         hints: [...(config.hints || []), ...hints],
         commonMistakes: [...(config.commonMistakes || []), ...commonMistakes],
@@ -184,13 +233,19 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
 
       toast({
         title: "Test Cases Generated",
-        description: `Generated ${testCases.length} comprehensive test cases with AI assistance.`,
+        description: warning 
+          ? `Generated ${testCases.length} test cases (using fallback template)`
+          : `Generated ${testCases.length} comprehensive test cases with AI assistance.`,
+        variant: warning ? "default" : "default"
       });
+
     } catch (error) {
       console.error('Test case generation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       toast({
         title: "Generation Failed",
-        description: "Could not generate test cases. Please try again.",
+        description: `Could not generate test cases: ${errorMessage}`,
         variant: "destructive"
       });
     } finally {
