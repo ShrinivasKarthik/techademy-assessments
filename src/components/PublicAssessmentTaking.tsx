@@ -162,6 +162,31 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
     return () => clearInterval(autoSaveInterval);
   }, [answers, currentQuestionIndex, timeRemaining]);
 
+  // Window close auto-submission
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Auto-submit if assessment is in progress and has answers
+      if (instance?.status === 'in_progress' && Object.keys(answers).length > 0) {
+        // Use sendBeacon for reliable submission during page unload
+        const submissionData = {
+          instanceId: instance.id,
+          status: 'submitted',
+          submitted_at: new Date().toISOString(),
+          time_remaining_seconds: timeRemaining,
+          duration_taken_seconds: (assessment?.duration_minutes || 60) * 60 - timeRemaining,
+        };
+
+        navigator.sendBeacon(
+          `https://axdwgxtukqqzupboojmx.supabase.co/functions/v1/auto-submit-assessment`,
+          JSON.stringify(submissionData)
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [instance, answers, timeRemaining, assessment]);
+
   const initializeAssessment = async () => {
     try {
       setLoading(true);

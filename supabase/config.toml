@@ -66,5 +66,8 @@ verify_jwt = false
 [functions.auto-evaluate-assessment]
 verify_jwt = false
 
+[functions.auto-submit-assessment]
+verify_jwt = false
+
 [functions.trigger-evaluation]
 verify_jwt = false

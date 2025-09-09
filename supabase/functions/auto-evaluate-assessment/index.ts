@@ -112,8 +112,9 @@ serve(async (req) => {
 
     let totalScore = 0;
     let maxPossibleScore = 0;
+    const evaluationPromises: Promise<void>[] = [];
 
-    // Evaluate each submission
+    // First pass: Evaluate MCQ questions instantly and start AI evaluations in background
     for (const submission of submissions || []) {
       const question = questionMap.get(submission.question_id);
       if (!question) continue;
@@ -137,64 +138,133 @@ serve(async (req) => {
       let score = 0;
       switch (question.question_type) {
         case 'mcq':
+          // MCQ evaluation is instant
           score = evaluateMCQ(submission, question);
+          totalScore += score;
+
+          // Insert evaluation immediately for MCQ
+          await supabase
+            .from('evaluations')
+            .insert({
+              submission_id: submission.id,
+              score: score,
+              max_score: question.points || 0,
+              integrity_score: integrityScore,
+              evaluation_notes: 'Automated MCQ evaluation',
+              evaluated_at: new Date().toISOString()
+            });
           break;
+        
         case 'subjective':
-          if (openAIApiKey) {
-            score = await evaluateSubjectiveWithAI(submission, question);
-          }
-          break;
         case 'coding':
+          // Start AI evaluation in background but don't wait
           if (openAIApiKey) {
-            score = await evaluateCodingWithAI(submission, question);
+            const aiEvaluationPromise = (async () => {
+              try {
+                let aiScore = 0;
+                if (question.question_type === 'subjective') {
+                  aiScore = await evaluateSubjectiveWithAI(submission, question);
+                } else {
+                  aiScore = await evaluateCodingWithAI(submission, question);
+                }
+
+                // Update evaluation with AI score
+                await supabase
+                  .from('evaluations')
+                  .upsert({
+                    submission_id: submission.id,
+                    score: aiScore,
+                    max_score: question.points || 0,
+                    integrity_score: integrityScore,
+                    evaluation_notes: `AI-powered ${question.question_type} evaluation`,
+                    evaluated_at: new Date().toISOString()
+                  });
+
+                // Update total score in instance
+                const { data: currentInstance } = await supabase
+                  .from('assessment_instances')
+                  .select('total_score')
+                  .eq('id', instanceId)
+                  .single();
+
+                if (currentInstance) {
+                  await supabase
+                    .from('assessment_instances')
+                    .update({
+                      total_score: (currentInstance.total_score || 0) + aiScore
+                    })
+                    .eq('id', instanceId);
+                }
+              } catch (error) {
+                console.error(`AI evaluation failed for ${question.question_type} question:`, error);
+                // Insert fallback evaluation with 0 score
+                await supabase
+                  .from('evaluations')
+                  .upsert({
+                    submission_id: submission.id,
+                    score: 0,
+                    max_score: question.points || 0,
+                    integrity_score: integrityScore,
+                    evaluation_notes: `AI evaluation failed, fallback score applied`,
+                    evaluated_at: new Date().toISOString()
+                  });
+              }
+            })();
+            
+            evaluationPromises.push(aiEvaluationPromise);
+          } else {
+            // No AI key, insert 0 score evaluation
+            await supabase
+              .from('evaluations')
+              .insert({
+                submission_id: submission.id,
+                score: 0,
+                max_score: question.points || 0,
+                integrity_score: integrityScore,
+                evaluation_notes: 'Manual evaluation required (no AI key)',
+                evaluated_at: new Date().toISOString()
+              });
           }
           break;
         default:
           console.log(`Skipping evaluation for question type: ${question.question_type}`);
       }
-
-      totalScore += score;
-
-      // Insert evaluation record
-      const { error: evalError } = await supabase
-        .from('evaluations')
-        .insert({
-          submission_id: submission.id,
-          score: score,
-          max_score: question.points || 0,
-          integrity_score: integrityScore,
-          proctoring_notes: proctoringNotes,
-          evaluator_type: 'ai',
-          ai_feedback: {
-            question_type: question.question_type,
-            evaluation_method: question.question_type === 'mcq' ? 'automatic' : 'ai_analysis',
-            timestamp: new Date().toISOString()
-          }
-        });
-
-      if (evalError) {
-        console.error('Error inserting evaluation:', evalError);
-      }
     }
 
-    // Calculate final score with integrity adjustment
-    const finalScore = Math.round((totalScore * (integrityScore / 100)) * 100) / 100;
+    // Apply integrity score to MCQ-only final score
+    const finalScore = Math.round(totalScore * (integrityScore / 100));
 
-    // Update the assessment instance with final scores
+    // Update assessment instance with immediate results (MCQ scores)
     const { error: updateError } = await supabase
       .from('assessment_instances')
       .update({
+        status: 'evaluated',
         total_score: finalScore,
         max_possible_score: maxPossibleScore,
         integrity_score: integrityScore,
-        status: 'evaluated',
-        evaluation_status: 'completed',
-        duration_taken_seconds: Math.round((Date.now() - new Date(instance.started_at).getTime()) / 1000)
+        proctoring_summary: {
+          integrity_score: integrityScore,
+          violations_count: violations.length + securityEvents.length,
+          notes: proctoringNotes
+        },
+        evaluated_at: new Date().toISOString()
       })
       .eq('id', instanceId);
 
     if (updateError) {
-      throw new Error(`Failed to update assessment instance: ${updateError.message}`);
+      console.error('Error updating instance:', updateError);
+      throw updateError;
+    }
+
+    // Process AI evaluations in background
+    if (evaluationPromises.length > 0) {
+      EdgeRuntime.waitUntil(
+        Promise.all(evaluationPromises).then(() => {
+          console.log('Background AI evaluations completed');
+        }).catch(error => {
+          console.error('Background AI evaluations failed:', error);
+        })
+      );
     }
 
     console.log(`Evaluation completed. Score: ${finalScore}/${maxPossibleScore}, Integrity: ${integrityScore}%`);
@@ -202,14 +272,14 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        instanceId,
-        totalScore: finalScore,
+        finalScore,
         maxPossibleScore,
         integrityScore,
-        message: 'Assessment evaluated successfully'
+        evaluationsCreated: (submissions || []).length - evaluatedSubmissionIds.size,
+        backgroundProcessing: evaluationPromises.length > 0
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
 
