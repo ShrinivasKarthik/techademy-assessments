@@ -322,51 +322,51 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
                    {evaluation?.ai_feedback ? (
                      <div className="mt-3 p-3 bg-muted rounded-lg">
                        <div className="text-sm space-y-3">
-                         {/* Show Selenium-specific feedback if available */}
-                         {(evaluation.ai_feedback.seleniumScore || evaluation.ai_feedback.selenium_analysis) ? (
-                           <div className="space-y-3">
-                             <div>
-                               <strong>Selenium Analysis:</strong> Overall Score {evaluation.ai_feedback.seleniumScore?.overallScore || evaluation.ai_feedback.selenium_analysis?.seleniumScore?.overallScore || 0}/100
-                             </div>
-                             
-                             {/* Locator Analysis */}
-                             {(evaluation.ai_feedback.locatorAnalysis || evaluation.ai_feedback.locator_analysis || evaluation.ai_feedback.selenium_analysis?.locatorAnalysis) && (
-                               <div className="text-xs">
-                                 <strong>Locator Quality:</strong>
-                                 <ul className="list-disc ml-4 mt-1 space-y-1">
-                                   {(evaluation.ai_feedback.locatorAnalysis || evaluation.ai_feedback.locator_analysis || evaluation.ai_feedback.selenium_analysis?.locatorAnalysis || []).slice(0, 3).map((loc: any, i: number) => (
-                                     <li key={i}>
-                                       <code className="bg-gray-100 px-1 rounded text-xs">{loc.locator}</code> - {loc.stability}
-                                       {loc.recommendation && <div className="text-muted-foreground mt-1">{loc.recommendation}</div>}
-                                     </li>
-                                   ))}
-                                 </ul>
-                               </div>
-                             )}
-                             
-                             {/* Best Practice Violations */}
-                             {(evaluation.ai_feedback.bestPracticeViolations || evaluation.ai_feedback.selenium_analysis?.bestPracticeViolations) && (
-                               <div className="text-xs">
-                                 <strong>Issues Found:</strong>
-                                 <ul className="list-disc ml-4 mt-1">
-                                   {(evaluation.ai_feedback.bestPracticeViolations || evaluation.ai_feedback.selenium_analysis?.bestPracticeViolations || []).slice(0, 3).map((violation: string, i: number) => (
-                                     <li key={i} className="text-red-600">{violation}</li>
-                                   ))}
-                                 </ul>
-                               </div>
-                             )}
-                             
-                             {/* Improvements */}
-                             {(evaluation.ai_feedback.improvements || evaluation.ai_feedback.selenium_analysis?.improvements) && (
-                               <div className="text-xs">
-                                 <strong>Recommendations:</strong>
-                                 <ul className="list-disc ml-4 mt-1">
-                                   {(evaluation.ai_feedback.improvements || evaluation.ai_feedback.selenium_analysis?.improvements || []).slice(0, 3).map((improvement: string, i: number) => (
-                                     <li key={i} className="text-green-600">{improvement}</li>
-                                   ))}
-                                 </ul>
-                               </div>
-                             )}
+                          {/* Show Selenium-specific feedback if available */}
+                          {evaluation.ai_feedback.selenium_analysis ? (
+                            <div className="space-y-3">
+                              <div>
+                                <strong>Selenium Analysis:</strong> Overall Score {evaluation.ai_feedback.selenium_analysis?.seleniumScore?.overallScore || 0}/100
+                              </div>
+                              
+                              {/* Locator Analysis */}
+                              {(evaluation.ai_feedback.locator_analysis || evaluation.ai_feedback.selenium_analysis?.locatorAnalysis) && (
+                                <div className="text-xs">
+                                  <strong>Locator Quality:</strong>
+                                  <ul className="list-disc ml-4 mt-1 space-y-1">
+                                    {(evaluation.ai_feedback.locator_analysis || evaluation.ai_feedback.selenium_analysis?.locatorAnalysis || []).slice(0, 3).map((loc: any, i: number) => (
+                                      <li key={i}>
+                                        <code className="bg-gray-100 px-1 rounded text-xs">{loc.locator}</code> - {loc.stability}
+                                        {loc.recommendation && <div className="text-muted-foreground mt-1">{loc.recommendation}</div>}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              
+                              {/* Best Practice Violations */}
+                              {evaluation.ai_feedback.selenium_analysis?.bestPracticeViolations && (
+                                <div className="text-xs">
+                                  <strong>Issues Found:</strong>
+                                  <ul className="list-disc ml-4 mt-1">
+                                    {evaluation.ai_feedback.selenium_analysis.bestPracticeViolations.slice(0, 3).map((violation: string, i: number) => (
+                                      <li key={i} className="text-red-600">{violation}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              
+                              {/* Improvements */}
+                              {evaluation.ai_feedback.improvements && evaluation.ai_feedback.improvements.length > 0 && (
+                                <div className="text-xs">
+                                  <strong>Recommendations:</strong>
+                                  <ul className="list-disc ml-4 mt-1">
+                                    {evaluation.ai_feedback.improvements.slice(0, 3).map((improvement: string, i: number) => (
+                                      <li key={i} className="text-green-600">{improvement}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
 
                              {/* Show detailed feedback if available */}
                              {evaluation.ai_feedback.detailed_feedback && (
