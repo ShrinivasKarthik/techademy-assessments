@@ -162,13 +162,30 @@ serve(async (req) => {
             const aiEvaluationPromise = (async () => {
               try {
                 let aiScore = 0;
+                let aiFeedback = null;
+                
                 if (question.question_type === 'subjective') {
                   aiScore = await evaluateSubjectiveWithAI(submission, question);
-                } else {
-                  aiScore = await evaluateCodingWithAI(submission, question);
+                } else if (question.question_type === 'coding') {
+                  // Check if this is a Selenium assessment by looking at question config
+                  const isSeleniumQuestion = question.config?.questionType === 'selenium' || 
+                                           question.config?.language === 'selenium' ||
+                                           (typeof submission.answer?.code === 'string' && 
+                                            (submission.answer.code.includes('WebDriver') || 
+                                             submission.answer.code.includes('selenium') ||
+                                             submission.answer.code.includes('driver.find')));
+                  
+                  if (isSeleniumQuestion) {
+                    console.log(`Evaluating Selenium question ${question.id}`);
+                    const seleniumEvaluation = await evaluateSeleniumWithAI(submission, question);
+                    aiScore = seleniumEvaluation.score;
+                    aiFeedback = seleniumEvaluation.feedback;
+                  } else {
+                    aiScore = await evaluateCodingWithAI(submission, question);
+                  }
                 }
 
-                // Update evaluation with AI score
+                // Update evaluation with AI score and feedback
                 await supabase
                   .from('evaluations')
                   .upsert({
@@ -176,7 +193,8 @@ serve(async (req) => {
                     score: aiScore,
                     max_score: question.points || 0,
                     integrity_score: integrityScore,
-                    evaluation_notes: `AI-powered ${question.question_type} evaluation`,
+                    ai_feedback: aiFeedback,
+                    feedback: aiFeedback ? JSON.stringify(aiFeedback) : `AI-powered ${question.question_type} evaluation`,
                     evaluated_at: new Date().toISOString()
                   });
 
@@ -205,7 +223,7 @@ serve(async (req) => {
                     score: 0,
                     max_score: question.points || 0,
                     integrity_score: integrityScore,
-                    evaluation_notes: `AI evaluation failed, fallback score applied`,
+                    feedback: `AI evaluation failed: ${error.message}`,
                     evaluated_at: new Date().toISOString()
                   });
               }
@@ -221,7 +239,7 @@ serve(async (req) => {
                 score: 0,
                 max_score: question.points || 0,
                 integrity_score: integrityScore,
-                evaluation_notes: 'Manual evaluation required (no AI key)',
+                feedback: 'Manual evaluation required (no AI key)',
                 evaluated_at: new Date().toISOString()
               });
           }
@@ -451,6 +469,59 @@ async function evaluateCodingWithAI(submission: any, question: any): Promise<num
   } catch (error) {
     console.error('Error in AI coding evaluation:', error);
     return 0;
+  }
+}
+
+async function evaluateSeleniumWithAI(submission: any, question: any): Promise<{score: number, feedback: any}> {
+  if (!openAIApiKey) return { score: 0, feedback: null };
+
+  try {
+    console.log('Starting Selenium evaluation with detailed feedback');
+    
+    // Call the evaluate-selenium-code function
+    const response = await supabase.functions.invoke('evaluate-selenium-code', {
+      body: {
+        code: submission.answer?.code || '',
+        language: submission.answer?.language || 'javascript',
+        testCases: question.config?.testCases || [],
+        executionMode: 'selenium',
+        debugMode: true,
+        performanceAnalysis: true
+      }
+    });
+
+    if (response.error) {
+      throw new Error(`Selenium evaluation failed: ${response.error.message}`);
+    }
+
+    const evaluationData = response.data;
+    
+    // Calculate score from Selenium evaluation
+    let score = 0;
+    if (evaluationData.seleniumScore?.overallScore) {
+      // Convert 0-100 scale to question points
+      score = Math.round((evaluationData.seleniumScore.overallScore / 100) * (question.points || 0));
+    }
+
+    console.log(`Selenium evaluation completed. Score: ${score}/${question.points}`);
+
+    return {
+      score,
+      feedback: {
+        evaluation_method: 'selenium_ai',
+        confidence: 0.9,
+        selenium_analysis: evaluationData,
+        detailed_feedback: `Selenium Score: ${evaluationData.seleniumScore?.overallScore || 0}/100. 
+                          Locator Quality: ${evaluationData.seleniumScore?.locatorQuality || 0}/100. 
+                          Test Flow: ${evaluationData.seleniumScore?.testFlow || 0}/100. 
+                          Best Practices: ${evaluationData.seleniumScore?.bestPractices || 0}/100.`,
+        improvements: evaluationData.improvements || [],
+        locator_analysis: evaluationData.locatorAnalysis || []
+      }
+    };
+  } catch (error) {
+    console.error('Error in Selenium evaluation:', error);
+    return { score: 0, feedback: { evaluation_method: 'selenium_ai', error: error.message } };
   }
 }
 
