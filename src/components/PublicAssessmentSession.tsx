@@ -91,6 +91,24 @@ const PublicAssessmentSession: React.FC<PublicAssessmentSessionProps> = ({ share
       console.log('Token being sent:', shareToken);
       console.log('Supabase URL:', 'https://axdwgxtukqqzupboojmx.supabase.co');
       
+      // Step 0: Clean up any stuck instances first
+      try {
+        console.log('=== CLEANING UP STUCK INSTANCES ===');
+        const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('cleanup-stuck-instances', {
+          body: { shareToken },
+        });
+        
+        if (cleanupResult?.success && cleanupResult.cleaned_count > 0) {
+          console.log('Cleanup result:', cleanupResult.message);
+          toast({
+            title: "Cleanup Complete", 
+            description: cleanupResult.message,
+          });
+        }
+      } catch (cleanupErr) {
+        console.log('Cleanup warning (non-critical):', cleanupErr);
+      }
+      
       // Step 1: Fetch assessment data
       const { data, error: fetchError } = await supabase.functions.invoke('take-shared-assessment', {
         body: { token: shareToken },

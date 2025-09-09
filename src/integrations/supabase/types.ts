@@ -1291,6 +1291,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_stuck_assessment_instances: {
+        Args: { p_share_token: string }
+        Returns: {
+          cleaned_count: number
+          message: string
+        }[]
+      }
       find_or_create_anonymous_instance: {
         Args: {
           p_assessment_id: string
