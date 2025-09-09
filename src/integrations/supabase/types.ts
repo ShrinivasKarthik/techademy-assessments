@@ -604,6 +604,95 @@ export type Database = {
         }
         Relationships: []
       }
+      interview_responses: {
+        Row: {
+          content: string
+          id: string
+          message_type: string | null
+          metadata: Json | null
+          session_id: string | null
+          speaker: string
+          timestamp: string | null
+        }
+        Insert: {
+          content: string
+          id?: string
+          message_type?: string | null
+          metadata?: Json | null
+          session_id?: string | null
+          speaker: string
+          timestamp?: string | null
+        }
+        Update: {
+          content?: string
+          id?: string
+          message_type?: string | null
+          metadata?: Json | null
+          session_id?: string | null
+          speaker?: string
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "interview_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_sessions: {
+        Row: {
+          conversation_log: Json | null
+          created_at: string | null
+          current_state: string | null
+          evaluation_criteria: Json | null
+          final_score: number | null
+          id: string
+          instance_id: string | null
+          question_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          conversation_log?: Json | null
+          created_at?: string | null
+          current_state?: string | null
+          evaluation_criteria?: Json | null
+          final_score?: number | null
+          id?: string
+          instance_id?: string | null
+          question_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          conversation_log?: Json | null
+          created_at?: string | null
+          current_state?: string | null
+          evaluation_criteria?: Json | null
+          final_score?: number | null
+          id?: string
+          instance_id?: string | null
+          question_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_sessions_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_sessions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proctoring_reports: {
         Row: {
           assessment_id: string
@@ -1329,7 +1418,13 @@ export type Database = {
     Enums: {
       assessment_status: "draft" | "published" | "archived"
       difficulty_level: "beginner" | "intermediate" | "advanced"
-      question_type: "coding" | "mcq" | "subjective" | "file_upload" | "audio"
+      question_type:
+        | "coding"
+        | "mcq"
+        | "subjective"
+        | "file_upload"
+        | "audio"
+        | "interview"
       submission_status: "in_progress" | "submitted" | "evaluated"
       user_role: "admin" | "instructor" | "student" | "user"
     }
@@ -1461,7 +1556,14 @@ export const Constants = {
     Enums: {
       assessment_status: ["draft", "published", "archived"],
       difficulty_level: ["beginner", "intermediate", "advanced"],
-      question_type: ["coding", "mcq", "subjective", "file_upload", "audio"],
+      question_type: [
+        "coding",
+        "mcq",
+        "subjective",
+        "file_upload",
+        "audio",
+        "interview",
+      ],
       submission_status: ["in_progress", "submitted", "evaluated"],
       user_role: ["admin", "instructor", "student", "user"],
     },

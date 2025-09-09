@@ -18,7 +18,7 @@ import AssessmentQualityAssurance from './AssessmentQualityAssurance';
 import QuestionBrowser from "./QuestionBrowser";
 import { Question as QuestionBankQuestion } from "@/hooks/useQuestionBank";
 
-type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
+type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 
 interface Question {

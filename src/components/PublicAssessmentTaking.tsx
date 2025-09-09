@@ -31,7 +31,7 @@ interface Question {
   id: string;
   title: string;
   question_text?: string;
-  question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
+  question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
   difficulty: string;
   points: number;
   order_index: number;

@@ -15,7 +15,7 @@ interface QuestionTemplate {
   name: string;
   description: string;
   category: string;
-  question_type: 'mcq' | 'coding' | 'subjective' | 'file_upload' | 'audio';
+  question_type: 'mcq' | 'coding' | 'subjective' | 'file_upload' | 'audio' | 'interview';
   template_config: any;
   usage_count: number;
   is_public: boolean;

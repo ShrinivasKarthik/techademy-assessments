@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Code, HelpCircle, FileText, Upload, Mic, Sparkles, Loader2, BookOpen } from "lucide-react";
+import { X, Plus, Code, HelpCircle, FileText, Upload, Mic, Sparkles, Loader2, BookOpen, MessageCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import QuestionTemplateSelector from "./QuestionTemplateSelector";
 import { Question } from "@/hooks/useQuestionBank";
@@ -64,6 +64,12 @@ const questionTypeOptions = [
     label: 'Audio Response',
     description: 'Spoken answer recording',
     icon: Mic
+  },
+  {
+    type: 'interview' as const,
+    label: 'Interview',
+    description: 'AI-powered conversational interview',
+    icon: MessageCircle
   }
 ];
 

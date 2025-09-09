@@ -12,7 +12,7 @@ import AdvancedCodingQuestionBuilder from './questions/AdvancedCodingQuestionBui
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
+type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
 
 interface QuestionConfig {
   coding?: {

@@ -17,7 +17,7 @@ import {
 interface Question {
   id: string;
   title: string;
-  question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio';
+  question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
   points: number;
 }
 
