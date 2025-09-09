@@ -269,8 +269,6 @@ export default function CreateQuestionModal({
     clearProtection();
     onClose();
   };
-  };
-  };
 
   const selectedQuestionType = questionTypeOptions.find(opt => opt.type === formData.question_type);
 
@@ -515,5 +513,3 @@ export default function CreateQuestionModal({
     </Dialog>
   );
 }
-
-export default CreateQuestionModal;
