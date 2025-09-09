@@ -15,69 +15,94 @@ serve(async (req) => {
   try {
     const { problemDescription, language, difficulty, existingTestCases } = await req.json();
 
-    console.log('Request payload:', { problemDescription: problemDescription?.substring(0, 100), language, difficulty });
-
     // Enhanced input validation
-    if (!problemDescription || problemDescription.trim().length < 10) {
+    if (!problemDescription || !language || !difficulty) {
+      console.error('Missing required parameters:', { problemDescription: !!problemDescription, language: !!language, difficulty: !!difficulty });
       return new Response(
-        JSON.stringify({ error: 'Problem description must be at least 10 characters long' }),
+        JSON.stringify({ error: 'Missing required parameters: problemDescription, language, and difficulty are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!language || typeof language !== 'string') {
+    console.log('Request payload:', { problemDescription, language, difficulty });
+
+    // Validate problem description quality
+    const descriptionWords = problemDescription.trim().split(/\s+/).length;
+    if (descriptionWords < 5) {
       return new Response(
-        JSON.stringify({ error: 'Valid language is required' }),
+        JSON.stringify({ 
+          error: 'Problem description too short. Please provide at least 5 words describing the coding challenge.',
+          suggestion: 'Include details like: input format, expected output, constraints, and examples.'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if description contains coding-specific terms
+    const codingKeywords = ['algorithm', 'function', 'method', 'input', 'output', 'array', 'string', 'number', 'return', 'implement', 'solve', 'calculate', 'find', 'search', 'sort', 'data structure', 'time complexity', 'space complexity'];
+    const hasCodeTerms = codingKeywords.some(keyword => problemDescription.toLowerCase().includes(keyword.toLowerCase()));
+    
+    if (!hasCodeTerms && descriptionWords < 15) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Problem description seems too high-level for a coding challenge.',
+          suggestion: 'Please specify: What should the function/method do? What are the inputs and expected outputs? Include specific algorithmic requirements.',
+          example: 'Write a function that takes an array of integers and returns the two numbers that add up to a target sum.'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      console.error('OpenAI API key not configured');
-      throw new Error('OpenAI API key not configured');
+      console.error('OpenAI API key not found');
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const systemPrompt = `You are an expert software engineering educator and test case designer. Generate comprehensive test cases for coding problems that thoroughly validate correctness, edge cases, and performance.
+    const systemPrompt = `You are an expert programming instructor creating comprehensive test cases for coding problems.
 
-Your test cases should include:
-1. **Basic Cases**: Simple, straightforward examples
-2. **Edge Cases**: Boundary conditions, empty inputs, single elements
-3. **Corner Cases**: Complex scenarios, maximum constraints
-4. **Performance Cases**: Large inputs to test efficiency
-5. **Error Cases**: Invalid inputs that should be handled gracefully
+CRITICAL: Always respond with valid JSON. Do not include markdown code blocks or any text outside the JSON.
+
+If the problem description is vague or high-level (like "build an application"), interpret it as a specific algorithmic coding challenge:
+- Convert architectural requirements into specific programming functions
+- Focus on data structures, algorithms, and computational problems
+- Create concrete input/output specifications
 
 For each test case, provide:
-- Clear input description
-- Expected output
+- Clear input description (specific data format)
+- Expected output (exact format)
 - Test case category (basic/edge/corner/performance/error)
 - Difficulty level (easy/medium/hard)
 - Points weight (1-10 based on complexity)
 - Whether it should be visible to students
 - Explanation of what the test case validates
 
-Respond with a JSON object:
+Respond ONLY with this JSON structure (no markdown, no additional text):
 {
   "testCases": [
     {
-      "input": string,
-      "expectedOutput": string,
-      "description": string,
+      "input": "string (specific input format)",
+      "expectedOutput": "string (exact expected output)",
+      "description": "string (brief description)",
       "category": "basic"|"edge"|"corner"|"performance"|"error",
       "difficulty": "easy"|"medium"|"hard",
-      "points": number (1-10),
-      "isVisible": boolean,
-      "explanation": string,
-      "inputSize": string,
-      "timeComplexityNote": string
+      "points": 1-10,
+      "isVisible": true|false,
+      "explanation": "string (what this validates)",
+      "inputSize": "small"|"medium"|"large",
+      "timeComplexityNote": "string"
     }
   ],
-  "starterCodeTemplate": string,
-  "hints": [string],
-  "commonMistakes": [string],
-  "optimizationTips": [string]
+  "starterCodeTemplate": "string (basic function template)",
+  "hints": ["string"],
+  "commonMistakes": ["string"],
+  "optimizationTips": ["string"]
 }`;
 
+    // Enhanced user prompt with specific instructions
     const userPrompt = `
 Programming Language: ${language}
 Difficulty Level: ${difficulty}
@@ -86,7 +111,18 @@ Problem Description: ${problemDescription}
 ${existingTestCases?.length ? `Existing Test Cases (to avoid duplication):
 ${existingTestCases.map((tc: any, i: number) => `${i + 1}. Input: ${tc.input}, Output: ${tc.expectedOutput}`).join('\n')}` : ''}
 
-Generate 8-12 comprehensive test cases that thoroughly validate this coding problem. Include a mix of basic cases, edge cases, corner cases, and performance tests. Make sure the test cases are appropriate for the ${difficulty} difficulty level.`;
+INSTRUCTIONS:
+1. If this is a high-level description (like "build an app"), convert it to a specific coding function
+2. Create a concrete algorithmic challenge with clear input/output
+3. Generate 8-12 comprehensive test cases
+4. Include basic, edge, corner, and performance test cases
+5. Make test cases appropriate for ${difficulty} level
+6. Ensure all inputs and outputs are specific and testable
+
+Example conversion:
+"Build a dog walking app" → "Implement a function that manages dog walking schedules: takes dogs array, walkers array, and time slots, returns optimal assignments"
+
+Focus on the core algorithmic challenge within the broader problem.`;
 
     console.log('Generating test cases with AI...');
 
@@ -106,7 +142,7 @@ Generate 8-12 comprehensive test cases that thoroughly validate this coding prob
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4.1-2025-04-14', // Using more stable model
+            model: 'gpt-4.1-2025-04-14',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
@@ -121,8 +157,7 @@ Generate 8-12 comprehensive test cases that thoroughly validate this coding prob
           console.error(`OpenAI API error (attempt ${attempt}):`, response.status, errorData);
           
           if (response.status === 429) {
-            // Rate limiting - wait before retry
-            const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff
+            const waitTime = Math.pow(2, attempt) * 1000;
             console.log(`Rate limited, waiting ${waitTime}ms before retry...`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
@@ -142,104 +177,161 @@ Generate 8-12 comprehensive test cases that thoroughly validate this coding prob
 
         // Parse the JSON response from AI
         try {
-          const jsonMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-          const jsonContent = jsonMatch ? jsonMatch[1] : generatedContent;
-          result = JSON.parse(jsonContent);
+          // Clean the response - remove any markdown formatting
+          let cleanContent = generatedContent.trim();
           
-          // Validate the result structure
-          if (!result.testCases || !Array.isArray(result.testCases) || result.testCases.length === 0) {
-            throw new Error('Invalid test cases structure in AI response');
+          // Remove markdown code blocks if present
+          const jsonMatch = cleanContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+          if (jsonMatch) {
+            cleanContent = jsonMatch[1].trim();
           }
           
+          // Remove any leading/trailing non-JSON content
+          const startIndex = cleanContent.indexOf('{');
+          const endIndex = cleanContent.lastIndexOf('}');
+          if (startIndex !== -1 && endIndex !== -1) {
+            cleanContent = cleanContent.substring(startIndex, endIndex + 1);
+          }
+          
+          result = JSON.parse(cleanContent);
+          
+          // Comprehensive validation
+          if (!result || typeof result !== 'object') {
+            throw new Error('Response is not a valid object');
+          }
+          
+          if (!result.testCases || !Array.isArray(result.testCases) || result.testCases.length === 0) {
+            throw new Error('Invalid test cases structure or empty test cases array');
+          }
+          
+          // Validate required properties in response
+          const requiredProps = ['starterCodeTemplate', 'hints', 'commonMistakes', 'optimizationTips'];
+          for (const prop of requiredProps) {
+            if (!result[prop]) {
+              console.warn(`Missing property: ${prop}, adding default`);
+              if (prop === 'starterCodeTemplate') {
+                result[prop] = getStarterCode(language);
+              } else {
+                result[prop] = [];
+              }
+            }
+          }
+          
+          // Validate each test case has required properties
+          result.testCases = result.testCases.map((tc: any, index: number) => ({
+            input: tc.input || `test_input_${index}`,
+            expectedOutput: tc.expectedOutput || `expected_output_${index}`,
+            description: tc.description || `Test case ${index + 1}`,
+            category: tc.category || 'basic',
+            difficulty: tc.difficulty || difficulty,
+            points: tc.points || 2,
+            isVisible: tc.isVisible !== false,
+            explanation: tc.explanation || `Validates basic functionality`,
+            inputSize: tc.inputSize || 'small',
+            timeComplexityNote: tc.timeComplexityNote || 'O(n)'
+          }));
+          
           console.log(`Successfully generated ${result.testCases.length} test cases on attempt ${attempt}`);
-          break; // Success - exit retry loop
+          break;
           
         } catch (parseError) {
           console.error(`JSON parsing failed on attempt ${attempt}:`, parseError);
           lastError = parseError;
           
           if (attempt === maxRetries) {
-            // Last attempt failed, use fallback
             console.log('All attempts failed, using fallback response');
-            result = {
-              testCases: [
-                {
-                  input: "sample_input",
-                  expectedOutput: "sample_output", 
-                  description: `Basic test case for ${language} problem`,
-                  category: "basic",
-                  difficulty: difficulty || "easy",
-                  points: 2,
-                  isVisible: true,
-                  explanation: "Simple test to verify basic functionality",
-                  inputSize: "small",
-                  timeComplexityNote: "O(1)"
-                }
-              ],
-              starterCodeTemplate: language === 'java' 
-                ? `public class Solution {\n    public static void main(String[] args) {\n        // Your code here\n    }\n}`
-                : `// Write your solution here\nfunction solution(input) {\n    // Your code here\n    return input;\n}`,
-              hints: ["Consider the problem constraints", "Think about edge cases"],
-              commonMistakes: ["Not handling empty inputs", "Missing return statement"],
-              optimizationTips: ["Consider using built-in methods", "Avoid nested loops if possible"]
-            };
             break;
           }
           
-          // Continue to next attempt
-          continue;
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
-        
       } catch (error) {
-        console.error(`Error on attempt ${attempt}:`, error);
+        console.error(`OpenAI request failed on attempt ${attempt}:`, error);
         lastError = error;
         
         if (attempt === maxRetries) {
-          throw error;
+          break;
         }
         
-        // Wait before retry
-        const waitTime = Math.pow(2, attempt) * 1000;
-        console.log(`Waiting ${waitTime}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
     }
 
-    console.log('Final generated test cases:', result);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        ...result,
-        timestamp: new Date().toISOString(),
-        generationAttempts: maxRetries
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // Helper function for language-specific starter code
+    function getStarterCode(lang: string): string {
+      switch (lang.toLowerCase()) {
+        case 'python':
+          return `def solution():\n    # Implement your solution here\n    pass\n\nif __name__ == "__main__":\n    # Test your solution\n    result = solution()\n    print(result)`;
+        case 'javascript':
+          return `function solution() {\n    // Implement your solution here\n    return null;\n}\n\n// Test your solution\nconst result = solution();\nconsole.log(result);`;
+        case 'java':
+          return `public class Solution {\n    public static void main(String[] args) {\n        // Implement your solution here\n    }\n}`;
+        case 'cpp':
+        case 'c++':
+          return `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Implement your solution here\n    return 0;\n}`;
+        default:
+          return `// ${lang} solution template\n// Implement your solution here`;
       }
-    );
+    }
+
+    // Enhanced fallback for failed attempts
+    if (!result) {
+      console.log('Using enhanced fallback due to AI generation failure');
+      
+      result = {
+        testCases: [
+          {
+            input: "sample_input",
+            expectedOutput: "sample_output",
+            description: `Basic test case for ${language} problem`,
+            category: "basic",
+            difficulty: difficulty,
+            points: 2,
+            isVisible: true,
+            explanation: "Simple test to verify basic functionality",
+            inputSize: "small",
+            timeComplexityNote: "O(1)"
+          }
+        ],
+        starterCodeTemplate: getStarterCode(language),
+        hints: [
+          "Break down the problem into smaller steps", 
+          "Consider input validation and edge cases",
+          "Think about the expected time and space complexity"
+        ],
+        commonMistakes: [
+          "Not handling empty or null inputs", 
+          "Missing return statements or incorrect return types",
+          "Not considering edge cases like boundary values"
+        ],
+        optimizationTips: [
+          `Use ${language}-specific built-in methods when possible`, 
+          "Avoid unnecessary nested loops",
+          "Consider memory usage for large inputs"
+        ]
+      };
+      
+      console.log('Final generated test cases:', JSON.stringify(result, null, 2));
+      return new Response(JSON.stringify({
+        ...result,
+        warning: "AI generation failed. Using basic template. Please provide a more specific problem description with algorithmic requirements."
+      }), {
+        status: 206,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log('Final generated test cases:', JSON.stringify(result, null, 2));
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Error in generate-test-cases function:', error);
-    
-    // Enhanced error response with more context
-    const errorResponse = {
-      error: 'Test case generation failed',
-      details: error.message,
-      timestamp: new Date().toISOString(),
-      context: {
-        language: language || 'unknown',
-        difficulty: difficulty || 'unknown',
-        hasDescription: !!problemDescription
-      }
-    };
-    
     return new Response(
-      JSON.stringify(errorResponse),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

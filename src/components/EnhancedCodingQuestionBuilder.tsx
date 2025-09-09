@@ -255,7 +255,20 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
       return;
     }
 
+    // Frontend validation for description quality
+    const descriptionWords = config.description.trim().split(/\s+/).length;
+    if (descriptionWords < 5) {
+      toast({
+        title: "Description Too Short",
+        description: "Please provide at least 5 words describing the coding challenge with input/output details.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      console.log('Generating test cases for:', config.description);
+      
       const response = await supabase.functions.invoke('generate-test-cases', {
         body: {
           problemDescription: config.description,
@@ -265,18 +278,54 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
         }
       });
 
+      console.log('Generate test cases response:', response);
+
       if (response.error) {
+        console.error('Supabase function error:', response.error);
         throw new Error(response.error.message);
       }
 
-      const { testCases, starterCodeTemplate, hints } = response.data;
+      // Enhanced error handling and validation
+      if (!response.data) {
+        throw new Error('No data received from test case generation');
+      }
+
+      // Handle different response types
+      if (response.data.error) {
+        toast({
+          title: "Input Validation Error",
+          description: response.data.error + (response.data.suggestion ? '\n\n' + response.data.suggestion : ''),
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate response structure with defaults
+      const { 
+        testCases = [], 
+        starterCodeTemplate = '', 
+        hints = [], 
+        commonMistakes = [], 
+        optimizationTips = [],
+        warning = null 
+      } = response.data || {};
+      
+      if (!Array.isArray(testCases) || testCases.length === 0) {
+        throw new Error('Invalid test cases received from AI generation');
+      }
+
+      // Validate each test case has required properties
+      const validTestCases = testCases.filter(tc => tc && tc.input && tc.expectedOutput);
+      if (validTestCases.length === 0) {
+        throw new Error('No valid test cases found in response');
+      }
 
       // Convert AI test cases to the format expected by the component
-      const formattedTestCases = testCases.map((tc: any) => ({
+      const formattedTestCases = validTestCases.map((tc: any) => ({
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         input: tc.input,
         expectedOutput: tc.expectedOutput,
-        description: tc.description,
+        description: tc.description || 'Generated test case',
         weight: tc.points || 1,
         isHidden: !tc.isVisible
       }));
@@ -287,15 +336,24 @@ const EnhancedCodingQuestionBuilder: React.FC<EnhancedCodingQuestionBuilderProps
         hints: [...(config.hints || []), ...(hints || [])]
       });
 
+      const toastTitle = warning ? "Test Cases Generated (Basic)" : "Test Cases Generated";
+      const toastDescription = warning 
+        ? `Generated ${formattedTestCases.length} basic test cases. ${warning}`
+        : `Generated ${formattedTestCases.length} comprehensive test cases with AI assistance.`;
+
       toast({
-        title: "Test Cases Generated",
-        description: `Generated ${testCases.length} comprehensive test cases with AI assistance.`
+        title: toastTitle,
+        description: toastDescription,
+        variant: warning ? "default" : "default"
       });
+
     } catch (error: any) {
       console.error('Test case generation error:', error);
+      const errorMessage = error?.message || 'Unknown error occurred';
+      
       toast({
         title: "Generation Failed",
-        description: error.message,
+        description: `Could not generate test cases: ${errorMessage}. Please provide a more specific coding problem description.`,
         variant: "destructive"
       });
     }
