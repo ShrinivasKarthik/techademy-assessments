@@ -17,10 +17,12 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Zap
+  Zap,
+  ArrowLeft
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import EnhancedResultsDisplay from '@/components/EnhancedResultsDisplay';
 
 interface Assessment {
   id: string;
@@ -55,6 +57,7 @@ const AssessmentResultsView: React.FC = () => {
   const [participants, setParticipants] = useState<ParticipantResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedParticipant, setSelectedParticipant] = useState<ParticipantResult | null>(null);
 
   useEffect(() => {
     loadAssessments();
@@ -261,6 +264,37 @@ const AssessmentResultsView: React.FC = () => {
 
   const selectedAssessmentData = assessments.find(a => a.id === selectedAssessment);
 
+  // Show detailed results if a participant is selected
+  if (selectedParticipant && selectedAssessment) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSelectedParticipant(null)}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Results
+              </Button>
+              <CardTitle>
+                Results for {selectedParticipant.participant_name || 'Anonymous Participant'}
+              </CardTitle>
+            </div>
+          </CardHeader>
+        </Card>
+        <EnhancedResultsDisplay 
+          assessmentId={selectedAssessment}
+          instanceId={selectedParticipant.id}
+          assessment={undefined}
+          instance={undefined}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -389,7 +423,11 @@ const AssessmentResultsView: React.FC = () => {
                       </TableCell>
                       <TableCell>{getStatusBadge(participant.status)}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setSelectedParticipant(participant)}
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
                       </TableCell>
