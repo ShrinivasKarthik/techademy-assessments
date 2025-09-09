@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import SeleniumTemplateSelector from '@/components/SeleniumTemplateSelector';
 
 interface TestCase {
   input: string;
@@ -109,7 +110,11 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
     { value: 'cpp', label: 'C++' },
     { value: 'csharp', label: 'C#' },
     { value: 'go', label: 'Go' },
-    { value: 'rust', label: 'Rust' }
+    { value: 'rust', label: 'Rust' },
+    { value: 'selenium-java', label: 'Selenium (Java)' },
+    { value: 'selenium-python', label: 'Selenium (Python)' },
+    { value: 'selenium-csharp', label: 'Selenium (C#)' },
+    { value: 'selenium-javascript', label: 'Selenium (JavaScript)' }
   ];
 
   const updateConfig = (updates: Partial<CodingQuestionConfig>) => {
@@ -322,6 +327,33 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
     });
   };
 
+  const handleSeleniumTemplateSelect = (template: any) => {
+    updateConfig({
+      starterCode: template.starterCode,
+      testCases: [
+        ...(config.testCases || []),
+        ...template.testScenarios.map((scenario: string, index: number) => ({
+          input: `Test case ${index + 1}`,
+          expectedOutput: 'Expected result based on scenario',
+          description: scenario,
+          category: 'basic' as const,
+          difficulty: 'easy' as const,
+          points: 2,
+          isVisible: true,
+          isHidden: false,
+          explanation: `This test validates: ${scenario}`
+        }))
+      ]
+    });
+    
+    toast({
+      title: "Template Applied",
+      description: `${template.name} template has been applied with starter code and test scenarios.`
+    });
+  };
+
+  const isSeleniumLanguage = (lang: string) => lang.startsWith('selenium-');
+
   const testCasesByCategory = {
     basic: (config.testCases || []).filter(tc => tc.category === 'basic'),
     edge: (config.testCases || []).filter(tc => tc.category === 'edge'),
@@ -402,14 +434,38 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
                 </div>
               </div>
 
+              {/* Selenium Template Selector */}
+              {isSeleniumLanguage(config.language) && (
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4 bg-muted/50">
+                    <Label className="text-lg font-semibold mb-4 block">Selenium Test Templates</Label>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Choose from pre-built Selenium test scenarios to get started quickly
+                    </p>
+                    <SeleniumTemplateSelector
+                      language={config.language.replace('selenium-', '')}
+                      onSelect={handleSeleniumTemplateSelect}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <Label>Starter Code</Label>
                 <Textarea
                   value={config.starterCode}
                   onChange={(e) => updateConfig({ starterCode: e.target.value })}
-                  placeholder="// Provide starter code for students..."
+                  placeholder={isSeleniumLanguage(config.language) 
+                    ? "// Selenium WebDriver code will appear here when you select a template above..."
+                    : "// Provide starter code for students..."
+                  }
                   className="font-mono text-sm min-h-[200px]"
                 />
+                {isSeleniumLanguage(config.language) && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    💡 Select a template above to auto-populate with Selenium WebDriver setup and test structure
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-4">

@@ -354,14 +354,18 @@ const AdvancedQuestionBuilder: React.FC<AdvancedQuestionBuilderProps> = ({
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="javascript">JavaScript</SelectItem>
-                        <SelectItem value="python">Python</SelectItem>
-                        <SelectItem value="java">Java</SelectItem>
-                        <SelectItem value="cpp">C++</SelectItem>
-                        <SelectItem value="typescript">TypeScript</SelectItem>
-                        <SelectItem value="go">Go</SelectItem>
-                      </SelectContent>
+                     <SelectContent>
+                       <SelectItem value="javascript">JavaScript</SelectItem>
+                       <SelectItem value="python">Python</SelectItem>
+                       <SelectItem value="java">Java</SelectItem>
+                       <SelectItem value="cpp">C++</SelectItem>
+                       <SelectItem value="typescript">TypeScript</SelectItem>
+                       <SelectItem value="go">Go</SelectItem>
+                       <SelectItem value="selenium-java">Selenium (Java)</SelectItem>
+                       <SelectItem value="selenium-python">Selenium (Python)</SelectItem>
+                       <SelectItem value="selenium-csharp">Selenium (C#)</SelectItem>
+                       <SelectItem value="selenium-javascript">Selenium (JavaScript)</SelectItem>
+                     </SelectContent>
                     </Select>
                   </div>
 
