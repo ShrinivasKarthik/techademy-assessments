@@ -352,7 +352,7 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
     });
   };
 
-  const isSeleniumLanguage = (lang: string) => lang.startsWith('selenium-');
+  const isSeleniumLanguage = (lang: string | undefined) => lang?.startsWith('selenium-') || false;
 
   const testCasesByCategory = {
     basic: (config.testCases || []).filter(tc => tc.category === 'basic'),
@@ -412,20 +412,20 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
                     {languages.map(lang => (
                       <div key={lang.value} className="flex items-center space-x-2">
                         <Checkbox
-                          checked={config.supportedLanguages?.includes(lang.value) || lang.value === config.language}
+                          checked={config.supportedLanguages?.includes(lang.value) || lang.value === (config.language || 'javascript')}
                           onCheckedChange={(checked) => {
-                            const current = config.supportedLanguages || [config.language];
+                            const current = config.supportedLanguages || [config.language || 'javascript'];
                             if (checked) {
                               updateConfig({
                                 supportedLanguages: [...current, lang.value]
                               });
-                            } else if (lang.value !== config.language) {
+                            } else if (lang.value !== (config.language || 'javascript')) {
                               updateConfig({
                                 supportedLanguages: current.filter(l => l !== lang.value)
                               });
                             }
                           }}
-                          disabled={lang.value === config.language}
+                          disabled={lang.value === (config.language || 'javascript')}
                         />
                         <Label className="text-sm">{lang.label}</Label>
                       </div>
@@ -443,7 +443,7 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
                       Choose from pre-built Selenium test scenarios to get started quickly
                     </p>
                     <SeleniumTemplateSelector
-                      language={config.language.replace('selenium-', '')}
+                      language={config.language?.replace('selenium-', '') || 'java'}
                       onSelect={handleSeleniumTemplateSelect}
                     />
                   </div>

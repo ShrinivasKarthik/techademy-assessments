@@ -74,7 +74,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   const { toast } = useToast();
   const [isGeneratingRubric, setIsGeneratingRubric] = useState(false);
   const renderCodingBuilder = () => {
-    const codingConfig = config || {
+    const codingConfig = (config && Object.keys(config).length > 0) ? config : {
       language: 'javascript',
       supportedLanguages: ['javascript'],
       starterCode: '',
