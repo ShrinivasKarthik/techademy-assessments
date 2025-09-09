@@ -1,5 +1,11 @@
 project_id = "axdwgxtukqqzupboojmx"
 
+[functions.trigger-evaluations]
+verify_jwt = false
+
+[functions.trigger-evaluation]
+verify_jwt = false
+
 [functions.analyze-code]
 verify_jwt = false
 

@@ -220,6 +220,40 @@ const AssessmentResultsView: React.FC = () => {
     }
   };
 
+  const triggerEvaluations = async () => {
+    try {
+      toast({
+        title: "Starting evaluations",
+        description: "Processing submitted assessments and calculating scores...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('trigger-evaluations');
+
+      if (error) {
+        throw error;
+      }
+
+      const result = data as any;
+      toast({
+        title: "Evaluations completed",
+        description: `Processed ${result.processed} assessments. Evaluated: ${result.evaluated}, Scored zero: ${result.scored_zero}`,
+      });
+
+      // Reload results if an assessment is selected
+      if (selectedAssessment) {
+        setTimeout(loadAssessmentResults, 2000);
+      }
+
+    } catch (error) {
+      console.error('Error during evaluations:', error);
+      toast({
+        title: "Evaluations failed",
+        description: error.message || "Please try again later.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredParticipants = participants.filter(p =>
     p.participant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.participant_email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -290,6 +324,10 @@ const AssessmentResultsView: React.FC = () => {
             <div className="flex items-center justify-between">
               <CardTitle>Participant Results</CardTitle>
               <div className="flex gap-2">
+                <Button onClick={triggerEvaluations} variant="outline" size="sm" className="gap-2">
+                  <Zap className="w-4 h-4" />
+                  Trigger Evaluations
+                </Button>
                 <Button onClick={cleanupStuckAssessments} variant="outline" size="sm" className="gap-2">
                   <AlertTriangle className="w-4 h-4" />
                   Cleanup Stuck

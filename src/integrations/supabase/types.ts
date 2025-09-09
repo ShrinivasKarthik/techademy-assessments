@@ -143,6 +143,7 @@ export type Database = {
           assessment_id: string
           current_question_index: number | null
           duration_taken_seconds: number | null
+          evaluated_at: string | null
           evaluation_retry_count: number | null
           evaluation_status: string | null
           evaluation_timeout_at: string | null
@@ -169,6 +170,7 @@ export type Database = {
           assessment_id: string
           current_question_index?: number | null
           duration_taken_seconds?: number | null
+          evaluated_at?: string | null
           evaluation_retry_count?: number | null
           evaluation_status?: string | null
           evaluation_timeout_at?: string | null
@@ -195,6 +197,7 @@ export type Database = {
           assessment_id?: string
           current_question_index?: number | null
           duration_taken_seconds?: number | null
+          evaluated_at?: string | null
           evaluation_retry_count?: number | null
           evaluation_status?: string | null
           evaluation_timeout_at?: string | null

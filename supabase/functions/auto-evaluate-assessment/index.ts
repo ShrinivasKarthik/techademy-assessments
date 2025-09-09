@@ -239,6 +239,7 @@ serve(async (req) => {
       .from('assessment_instances')
       .update({
         status: 'evaluated',
+        evaluation_status: 'completed',
         total_score: finalScore,
         max_possible_score: maxPossibleScore,
         integrity_score: integrityScore,
