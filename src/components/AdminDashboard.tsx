@@ -675,6 +675,38 @@ const AdminResultsDashboard: React.FC = () => {
     }
   };
 
+  const cleanupStuckAssessments = async () => {
+    try {
+      toast({
+        title: "Starting cleanup",
+        description: "Auto-submitting stuck assessments and triggering evaluations...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('cleanup-stuck-assessments');
+
+      if (error) {
+        throw error;
+      }
+
+      const result = data as any;
+      toast({
+        title: "Cleanup completed",
+        description: `Auto-submitted ${result.processed} stuck assessments. Triggered ${result.evaluations_triggered} evaluations.`,
+      });
+
+      // Reload data after cleanup
+      setTimeout(loadResultsData, 2000);
+
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      toast({
+        title: "Cleanup failed",
+        description: error.message || "Please try again later.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredResults = results.filter(result => {
     const matchesSearch = result.assessmentTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          result.participantEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -728,10 +760,16 @@ const AdminResultsDashboard: React.FC = () => {
                 View and manage all assessment submissions, scores, and proctoring data
               </p>
             </div>
-            <Button onClick={triggerBatchEvaluation} className="gap-2">
-              <Zap className="w-4 h-4" />
-              Evaluate Pending
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={cleanupStuckAssessments} variant="outline" className="gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Cleanup Stuck
+              </Button>
+              <Button onClick={triggerBatchEvaluation} className="gap-2">
+                <Zap className="w-4 h-4" />
+                Evaluate Pending
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
