@@ -150,10 +150,18 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
       
       // Show transcription if present
       if (lastMessage.data.transcription && mode === 'voice') {
-        console.log('Showing transcription:', lastMessage.data.transcription);
-        toast({
-          title: "Voice Transcribed",
-          description: `You said: "${lastMessage.data.transcription}"`,
+        console.log('Updating user message with transcription:', lastMessage.data.transcription);
+        // Update the last user message with the actual transcription
+        setMessages(prev => {
+          const updated = [...prev];
+          // Find the last user message and update it
+          for (let i = updated.length - 1; i >= 0; i--) {
+            if (updated[i].speaker === 'user' && updated[i].type === 'audio') {
+              updated[i] = { ...updated[i], content: lastMessage.data.transcription };
+              break;
+            }
+          }
+          return updated;
         });
       }
     }
@@ -228,7 +236,7 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
           
           const audioMessage: Message = {
             speaker: 'user',
-            content: `[Voice message - ${Math.round(audioBlob.size / 1024)}KB]`,
+            content: "Recording your voice...",
             timestamp: new Date(),
             type: 'audio'
           };
