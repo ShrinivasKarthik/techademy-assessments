@@ -172,12 +172,25 @@ export const useEnhancedAudioProcessing = () => {
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
-      if (!mediaRecorderRef.current || !state.isRecording) {
+      console.log('stopRecording called, mediaRecorder exists:', !!mediaRecorderRef.current);
+      console.log('Current recording state:', state.isRecording);
+      
+      if (!mediaRecorderRef.current) {
+        console.log('No media recorder available');
+        resolve(null);
+        return;
+      }
+
+      // Check if actually recording
+      if (mediaRecorderRef.current.state === 'inactive') {
+        console.log('MediaRecorder already inactive');
         resolve(null);
         return;
       }
 
       const handleStop = () => {
+        console.log('handleStop called, audio chunks count:', audioChunksRef.current.length);
+        
         // Clean up stream
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
@@ -201,6 +214,8 @@ export const useEnhancedAudioProcessing = () => {
           type: 'audio/webm;codecs=opus' 
         });
         
+        console.log('Created audio blob, size:', audioBlob.size);
+        
         setState(prev => ({ 
           ...prev, 
           isRecording: false, 
@@ -215,9 +230,10 @@ export const useEnhancedAudioProcessing = () => {
       mediaRecorderRef.current.addEventListener('stop', handleStop, { once: true });
       
       // Stop recording
+      console.log('Calling mediaRecorder.stop()');
       mediaRecorderRef.current.stop();
     });
-  }, [state.isRecording]);
+  }, []);
 
   const convertBlobToBase64 = useCallback((blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -243,9 +259,12 @@ export const useEnhancedAudioProcessing = () => {
   }, []);
 
   const cleanup = useCallback(() => {
+    console.log('cleanup called');
+    
     // Stop recording if active
-    if (state.isRecording) {
-      stopRecording();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      console.log('Stopping active recording during cleanup');
+      mediaRecorderRef.current.stop();
     }
 
     // Clean up all resources
@@ -270,7 +289,7 @@ export const useEnhancedAudioProcessing = () => {
       hasPermission: false,
       audioLevel: 0
     });
-  }, [state.isRecording, stopRecording]);
+  }, []);
 
   return {
     ...state,
