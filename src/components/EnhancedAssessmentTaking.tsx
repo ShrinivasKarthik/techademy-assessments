@@ -29,7 +29,7 @@ import MCQQuestion from './questions/MCQQuestion';
 import SubjectiveQuestion from './questions/SubjectiveQuestion';
 import FileUploadQuestion from './questions/FileUploadQuestion';
 import AudioQuestion from './questions/AudioQuestion';
-import InterviewQuestion from './questions/InterviewQuestion';
+import InterviewQuestionWrapper from './enhanced/InterviewQuestionWrapper';
 import RealTimeEvaluationPanel from './RealTimeEvaluationPanel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileAssessmentInterface from './mobile/MobileAssessmentInterface';
@@ -468,9 +468,9 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
       case 'audio':
         return <AudioQuestion {...questionProps} />;
       case 'interview':
-        return <InterviewQuestion 
-          {...questionProps} 
-          instanceId={instance?.id} 
+        return <InterviewQuestionWrapper 
+          question={question}
+          instanceId={instance?.id || ''} 
           onComplete={(answer: any) => saveAnswer(question.id, answer)}
         />;
       default:

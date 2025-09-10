@@ -25,8 +25,17 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
     return `wss://axdwgxtukqqzupboojmx.functions.supabase.co/functions/v1/interview-bot`;
   }, []);
 
+  // Circuit breaker for preventing rapid reconnection attempts
+  const [circuitBreakerState, setCircuitBreakerState] = useState<'closed' | 'open' | 'half-open'>('closed');
+
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN || !sessionId) return;
+    
+    // Circuit breaker check
+    if (circuitBreakerState === 'open') {
+      console.log('Circuit breaker is open, preventing connection attempt');
+      return;
+    }
 
     const wsUrlToUse = wsUrl || getWebSocketUrl();
     console.log('Attempting to connect to WebSocket:', wsUrlToUse);
@@ -83,11 +92,18 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
             connect();
           }, delay);
         } else if (reconnectAttempts.current >= maxReconnectAttempts) {
+          setCircuitBreakerState('open');
           toast({
             title: "Connection Lost",
             description: "Unable to reconnect to interview service. Please refresh the page.",
             variant: "destructive",
           });
+          
+          // Reset circuit breaker after 30 seconds
+          setTimeout(() => {
+            setCircuitBreakerState('closed');
+            reconnectAttempts.current = 0;
+          }, 30000);
         }
       };
 
@@ -117,7 +133,7 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
         variant: "destructive",
       });
     }
-  }, [sessionId, user?.id, toast, getWebSocketUrl, wsUrl])
+  }, [sessionId, user?.id, toast, getWebSocketUrl, wsUrl, circuitBreakerState])
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

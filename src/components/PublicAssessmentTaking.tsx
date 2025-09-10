@@ -26,7 +26,7 @@ import SubjectiveQuestion from './questions/SubjectiveQuestion';
 import EnhancedCodingQuestion from './questions/EnhancedCodingQuestion';
 import FileUploadQuestion from './questions/FileUploadQuestion';
 import AudioQuestion from './questions/AudioQuestion';
-import InterviewQuestion from './questions/InterviewQuestion';
+import InterviewQuestionWrapper from './enhanced/InterviewQuestionWrapper';
 
 interface Question {
   id: string;
@@ -594,9 +594,9 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       case 'audio':
         return <AudioQuestion {...questionProps} />;
       case 'interview':
-        return <InterviewQuestion 
-          {...questionProps} 
-          instanceId={instance?.id} 
+        return <InterviewQuestionWrapper 
+          question={question}
+          instanceId={instance?.id || ''} 
           onComplete={(answer: any) => saveAnswer(question.id, answer)}
         />;
       default:
