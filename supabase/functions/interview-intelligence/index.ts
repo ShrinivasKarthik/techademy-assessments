@@ -53,7 +53,95 @@ serve(async (req) => {
     }
 
     if (!responses || responses.length === 0) {
-      throw new Error('No conversation data found');
+      console.log(`No conversation data found for session ${session_id}, creating default analysis`);
+      
+      // Create a default analysis for sessions without conversation data
+      const defaultAnalysis = {
+        performance: {
+          overall_score: 0,
+          communication_score: 0,
+          technical_score: 0,
+          behavioral_score: 0,
+          response_relevance_score: 0,
+          structure_score: 0,
+          time_management_score: 0,
+          engagement_score: 0,
+          strengths: ["No conversation data available"],
+          improvement_areas: ["Interview did not contain conversation data"]
+        },
+        sentiment: {
+          overall_sentiment: "neutral",
+          confidence_level: 0,
+          emotional_progression: [],
+          tone_analysis: {
+            professional: 0,
+            enthusiastic: 0,
+            confident: 0,
+            formal: 0,
+            casual: 0
+          }
+        },
+        intelligence: {
+          conversation_quality_score: 0,
+          conversation_flow_score: 0,
+          skills_demonstrated: [],
+          competency_analysis: {
+            leadership: 0,
+            problem_solving: 0,
+            communication: 0,
+            teamwork: 0,
+            adaptability: 0
+          },
+          personality_insights: {
+            extraversion: 0,
+            conscientiousness: 0,
+            openness: 0,
+            agreeableness: 0,
+            emotional_stability: 0
+          },
+          communication_patterns: {
+            response_length_consistency: 0,
+            vocabulary_richness: 0,
+            articulation_clarity: 0,
+            engagement_level: 0
+          },
+          engagement_metrics: {
+            proactive_responses: 0,
+            question_asking: 0,
+            detail_elaboration: 0,
+            enthusiasm_level: 0
+          },
+          ai_insights: {
+            key_observations: ["No conversation data available for analysis"],
+            behavioral_patterns: ["Interview session did not capture conversation"],
+            decision_making_style: "unknown",
+            leadership_potential: "unknown"
+          },
+          recommendations: [
+            "Interview session needs to be retaken with proper conversation recording",
+            "Ensure technical setup allows for conversation capture",
+            "Check that interview questions are being properly answered"
+          ]
+        },
+        summary: "No conversation data was available for analysis. This may indicate a technical issue or that the interview was not completed properly."
+      };
+
+      // Store the default analysis
+      await Promise.all([
+        storePerformanceMetrics(session_id, defaultAnalysis.performance),
+        storeSentimentAnalysis(session_id, defaultAnalysis.sentiment),
+        storeConversationIntelligence(session_id, defaultAnalysis.intelligence)
+      ]);
+
+      console.log('Default analysis created for session without conversation data');
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        analysis: defaultAnalysis.summary,
+        hasConversationData: false
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Generate comprehensive analysis

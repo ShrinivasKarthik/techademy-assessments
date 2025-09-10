@@ -19,8 +19,8 @@ serve(async (req) => {
   try {
     console.log('Starting batch processing of completed interview assessments...');
 
-    // Step 1: Find all completed interview sessions that need processing
-    const { data: sessionsToProcess, error: sessionsError } = await supabase
+    // Step 1: Find all completed interview sessions that need processing and have conversation data
+    const { data: allSessions, error: sessionsError } = await supabase
       .from('interview_sessions')
       .select(`
         id,
@@ -37,7 +37,42 @@ serve(async (req) => {
       throw new Error(`Failed to fetch sessions: ${sessionsError.message}`);
     }
 
-    console.log(`Found ${sessionsToProcess?.length || 0} sessions to process`);
+    console.log(`Found ${allSessions?.length || 0} total sessions`);
+
+    // Step 1.1: Filter sessions that have conversation data
+    const sessionsToProcess = [];
+    const skippedSessions = [];
+
+    if (allSessions) {
+      for (const session of allSessions) {
+        // Check if session has conversation responses
+        const { data: responses, error: responseError } = await supabase
+          .from('interview_responses')
+          .select('id')
+          .eq('session_id', session.id)
+          .limit(1);
+
+        if (responseError) {
+          console.error(`Error checking responses for session ${session.id}:`, responseError);
+          skippedSessions.push({ session: session.id, reason: 'Response check failed' });
+          continue;
+        }
+
+        if (responses && responses.length > 0) {
+          sessionsToProcess.push(session);
+        } else {
+          console.log(`Skipping session ${session.id} - no conversation data`);
+          skippedSessions.push({ session: session.id, reason: 'No conversation data' });
+        }
+      }
+    }
+
+    console.log(`Sessions with conversation data: ${sessionsToProcess.length}`);
+    console.log(`Sessions skipped: ${skippedSessions.length}`);
+    if (skippedSessions.length > 0) {
+      console.log('Skipped sessions:', skippedSessions);
+    }
+
 
     if (!sessionsToProcess || sessionsToProcess.length === 0) {
       return new Response(JSON.stringify({ 
