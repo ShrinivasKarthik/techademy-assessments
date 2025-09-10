@@ -18,6 +18,7 @@ import {
   Users
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import InterviewAnalyticsDisplay from '@/components/interview/InterviewAnalyticsDisplay';
 
 interface Question {
   id: string;
@@ -321,55 +322,15 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
                     
                     <Progress value={questionPercentage} className="h-2" />
                   
-                   {evaluation?.ai_feedback ? (
+                   {/* Interview Question - Show Comprehensive Analytics */}
+                   {question.question_type === 'interview' ? (
+                     <div className="mt-4">
+                       <InterviewAnalyticsDisplay instanceId={instanceId} />
+                     </div>
+                   ) : evaluation?.ai_feedback ? (
                      <div className="mt-3 p-3 bg-muted rounded-lg">
                        <div className="text-sm space-y-3">
-                           {/* Show Interview-specific feedback if available */}
-                           {evaluation.ai_feedback.overall_score !== undefined && question.question_type === 'interview' ? (
-                             <div className="space-y-3">
-                               <div className="grid grid-cols-2 gap-4">
-                                 <div>
-                                   <strong>Overall:</strong> {evaluation.ai_feedback.overall_score}%
-                                 </div>
-                                 <div>
-                                   <strong>Communication:</strong> {evaluation.ai_feedback.communication_score || 0}%
-                                 </div>
-                                 <div>
-                                   <strong>Technical:</strong> {evaluation.ai_feedback.technical_score || 0}%
-                                 </div>
-                                 <div>
-                                   <strong>Behavioral:</strong> {evaluation.ai_feedback.behavioral_score || 0}%
-                                 </div>
-                               </div>
-                               
-                               {/* AI Insights */}
-                               {evaluation.ai_feedback.ai_insights && (
-                                 <div className="text-xs">
-                                   <strong>AI Insights:</strong>
-                                   <div className="mt-1 space-y-1">
-                                     {evaluation.ai_feedback.ai_insights.key_strengths && (
-                                       <div><span className="text-green-600">Strengths:</span> {evaluation.ai_feedback.ai_insights.key_strengths.join(', ')}</div>
-                                     )}
-                                     {evaluation.ai_feedback.ai_insights.improvement_areas && (
-                                       <div><span className="text-orange-600">Areas for improvement:</span> {evaluation.ai_feedback.ai_insights.improvement_areas.join(', ')}</div>
-                                     )}
-                                   </div>
-                                 </div>
-                               )}
-                               
-                               {/* Recommendations */}
-                               {evaluation.ai_feedback.recommendations && evaluation.ai_feedback.recommendations.length > 0 && (
-                                 <div className="text-xs">
-                                   <strong>Recommendations:</strong>
-                                   <ul className="list-disc ml-4 mt-1">
-                                     {evaluation.ai_feedback.recommendations.slice(0, 3).map((rec: string, i: number) => (
-                                       <li key={i} className="text-blue-600">{rec}</li>
-                                     ))}
-                                   </ul>
-                                 </div>
-                               )}
-                             </div>
-                           ) : evaluation.ai_feedback.selenium_analysis ? (
+                           {evaluation.ai_feedback.selenium_analysis ? (
                             <div className="space-y-3">
                               <div>
                                 <strong>Selenium Analysis:</strong> Overall Score {evaluation.ai_feedback.selenium_analysis?.seleniumScore?.overallScore || 0}/100
