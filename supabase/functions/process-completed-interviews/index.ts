@@ -19,7 +19,7 @@ serve(async (req) => {
   try {
     console.log('Starting batch processing of completed interview assessments...');
 
-    // Step 1: Find all completed interview sessions missing intelligence data
+    // Step 1: Find all completed interview sessions
     const { data: sessionsToProcess, error: sessionsError } = await supabase
       .from('interview_sessions')
       .select(`
@@ -31,8 +31,7 @@ serve(async (req) => {
           evaluation_status
         )
       `)
-      .eq('assessment_instances.status', 'submitted')
-      .not('conversation_intelligence.session_id', 'is', null);
+      .eq('assessment_instances.status', 'submitted');
 
     if (sessionsError) {
       throw new Error(`Failed to fetch sessions: ${sessionsError.message}`);
