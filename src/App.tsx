@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { StableAssessmentStateProvider } from "@/components/stable/StableAssessmentStateProvider";
+import { AssessmentStateProvider } from "@/contexts/AssessmentStateContext";
 import { StableNotificationProvider } from "@/components/stable/StableNotificationSystem";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
@@ -58,7 +58,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <StableAssessmentStateProvider>
+        <AssessmentStateProvider>
           <StableNotificationProvider>
           <Toaster />
           <Sonner />
@@ -266,7 +266,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </StableNotificationProvider>
-    </StableAssessmentStateProvider>
+    </AssessmentStateProvider>
   </AuthProvider>
   </TooltipProvider>
 </QueryClientProvider>
