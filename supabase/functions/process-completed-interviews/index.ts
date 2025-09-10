@@ -19,7 +19,7 @@ serve(async (req) => {
   try {
     console.log('Starting batch processing of completed interview assessments...');
 
-    // Step 1: Find all completed interview sessions
+    // Step 1: Find all completed interview sessions that need processing
     const { data: sessionsToProcess, error: sessionsError } = await supabase
       .from('interview_sessions')
       .select(`
@@ -31,7 +31,7 @@ serve(async (req) => {
           evaluation_status
         )
       `)
-      .eq('assessment_instances.status', 'submitted');
+      .in('assessment_instances.status', ['submitted', 'evaluated']);
 
     if (sessionsError) {
       throw new Error(`Failed to fetch sessions: ${sessionsError.message}`);
