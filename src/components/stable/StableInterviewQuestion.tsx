@@ -115,7 +115,17 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
     };
 
     initializeSession();
-  }, [question.id, instanceId, interviewType, config.instructions, toast]);
+    
+    // Request microphone permissions on component mount
+    const requestMicPermission = async () => {
+      if (!hasPermission) {
+        console.log('Requesting microphone permissions...');
+        await requestPermissions();
+      }
+    };
+    
+    requestMicPermission();
+  }, [question.id, instanceId, interviewType, config.instructions, toast, hasPermission, requestPermissions]);
 
   // Timer for elapsed time
   useEffect(() => {
@@ -417,9 +427,10 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
             size="sm"
             onClick={() => setMode('voice')}
             disabled={!hasPermission}
+            title={!hasPermission ? 'Microphone permission required' : 'Switch to voice mode'}
           >
             <Mic className="h-4 w-4 mr-1" />
-            Voice
+            Voice {!hasPermission && '🔒'}
           </Button>
         </div>
       </CardHeader>
