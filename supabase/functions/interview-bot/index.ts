@@ -86,14 +86,32 @@ function handleWebSocketConnection(req: Request) {
   
   let sessionId: string | null = null;
   let interviewType: string = 'behavioral';
+  let isSessionActive = false;
+  let heartbeatInterval: number | null = null;
 
   socket.onopen = () => {
     console.log('WebSocket connection opened');
+    
+    // Start heartbeat
+    heartbeatInterval = setInterval(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        try {
+          socket.send(JSON.stringify({ 
+            type: 'heartbeat',
+            timestamp: Date.now()
+          }));
+        } catch (error) {
+          console.error('Heartbeat failed:', error);
+        }
+      }
+    }, 30000); // 30 second heartbeat
+    
     // Send connection confirmation
     try {
       socket.send(JSON.stringify({ 
-        type: 'connection_confirmed',
-        timestamp: new Date().toISOString()
+        type: 'connection_ready',
+        timestamp: Date.now(),
+        status: 'awaiting_session_init'
       }));
     } catch (error) {
       console.error('Error sending connection confirmation:', error);
@@ -110,71 +128,157 @@ function handleWebSocketConnection(req: Request) {
         interviewType = data.data?.interview_type || data.interview_type || 'behavioral';
         console.log(`Session initialized: ${sessionId}, type: ${interviewType}`);
         
-        // Send initialization confirmation
-        socket.send(JSON.stringify({
-          type: 'session_initialized',
-          sessionId: sessionId,
-          interviewType: interviewType,
-          status: 'ready'
-        }));
-        return;
-      }
+        // Verify session exists in database
+        try {
+          const { data: session, error } = await supabase
+            .from('interview_sessions')
+            .select('id, current_state')
+            .eq('id', sessionId)
+            .single();
 
-      if (!sessionId) {
-        socket.send(JSON.stringify({ 
-          type: 'error',
-          error: 'Session not initialized. Please send init_session first.' 
-        }));
-        return;
-      }
+          if (error || !session) {
+            socket.send(JSON.stringify({
+              type: 'session_error',
+              error: 'Session not found in database',
+              action: 'create_new_session'
+            }));
+            return;
+          }
 
-      if (data.type === 'user_message') {
-        // Handle text message
-        const message = data.data?.content || data.content;
-        const response = await processUserMessage(message, sessionId, interviewType);
-        socket.send(JSON.stringify({
-          type: 'ai_response',
-          data: { content: response }
-        }));
-
-      } else if (data.type === 'audio_message') {
-        // Handle audio message - convert to text first then process
-        const audioData = data.data?.audio || data.audio;
-        console.log('Received audio message, transcribing...');
-        
-        const transcript = await transcribeAudio(audioData);
-        console.log('Transcription result:', transcript);
-        
-        if (transcript) {
-          const response = await processUserMessage(transcript, sessionId, interviewType);
+          isSessionActive = true;
           
-          // Send text response with transcription
+          // Send successful initialization
+          socket.send(JSON.stringify({
+            type: 'session_ready',
+            sessionId: sessionId,
+            interviewType: interviewType,
+            status: 'connected',
+            timestamp: Date.now()
+          }));
+          
+        } catch (error) {
+          console.error('Session verification failed:', error);
+          socket.send(JSON.stringify({
+            type: 'session_error',
+            error: 'Failed to verify session',
+            action: 'retry_init'
+          }));
+        }
+        return;
+      }
+
+      if (!sessionId || !isSessionActive) {
+        socket.send(JSON.stringify({ 
+          type: 'session_error',
+          error: 'Session not properly initialized',
+          action: 'reinit_session'
+        }));
+        return;
+      }
+
+      // Handle heartbeat pong
+      if (data.type === 'pong') {
+        console.log('Received pong from client');
+        return;
+      }
+
+      if (data.type === 'text_message' || data.type === 'user_message') {
+        // Handle text message - standardized format
+        const message = data.data?.message || data.data?.content || data.message || data.content;
+        
+        if (!message) {
+          socket.send(JSON.stringify({
+            type: 'message_error',
+            error: 'Empty message received'
+          }));
+          return;
+        }
+
+        try {
+          const response = await processUserMessage(message, sessionId, interviewType);
           socket.send(JSON.stringify({
             type: 'ai_response',
             data: { 
               content: response,
-              transcription: transcript
+              timestamp: Date.now(),
+              sessionId: sessionId
             }
           }));
+        } catch (error) {
+          console.error('Text processing error:', error);
+          socket.send(JSON.stringify({
+            type: 'processing_error',
+            error: 'Failed to process message',
+            action: 'retry_message'
+          }));
+        }
 
-          // Generate speech response
-          try {
-            const audioResponse = await generateSpeechResponse(response);
-            if (audioResponse) {
+      } else if (data.type === 'audio_message') {
+        // Handle audio message - standardized format
+        const audioData = data.data?.audio_data || data.data?.audio || data.audio;
+        
+        if (!audioData) {
+          socket.send(JSON.stringify({
+            type: 'audio_error',
+            error: 'No audio data received'
+          }));
+          return;
+        }
+
+        console.log('Received audio message, transcribing...');
+        
+        try {
+          const transcript = await transcribeAudio(audioData);
+          console.log('Transcription result:', transcript);
+          
+          if (transcript) {
+            const response = await processUserMessage(transcript, sessionId, interviewType);
+            
+            // Send text response with transcription
+            socket.send(JSON.stringify({
+              type: 'ai_response',
+              data: { 
+                content: response,
+                transcription: transcript,
+                timestamp: Date.now(),
+                sessionId: sessionId
+              }
+            }));
+
+            // Generate speech response
+            try {
+              const audioResponse = await generateSpeechResponse(response);
+              if (audioResponse) {
+                socket.send(JSON.stringify({
+                  type: 'audio_response',
+                  data: { 
+                    audio: audioResponse,
+                    timestamp: Date.now(),
+                    sessionId: sessionId
+                  }
+                }));
+              }
+            } catch (speechError) {
+              console.error('Speech generation failed:', speechError);
               socket.send(JSON.stringify({
-                type: 'audio_response',
-                data: { audio: audioResponse }
+                type: 'audio_fallback',
+                message: 'Speech generation failed, text response only'
               }));
             }
-          } catch (speechError) {
-            console.error('Speech generation failed:', speechError);
-            // Continue without audio response
+          } else {
+            console.error('Transcription failed');
+            socket.send(JSON.stringify({
+              type: 'transcription_error',
+              error: 'Failed to transcribe audio. Please try text instead.',
+              action: 'use_text_mode'
+            }));
           }
-        } else {
-          console.error('Transcription failed');
+        } catch (error) {
+          console.error('Audio processing error:', error);
           socket.send(JSON.stringify({
-            type: 'error',
-            error: 'Failed to transcribe audio. Please try again.'
+            type: 'audio_processing_error',
+            error: 'Audio processing failed',
+            action: 'retry_audio'
           }));
         }
       }
@@ -198,8 +302,16 @@ function handleWebSocketConnection(req: Request) {
 
   socket.onclose = (event) => {
     console.log('WebSocket connection closed:', event.code, event.reason);
+    
+    // Clear heartbeat
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+    
     if (sessionId) {
       console.log(`Session ${sessionId} connection closed`);
+      isSessionActive = false;
     }
   };
 

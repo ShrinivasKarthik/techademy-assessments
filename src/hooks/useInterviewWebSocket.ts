@@ -16,6 +16,8 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<InterviewWebSocketMessage | null>(null);
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+  const [sessionReady, setSessionReady] = useState(false);
+  const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now());
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
@@ -48,30 +50,71 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
         console.log('Interview WebSocket connected to:', wsUrlToUse);
         setIsConnected(true);
         setConnectionState('connected');
+        setSessionReady(false);
         reconnectAttempts.current = 0;
+        setLastHeartbeat(Date.now());
 
-        // Send session initialization
-        if (sessionId && wsRef.current) {
-          const initMessage: InterviewWebSocketMessage = {
-            type: 'init_session',
-            data: { 
-              sessionId, 
-              userId: user?.id,
-              interview_type: 'behavioral'
-            },
-            timestamp: Date.now(),
-            sessionId
-          };
-          console.log('Sending init message:', initMessage);
-          wsRef.current.send(JSON.stringify(initMessage));
-        }
+        // Wait for connection_ready before sending init
+        // Session initialization will be sent after connection_ready is received
       };
 
       wsRef.current.onmessage = (event) => {
         try {
           const message: InterviewWebSocketMessage = JSON.parse(event.data);
           console.log('Interview WebSocket message received:', message);
-          setLastMessage(message);
+          
+          // Handle system messages
+          if (message.type === 'connection_ready') {
+            console.log('Connection ready, sending session init...');
+            if (sessionId && wsRef.current) {
+              const initMessage: InterviewWebSocketMessage = {
+                type: 'init_session',
+                data: { 
+                  sessionId, 
+                  userId: user?.id,
+                  interview_type: 'behavioral'
+                },
+                timestamp: Date.now(),
+                sessionId
+              };
+              console.log('Sending init message:', initMessage);
+              wsRef.current.send(JSON.stringify(initMessage));
+            }
+            return;
+          }
+          
+          if (message.type === 'session_ready') {
+            console.log('Session ready confirmed');
+            setSessionReady(true);
+            setCircuitBreakerState('closed'); // Reset circuit breaker on successful session
+            return;
+          }
+          
+          if (message.type === 'heartbeat') {
+            setLastHeartbeat(Date.now());
+            // Send pong response
+            if (wsRef.current) {
+              wsRef.current.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+            }
+            return;
+          }
+          
+          if (message.type === 'session_error') {
+            console.error('Session error:', message.error);
+            setSessionReady(false);
+            toast({
+              title: "Session Error",
+              description: message.error || "Session connection failed",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          // Process regular messages only if session is ready
+          if (sessionReady || message.type === 'ai_response') {
+            setLastMessage(message);
+          }
+          
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
@@ -151,31 +194,34 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
   }, []);
 
   const sendMessage = useCallback((message: Omit<InterviewWebSocketMessage, 'timestamp' | 'sessionId'>) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && sessionId) {
+    if (wsRef.current?.readyState === WebSocket.OPEN && sessionId && sessionReady) {
       const fullMessage: InterviewWebSocketMessage = {
         type: message.type,
         data: message.data,
         timestamp: Date.now(),
         sessionId
       };
+      
+      console.log('Sending message:', fullMessage);
       wsRef.current.send(JSON.stringify(fullMessage));
       return true;
     } else {
-      console.warn('WebSocket not connected, cannot send message');
+      const reason = !sessionReady ? 'Session not ready' : 'WebSocket not connected';
+      console.warn(`Cannot send message: ${reason}`);
       
       toast({
-        title: "Connection Lost",
-        description: "Message could not be sent. Reconnecting...",
+        title: "Connection Issue",
+        description: `${reason}. Please wait or try again.`,
         variant: "destructive",
       });
       
-      // Attempt to reconnect
-      if (sessionId) {
+      // Attempt to reconnect if needed
+      if (sessionId && wsRef.current?.readyState !== WebSocket.CONNECTING) {
         connect();
       }
       return false;
     }
-  }, [sessionId, toast, connect]);
+  }, [sessionId, sessionReady, toast, connect]);
 
   const retry = useCallback(() => {
     reconnectAttempts.current = 0;
@@ -195,7 +241,9 @@ export const useInterviewWebSocket = (sessionId?: string, wsUrl?: string) => {
   return {
     isConnected,
     connectionState,
+    sessionReady,
     lastMessage,
+    lastHeartbeat,
     connect,
     disconnect,
     sendMessage,

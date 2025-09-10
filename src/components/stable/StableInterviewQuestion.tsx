@@ -120,7 +120,9 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
   const { 
     isConnected, 
     connectionState, 
+    sessionReady,
     lastMessage, 
+    lastHeartbeat,
     sendMessage: sendWebSocketMessage,
     retry: retryConnection
   } = useInterviewWebSocket(sessionId || undefined, wsUrl);
@@ -248,7 +250,7 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
     handleInitialLoad();
   }, [initializeSession, checkForRecovery, toast]);
 
-  // Handle WebSocket messages with error boundary
+  // Handle WebSocket messages with comprehensive error handling
   useEffect(() => {
     if (!lastMessage || !sessionId) return;
     
@@ -266,17 +268,43 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
         setMessages(prev => [...prev, aiMessage]);
         setIsLoading(false);
         
-        // Handle audio response if present
-        if (lastMessage.data.audio_response) {
-          playAudioResponse(lastMessage.data.audio_response);
+        // Handle transcription display if present
+        if (lastMessage.data.transcription && mode === 'voice') {
+          toast({
+            title: "Voice Transcribed",
+            description: `You said: "${lastMessage.data.transcription}"`,
+          });
         }
+        
+        // Handle audio response if present
+        if (lastMessage.data.audio_response || lastMessage.data.audio) {
+          playAudioResponse(lastMessage.data.audio_response || lastMessage.data.audio);
+        }
+      }
+      
+      if (lastMessage.type === 'audio_response') {
+        playAudioResponse(lastMessage.data.audio);
+      }
+      
+      if (lastMessage.type === 'message_error' || lastMessage.type === 'audio_error') {
+        setIsLoading(false);
+        toast({
+          title: "Message Error",
+          description: lastMessage.error || "Failed to process message",
+          variant: "destructive",
+        });
       }
       
     } catch (error) {
       console.error('Error processing WebSocket message:', error);
       setIsLoading(false);
+      toast({
+        title: "Processing Error",
+        description: "Failed to process server response",
+        variant: "destructive",
+      });
     }
-  }, [lastMessage, sessionId]);
+  }, [lastMessage, sessionId, mode, toast]);
 
   // Enhanced voice recording with better error recovery
   const handleVoiceRecord = useCallback(async () => {
@@ -305,20 +333,20 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
             
             setMessages(prev => [...prev, audioMessage]);
             
-            if (isConnected && sendWebSocketMessage) {
-            const success = sendWebSocketMessage({
-              type: 'audio_message',
-              data: { 
-                audio_data: base64Audio,
-                session_id: sessionId 
-              }
-            });
+            if (isConnected && sessionReady && sendWebSocketMessage) {
+              const success = sendWebSocketMessage({
+                type: 'audio_message',
+                data: { 
+                  audio_data: base64Audio
+                }
+              });
               
               if (!success) {
                 throw new Error('Failed to send WebSocket message');
               }
             } else {
-              throw new Error('WebSocket not connected');
+              const issue = !isConnected ? 'not connected' : !sessionReady ? 'session not ready' : 'no send function';
+              throw new Error(`WebSocket ${issue}`);
             }
             
           } catch (error) {
@@ -377,12 +405,11 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
       setCurrentMessage('');
       setIsLoading(true);
       
-      if (isConnected && sendWebSocketMessage) {
+      if (isConnected && sessionReady && sendWebSocketMessage) {
         const success = sendWebSocketMessage({
           type: 'text_message',
           data: { 
-            message: currentMessage.trim(),
-            session_id: sessionId 
+            message: currentMessage.trim()
           }
         });
         
@@ -390,7 +417,8 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
           throw new Error('Failed to send message');
         }
       } else {
-        throw new Error('WebSocket not connected');
+        const issue = !isConnected ? 'not connected' : !sessionReady ? 'session not ready' : 'no send function';
+        throw new Error(`WebSocket ${issue}`);
       }
       
     } catch (error) {
@@ -489,17 +517,20 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
                   {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
                 </div>
                 <div className="flex items-center gap-1 text-sm">
-                  {isConnected ? (
+                  {isConnected && sessionReady ? (
                     <>
                       <Wifi className="h-4 w-4 text-green-500" />
-                      <span className="text-green-600">Connected</span>
+                      <span className="text-green-600">Ready</span>
+                    </>
+                  ) : isConnected ? (
+                    <>
+                      <Wifi className="h-4 w-4 text-yellow-500" />
+                      <span className="text-yellow-600">Connecting...</span>
                     </>
                   ) : (
                     <>
                       <WifiOff className="h-4 w-4 text-red-500" />
-                      <span className="text-red-600">
-                        {connectionState === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                      </span>
+                      <span className="text-red-600">Disconnected</span>
                     </>
                   )}
                 </div>
