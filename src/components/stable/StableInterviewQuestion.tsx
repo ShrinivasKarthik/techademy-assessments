@@ -134,9 +134,10 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
   useEffect(() => {
     if (!lastMessage) return;
     
-    console.log('Processing WebSocket message:', lastMessage);
+    console.log('Processing WebSocket message:', lastMessage.type, lastMessage);
     
     if (lastMessage.type === 'ai_response') {
+      console.log('Received AI response:', lastMessage.data.content);
       const aiMessage: Message = {
         speaker: 'assistant',
         content: lastMessage.data.content,
@@ -149,6 +150,7 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
       
       // Show transcription if present
       if (lastMessage.data.transcription && mode === 'voice') {
+        console.log('Showing transcription:', lastMessage.data.transcription);
         toast({
           title: "Voice Transcribed",
           description: `You said: "${lastMessage.data.transcription}"`,
@@ -157,6 +159,7 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
     }
     
     if (lastMessage.type === 'audio_response') {
+      console.log('Received audio response, playing audio...');
       playAudioResponse(lastMessage.data.audio);
     }
     
@@ -203,17 +206,25 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
 
   const handleVoiceRecord = useCallback(async () => {
     try {
+      console.log('handleVoiceRecord called, isRecording:', isRecording, 'hasPermission:', hasPermission);
+      
       if (!hasPermission) {
+        console.log('Requesting permissions...');
         const granted = await requestPermissions();
+        console.log('Permission granted:', granted);
         if (!granted) return;
       }
 
       if (isRecording) {
+        console.log('Stopping recording...');
         setIsLoading(true);
         const audioBlob = await stopRecording();
+        console.log('Recording stopped, blob size:', audioBlob?.size);
         
         if (audioBlob && audioBlob.size > 0) {
+          console.log('Converting blob to base64...');
           const base64Audio = await convertBlobToBase64(audioBlob);
+          console.log('Base64 audio length:', base64Audio?.length);
           
           const audioMessage: Message = {
             speaker: 'user',
@@ -224,15 +235,18 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
           
           setMessages(prev => [...prev, audioMessage]);
           
+          console.log('Sending WebSocket message...');
           const success = sendWebSocketMessage({
             type: 'audio_message',
             data: { audio_data: base64Audio }
           });
+          console.log('WebSocket send success:', success);
           
           if (!success) {
             setIsLoading(false);
           }
         } else {
+          console.log('No audio data recorded');
           toast({
             title: "Recording Error",
             description: "No audio data recorded. Please try again.",
@@ -241,7 +255,9 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
           setIsLoading(false);
         }
       } else {
+        console.log('Starting recording...');
         const success = await startRecording();
+        console.log('Recording start success:', success);
         if (!success) {
           toast({
             title: "Recording Failed",
@@ -263,6 +279,8 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
 
   const playAudioResponse = async (audioBase64: string) => {
     try {
+      console.log('playAudioResponse called with base64 length:', audioBase64?.length);
+      
       // Convert base64 to blob for MP3 playback
       const binaryString = atob(audioBase64);
       const bytes = new Uint8Array(binaryString.length);
@@ -270,12 +288,17 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
         bytes[i] = binaryString.charCodeAt(i);
       }
       
+      console.log('Created audio bytes, length:', bytes.length);
+      
       // Create blob and play using HTML5 Audio
       const blob = new Blob([bytes], { type: 'audio/mp3' });
       const audioUrl = URL.createObjectURL(blob);
       const audio = new Audio(audioUrl);
       
+      console.log('Created audio element, attempting to play...');
+      
       audio.onended = () => {
+        console.log('Audio playback ended');
         URL.revokeObjectURL(audioUrl);
       };
       
@@ -285,6 +308,7 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
       };
       
       await audio.play();
+      console.log('Audio playback started successfully');
     } catch (error) {
       console.error('Failed to play audio:', error);
       toast({
