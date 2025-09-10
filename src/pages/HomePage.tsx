@@ -30,6 +30,7 @@ import {
 import heroPeople from '@/assets/hero-people.jpg';
 import studentsAssessment from '@/assets/students-assessment.jpg';
 import analyticsDashboard from '@/assets/analytics-dashboard.jpg';
+import { ProcessCompletedInterviewsButton } from '@/components/ProcessCompletedInterviewsButton';
 
 const HomePage = () => {
   const demoRoles = [
@@ -150,6 +151,13 @@ const HomePage = () => {
               </Button>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Admin Controls */}
+      <section className="py-4 px-4 bg-gray-100 border-b">
+        <div className="container mx-auto max-w-6xl flex justify-end">
+          <ProcessCompletedInterviewsButton />
         </div>
       </section>
 
