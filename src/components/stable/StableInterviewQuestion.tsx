@@ -345,6 +345,23 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
           description: "Your interview has been completed successfully.",
         });
 
+        // Trigger interview intelligence analysis
+        try {
+          toast({
+            title: "Processing Interview",
+            description: "Generating comprehensive analysis...",
+          });
+
+          await supabase.functions.invoke('trigger-interview-intelligence', {
+            body: { sessionId }
+          });
+          
+          console.log('Interview intelligence analysis triggered for session:', sessionId);
+        } catch (analysisError) {
+          console.error('Failed to trigger interview analysis:', analysisError);
+          // Don't fail the completion if analysis fails
+        }
+
         onComplete({
           sessionId,
           messages,
