@@ -115,17 +115,7 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
     };
 
     initializeSession();
-    
-    // Request microphone permissions on component mount
-    const requestMicPermission = async () => {
-      if (!hasPermission) {
-        console.log('Requesting microphone permissions...');
-        await requestPermissions();
-      }
-    };
-    
-    requestMicPermission();
-  }, [question.id, instanceId, interviewType, config.instructions, toast, hasPermission, requestPermissions]);
+  }, [question.id, instanceId, interviewType, config.instructions, toast]);
 
   // Timer for elapsed time
   useEffect(() => {
@@ -425,12 +415,27 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
           <Button
             variant={mode === 'voice' ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setMode('voice')}
-            disabled={!hasPermission}
-            title={!hasPermission ? 'Microphone permission required' : 'Switch to voice mode'}
+            onClick={async () => {
+              if (!hasPermission) {
+                console.log('Requesting microphone permissions...');
+                const granted = await requestPermissions();
+                if (granted) {
+                  setMode('voice');
+                } else {
+                  toast({
+                    title: "Permission Required",
+                    description: "Microphone access is needed for voice mode.",
+                    variant: "destructive",
+                  });
+                }
+              } else {
+                setMode('voice');
+              }
+            }}
+            title={!hasPermission ? 'Click to grant microphone permission' : 'Switch to voice mode'}
           >
             <Mic className="h-4 w-4 mr-1" />
-            Voice {!hasPermission && '🔒'}
+            Voice {!hasPermission && '(Click to enable)'}
           </Button>
         </div>
       </CardHeader>

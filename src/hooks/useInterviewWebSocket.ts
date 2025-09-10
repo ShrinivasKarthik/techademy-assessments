@@ -30,7 +30,7 @@ export const useInterviewWebSocket = (sessionId?: string) => {
       return;
     }
 
-    const wsUrl = `wss://axdwgxtukqqzupboojmx.functions.supabase.co/functions/v1/interview-bot`;
+    const wsUrl = `wss://axdwgxtukqqzupboojmx.functions.supabase.co/interview-bot`;
     console.log('Connecting to WebSocket:', wsUrl);
     
     setConnectionState('connecting');
