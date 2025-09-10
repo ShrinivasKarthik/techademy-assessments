@@ -263,20 +263,35 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
 
   const playAudioResponse = async (audioBase64: string) => {
     try {
-      const audioData = atob(audioBase64);
-      const audioArray = new Uint8Array(audioData.length);
-      for (let i = 0; i < audioData.length; i++) {
-        audioArray[i] = audioData.charCodeAt(i);
+      // Convert base64 to blob for MP3 playback
+      const binaryString = atob(audioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
       }
-
-      const audioContext = new AudioContext();
-      const audioBuffer = await audioContext.decodeAudioData(audioArray.buffer);
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      source.start(0);
+      
+      // Create blob and play using HTML5 Audio
+      const blob = new Blob([bytes], { type: 'audio/mp3' });
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = (error) => {
+        console.error('Audio playback error:', error);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      await audio.play();
     } catch (error) {
       console.error('Failed to play audio:', error);
+      toast({
+        title: "Audio Playback Error",
+        description: "Could not play voice response.",
+        variant: "destructive",
+      });
     }
   };
 
