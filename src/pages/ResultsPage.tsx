@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Navigation from "@/components/Navigation";
-import { ProcessCompletedInterviewsButton } from '@/components/ProcessCompletedInterviewsButton';
 import { 
   Trophy, 
   Clock, 
@@ -162,16 +161,11 @@ const ResultsPage = () => {
       <Navigation />
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Assessment Results</h1>
-            <p className="text-muted-foreground">
-              View your completed assessments and performance analytics
-            </p>
-          </div>
-          <div className="flex-shrink-0">
-            <ProcessCompletedInterviewsButton />
-          </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Assessment Results</h1>
+          <p className="text-muted-foreground">
+            View your completed assessments and performance analytics
+          </p>
         </div>
 
         {/* Stats Overview */}

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { ProcessCompletedInterviewsButton } from '@/components/ProcessCompletedInterviewsButton';
 import EnhancedResultsDisplay from '@/components/EnhancedResultsDisplay';
 
 interface Assessment {
@@ -362,6 +363,7 @@ const AssessmentResultsView: React.FC = () => {
                   <Zap className="w-4 h-4" />
                   Trigger Evaluations
                 </Button>
+                <ProcessCompletedInterviewsButton />
                 <Button onClick={cleanupStuckAssessments} variant="outline" size="sm" className="gap-2">
                   <AlertTriangle className="w-4 h-4" />
                   Cleanup Stuck
