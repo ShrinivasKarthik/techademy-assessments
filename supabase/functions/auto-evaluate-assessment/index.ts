@@ -251,6 +251,139 @@ serve(async (req) => {
               });
           }
           break;
+        
+        case 'interview':
+          // Start interview evaluation in background
+          const interviewEvaluationPromise = (async () => {
+            try {
+              console.log(`Starting interview evaluation for question ${question.id}, submission ${submission.id}`);
+              
+              // Find the interview session for this submission
+              const { data: interviewSession, error: sessionError } = await supabase
+                .from('interview_sessions')
+                .select('id, current_state, final_score')
+                .eq('instance_id', instanceId)
+                .eq('question_id', question.id)
+                .single();
+
+              if (sessionError || !interviewSession) {
+                console.error('Interview session not found:', sessionError);
+                throw new Error('Interview session not found');
+              }
+
+              // Trigger interview intelligence analysis and wait for completion
+              console.log('Triggering interview intelligence analysis...');
+              await supabase.functions.invoke('trigger-interview-intelligence', {
+                body: { sessionId: interviewSession.id }
+              });
+
+              // Wait for intelligence analysis to complete (with timeout)
+              let analysisComplete = false;
+              let attempts = 0;
+              const maxAttempts = 10; // 30 seconds max wait
+              
+              while (!analysisComplete && attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+                attempts++;
+                
+                // Check if performance metrics are available
+                const { data: performanceMetrics } = await supabase
+                  .from('interview_performance_metrics')
+                  .select('overall_score, communication_score, technical_score, behavioral_score')
+                  .eq('session_id', interviewSession.id)
+                  .single();
+                
+                if (performanceMetrics && performanceMetrics.overall_score !== null) {
+                  analysisComplete = true;
+                  
+                  // Calculate interview score based on performance metrics
+                  const interviewScore = Math.round(
+                    (performanceMetrics.overall_score / 100) * (question.points || 10)
+                  );
+                  
+                  // Get conversation intelligence for feedback
+                  const { data: conversationIntelligence } = await supabase
+                    .from('conversation_intelligence')
+                    .select('ai_insights, competency_analysis, recommendations')
+                    .eq('session_id', interviewSession.id)
+                    .single();
+                  
+                  const aiFeedback = {
+                    overall_score: performanceMetrics.overall_score,
+                    communication_score: performanceMetrics.communication_score,
+                    technical_score: performanceMetrics.technical_score,
+                    behavioral_score: performanceMetrics.behavioral_score,
+                    ai_insights: conversationIntelligence?.ai_insights || {},
+                    competency_analysis: conversationIntelligence?.competency_analysis || {},
+                    recommendations: conversationIntelligence?.recommendations || []
+                  };
+                  
+                  // Create evaluation record
+                  await supabase
+                    .from('evaluations')
+                    .upsert({
+                      submission_id: submission.id,
+                      score: interviewScore,
+                      max_score: question.points || 0,
+                      integrity_score: integrityScore,
+                      ai_feedback: aiFeedback,
+                      feedback: `Interview evaluation - Overall: ${performanceMetrics.overall_score}%, Communication: ${performanceMetrics.communication_score}%, Technical: ${performanceMetrics.technical_score}%`,
+                      evaluated_at: new Date().toISOString()
+                    });
+
+                  // Update total score in instance
+                  const { data: currentInstance } = await supabase
+                    .from('assessment_instances')
+                    .select('total_score')
+                    .eq('id', instanceId)
+                    .single();
+
+                  if (currentInstance) {
+                    await supabase
+                      .from('assessment_instances')
+                      .update({
+                        total_score: (currentInstance.total_score || 0) + interviewScore
+                      })
+                      .eq('id', instanceId);
+                  }
+                  
+                  console.log(`Interview evaluation completed with score: ${interviewScore}/${question.points}`);
+                }
+              }
+              
+              if (!analysisComplete) {
+                console.warn('Interview analysis timed out, creating fallback evaluation');
+                // Create fallback evaluation
+                await supabase
+                  .from('evaluations')
+                  .upsert({
+                    submission_id: submission.id,
+                    score: Math.round((question.points || 10) * 0.5), // 50% fallback score
+                    max_score: question.points || 0,
+                    integrity_score: integrityScore,
+                    feedback: 'Interview evaluation - Analysis pending',
+                    evaluated_at: new Date().toISOString()
+                  });
+              }
+              
+            } catch (error) {
+              console.error('Interview evaluation failed:', error);
+              // Insert fallback evaluation
+              await supabase
+                .from('evaluations')
+                .upsert({
+                  submission_id: submission.id,
+                  score: 0,
+                  max_score: question.points || 0,
+                  integrity_score: integrityScore,
+                  feedback: `Interview evaluation failed: ${error.message}`,
+                  evaluated_at: new Date().toISOString()
+                });
+            }
+          })();
+          
+          evaluationPromises.push(interviewEvaluationPromise);
+          break;
         default:
           console.log(`Skipping evaluation for question type: ${question.question_type}`);
       }

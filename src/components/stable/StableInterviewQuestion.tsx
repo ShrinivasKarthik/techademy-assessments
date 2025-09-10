@@ -345,6 +345,34 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
           description: "Your interview has been completed successfully.",
         });
 
+        // Create submission record for the interview
+        const submissionData = {
+          instance_id: instanceId,
+          question_id: question.id,
+          answer: {
+            sessionId,
+            messages: messages.map(m => ({
+              speaker: m.speaker,
+              content: m.content,
+              timestamp: m.timestamp.toISOString(),
+              type: m.type
+            })),
+            duration: timeElapsed,
+            type: interviewType,
+            conversationSummary: messages.slice(-5).map(m => `${m.speaker}: ${m.content}`).join('\n')
+          } as any
+        };
+
+        const { error: submissionError } = await supabase
+          .from('submissions')
+          .upsert(submissionData);
+
+        if (submissionError) {
+          console.error('Failed to create interview submission:', submissionError);
+        } else {
+          console.log('Interview submission created successfully');
+        }
+
         // Trigger interview intelligence analysis
         try {
           toast({
@@ -360,6 +388,16 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
         } catch (analysisError) {
           console.error('Failed to trigger interview analysis:', analysisError);
           // Don't fail the completion if analysis fails
+        }
+
+        // Trigger assessment evaluation to include this interview
+        try {
+          console.log('Triggering assessment evaluation for interview...');
+          await supabase.functions.invoke('auto-evaluate-assessment', {
+            body: { instanceId }
+          });
+        } catch (evalError) {
+          console.error('Failed to trigger assessment evaluation:', evalError);
         }
 
         onComplete({
