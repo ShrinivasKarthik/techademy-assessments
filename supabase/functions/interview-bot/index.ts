@@ -14,122 +14,86 @@ const openAIKey = Deno.env.get('OPENAI_API_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 serve(async (req) => {
+  console.log(`${req.method} ${req.url}`);
+  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Handle WebSocket upgrade for voice mode
+  // Check for WebSocket upgrade request
   const upgradeHeader = req.headers.get("upgrade");
+  console.log('Upgrade header:', upgradeHeader);
+  
   if (upgradeHeader?.toLowerCase() === "websocket") {
+    console.log('Handling WebSocket upgrade...');
     return handleWebSocketConnection(req);
   }
 
-  // Handle regular HTTP requests for text mode
-  try {
-    const { session_id, message, interview_type } = await req.json();
-
-    if (!session_id || !message) {
-      throw new Error('Missing session_id or message');
-    }
-
-    console.log(`Processing message for session ${session_id}:`, message);
-
-    // Get session context
-    const { data: session, error: sessionError } = await supabase
-      .from('interview_sessions')
-      .select('*')
-      .eq('id', session_id)
-      .single();
-
-    if (sessionError) {
-      console.error('Session error:', sessionError);
-      throw new Error('Session not found');
-    }
-
-    // Get conversation history
-    const { data: history, error: historyError } = await supabase
-      .from('interview_responses')
-      .select('*')
-      .eq('session_id', session_id)
-      .order('timestamp', { ascending: true });
-
-    if (historyError) {
-      console.error('History error:', historyError);
-    }
-
-    // Generate AI response
-    const response = await generateAIResponse(
-      message,
-      interview_type || 'behavioral',
-      history || [],
-      session.evaluation_criteria
-    );
-
-    console.log('Generated AI response:', response);
-
-    return new Response(JSON.stringify({ response }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('Error in interview-bot function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  // Return 406 for non-WebSocket requests to maintain consistency
+  return new Response('WebSocket connection required', { 
+    status: 406,
+    headers: corsHeaders 
+  });
 });
 
 function handleWebSocketConnection(req: Request) {
-  const { socket, response } = Deno.upgradeWebSocket(req);
+  console.log('Creating WebSocket connection...');
   
-  let sessionId: string | null = null;
-  let interviewType: string = 'behavioral';
-  let isSessionActive = false;
-  let heartbeatInterval: number | null = null;
+  try {
+    const { socket, response } = Deno.upgradeWebSocket(req);
+    console.log('WebSocket upgrade successful');
+    
+    let sessionId: string | null = null;
+    let interviewType: string = 'behavioral';
+    let heartbeatInterval: number | null = null;
 
-  socket.onopen = () => {
-    console.log('WebSocket connection opened');
-    
-    // Start heartbeat
-    heartbeatInterval = setInterval(() => {
-      if (socket.readyState === WebSocket.OPEN) {
-        try {
-          socket.send(JSON.stringify({ 
-            type: 'heartbeat',
-            timestamp: Date.now()
-          }));
-        } catch (error) {
-          console.error('Heartbeat failed:', error);
+    socket.onopen = () => {
+      console.log('WebSocket connection opened');
+      
+      // Start heartbeat immediately
+      heartbeatInterval = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          try {
+            socket.send(JSON.stringify({ 
+              type: 'heartbeat',
+              timestamp: Date.now()
+            }));
+          } catch (error) {
+            console.error('Heartbeat send failed:', error);
+          }
         }
-      }
-    }, 30000); // 30 second heartbeat
-    
-    // Send connection confirmation
-    try {
+      }, 30000);
+      
+      // Send immediate connection ready signal
       socket.send(JSON.stringify({ 
         type: 'connection_ready',
-        timestamp: Date.now(),
-        status: 'awaiting_session_init'
+        timestamp: Date.now()
       }));
-    } catch (error) {
-      console.error('Error sending connection confirmation:', error);
-    }
-  };
+    };
 
-  socket.onmessage = async (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log('WebSocket message received:', data);
+    socket.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Received WebSocket message:', data.type, data);
 
-      if (data.type === 'init_session') {
-        sessionId = data.data?.sessionId || data.sessionId;
-        interviewType = data.data?.interview_type || data.interview_type || 'behavioral';
-        console.log(`Session initialized: ${sessionId}, type: ${interviewType}`);
-        
-        // Verify session exists in database
-        try {
+        // Handle session initialization
+        if (data.type === 'init_session') {
+          sessionId = data.data?.sessionId;
+          interviewType = data.data?.interview_type || 'behavioral';
+          
+          console.log(`Initializing session: ${sessionId}, type: ${interviewType}`);
+          
+          if (!sessionId) {
+            socket.send(JSON.stringify({
+              type: 'session_error',
+              error: 'No session ID provided'
+            }));
+            return;
+          }
+
+          // Verify session exists and update state
           const { data: session, error } = await supabase
             .from('interview_sessions')
             .select('id, current_state')
@@ -137,238 +101,203 @@ function handleWebSocketConnection(req: Request) {
             .single();
 
           if (error || !session) {
+            console.error('Session verification failed:', error);
             socket.send(JSON.stringify({
               type: 'session_error',
-              error: 'Session not found in database',
-              action: 'create_new_session'
+              error: 'Session not found. Please refresh and try again.'
             }));
             return;
           }
 
-          isSessionActive = true;
-          
-          // Send successful initialization
+          // Update session to active state
+          await supabase
+            .from('interview_sessions')
+            .update({ current_state: 'active' })
+            .eq('id', sessionId);
+
           socket.send(JSON.stringify({
             type: 'session_ready',
             sessionId: sessionId,
-            interviewType: interviewType,
-            status: 'connected',
             timestamp: Date.now()
           }));
           
-        } catch (error) {
-          console.error('Session verification failed:', error);
-          socket.send(JSON.stringify({
-            type: 'session_error',
-            error: 'Failed to verify session',
-            action: 'retry_init'
-          }));
+          return;
         }
-        return;
-      }
 
-      if (!sessionId || !isSessionActive) {
-        socket.send(JSON.stringify({ 
-          type: 'session_error',
-          error: 'Session not properly initialized',
-          action: 'reinit_session'
-        }));
-        return;
-      }
-
-      // Handle heartbeat pong
-      if (data.type === 'pong') {
-        console.log('Received pong from client');
-        return;
-      }
-
-      if (data.type === 'text_message' || data.type === 'user_message') {
-        // Handle text message - standardized format
-        const message = data.data?.message || data.data?.content || data.message || data.content;
-        
-        if (!message) {
+        // Ensure session is initialized
+        if (!sessionId) {
           socket.send(JSON.stringify({
-            type: 'message_error',
-            error: 'Empty message received'
+            type: 'error',
+            error: 'Session not initialized'
           }));
           return;
         }
 
-        try {
+        // Handle heartbeat pong
+        if (data.type === 'pong') {
+          console.log('Received heartbeat pong');
+          return;
+        }
+
+        // Handle text messages
+        if (data.type === 'text_message') {
+          const message = data.data?.message;
+          if (!message) {
+            socket.send(JSON.stringify({
+              type: 'error',
+              error: 'No message content'
+            }));
+            return;
+          }
+
+          console.log(`Processing text message for session ${sessionId}:`, message);
+          
           const response = await processUserMessage(message, sessionId, interviewType);
+          
+          socket.send(JSON.stringify({
+            type: 'ai_response',
+            data: { content: response },
+            timestamp: Date.now()
+          }));
+          return;
+        }
+
+        // Handle audio messages
+        if (data.type === 'audio_message') {
+          const audioData = data.data?.audio_data;
+          if (!audioData) {
+            socket.send(JSON.stringify({
+              type: 'error',
+              error: 'No audio data provided'
+            }));
+            return;
+          }
+
+          console.log(`Processing audio message for session ${sessionId}`);
+          
+          // Transcribe audio
+          const transcript = await transcribeAudio(audioData);
+          if (!transcript) {
+            socket.send(JSON.stringify({
+              type: 'error',
+              error: 'Failed to transcribe audio'
+            }));
+            return;
+          }
+
+          console.log('Transcription result:', transcript);
+          
+          // Process transcribed message
+          const response = await processUserMessage(transcript, sessionId, interviewType);
+          
+          // Send text response with transcription
           socket.send(JSON.stringify({
             type: 'ai_response',
             data: { 
               content: response,
-              timestamp: Date.now(),
-              sessionId: sessionId
-            }
+              transcription: transcript
+            },
+            timestamp: Date.now()
           }));
-        } catch (error) {
-          console.error('Text processing error:', error);
-          socket.send(JSON.stringify({
-            type: 'processing_error',
-            error: 'Failed to process message',
-            action: 'retry_message'
-          }));
-        }
 
-      } else if (data.type === 'audio_message') {
-        // Handle audio message - standardized format
-        const audioData = data.data?.audio_data || data.data?.audio || data.audio;
-        
-        if (!audioData) {
-          socket.send(JSON.stringify({
-            type: 'audio_error',
-            error: 'No audio data received'
-          }));
+          // Generate speech response
+          const audioResponse = await generateSpeechResponse(response);
+          if (audioResponse) {
+            socket.send(JSON.stringify({
+              type: 'audio_response',
+              data: { audio: audioResponse },
+              timestamp: Date.now()
+            }));
+          }
           return;
         }
 
-        console.log('Received audio message, transcribing...');
-        
-        try {
-          const transcript = await transcribeAudio(audioData);
-          console.log('Transcription result:', transcript);
-          
-          if (transcript) {
-            const response = await processUserMessage(transcript, sessionId, interviewType);
-            
-            // Send text response with transcription
-            socket.send(JSON.stringify({
-              type: 'ai_response',
-              data: { 
-                content: response,
-                transcription: transcript,
-                timestamp: Date.now(),
-                sessionId: sessionId
-              }
-            }));
-
-            // Generate speech response
-            try {
-              const audioResponse = await generateSpeechResponse(response);
-              if (audioResponse) {
-                socket.send(JSON.stringify({
-                  type: 'audio_response',
-                  data: { 
-                    audio: audioResponse,
-                    timestamp: Date.now(),
-                    sessionId: sessionId
-                  }
-                }));
-              }
-            } catch (speechError) {
-              console.error('Speech generation failed:', speechError);
-              socket.send(JSON.stringify({
-                type: 'audio_fallback',
-                message: 'Speech generation failed, text response only'
-              }));
-            }
-          } else {
-            console.error('Transcription failed');
-            socket.send(JSON.stringify({
-              type: 'transcription_error',
-              error: 'Failed to transcribe audio. Please try text instead.',
-              action: 'use_text_mode'
-            }));
-          }
-        } catch (error) {
-          console.error('Audio processing error:', error);
-          socket.send(JSON.stringify({
-            type: 'audio_processing_error',
-            error: 'Audio processing failed',
-            action: 'retry_audio'
-          }));
-        }
-      }
-
-    } catch (error) {
-      console.error('WebSocket message error:', error);
-      try {
-        socket.send(JSON.stringify({ 
+        // Unknown message type
+        console.warn('Unknown message type:', data.type);
+        socket.send(JSON.stringify({
           type: 'error',
-          error: error.message || 'An unexpected error occurred'
+          error: `Unknown message type: ${data.type}`
         }));
-      } catch (sendError) {
-        console.error('Failed to send error message:', sendError);
+
+      } catch (error) {
+        console.error('Message processing error:', error);
+        socket.send(JSON.stringify({
+          type: 'error',
+          error: 'Failed to process message'
+        }));
       }
-    }
-  };
+    };
 
-  socket.onerror = (error) => {
-    console.error('WebSocket error:', error);
-  };
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
 
-  socket.onclose = (event) => {
-    console.log('WebSocket connection closed:', event.code, event.reason);
+    socket.onclose = (event) => {
+      console.log('WebSocket closed:', event.code, event.reason);
+      
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+      
+      if (sessionId) {
+        console.log(`Session ${sessionId} disconnected`);
+      }
+    };
+
+    return response;
     
-    // Clear heartbeat
-    if (heartbeatInterval) {
-      clearInterval(heartbeatInterval);
-      heartbeatInterval = null;
-    }
-    
-    if (sessionId) {
-      console.log(`Session ${sessionId} connection closed`);
-      isSessionActive = false;
-    }
-  };
-
-  return response;
+  } catch (error) {
+    console.error('WebSocket upgrade failed:', error);
+    return new Response('WebSocket upgrade failed', { 
+      status: 500,
+      headers: corsHeaders 
+    });
+  }
 }
 
 async function processUserMessage(message: string, sessionId: string, interviewType: string): Promise<string> {
-  // Get session context
-  const { data: session } = await supabase
-    .from('interview_sessions')
-    .select('*')
-    .eq('id', sessionId)
-    .single();
+  try {
+    // Save user message
+    await supabase.from('interview_responses').insert({
+      session_id: sessionId,
+      speaker: 'user',
+      content: message,
+      message_type: 'text'
+    });
 
-  // Get conversation history
-  const { data: history } = await supabase
-    .from('interview_responses')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('timestamp', { ascending: true });
+    // Get conversation history
+    const { data: history } = await supabase
+      .from('interview_responses')
+      .select('speaker, content')
+      .eq('session_id', sessionId)
+      .order('timestamp', { ascending: true });
 
-  // Save user message
-  await supabase.from('interview_responses').insert({
-    session_id: sessionId,
-    speaker: 'user',
-    message_type: 'text',
-    content: message
-  });
+    // Generate AI response
+    const response = await generateAIResponse(message, interviewType, history || []);
+    
+    // Save AI response
+    await supabase.from('interview_responses').insert({
+      session_id: sessionId,
+      speaker: 'assistant',
+      content: response,
+      message_type: 'text'
+    });
 
-  // Generate response
-  const response = await generateAIResponse(
-    message,
-    interviewType,
-    history || [],
-    session?.evaluation_criteria
-  );
+    return response;
 
-  // Save AI response
-  await supabase.from('interview_responses').insert({
-    session_id: sessionId,
-    speaker: 'assistant',
-    message_type: 'text',
-    content: response
-  });
-
-  return response;
+  } catch (error) {
+    console.error('Error processing user message:', error);
+    throw new Error('Failed to process message');
+  }
 }
 
 async function generateAIResponse(
   userMessage: string,
   interviewType: string,
-  conversationHistory: any[],
-  evaluationCriteria: any
+  conversationHistory: any[]
 ): Promise<string> {
-  const systemPrompt = getSystemPrompt(interviewType, evaluationCriteria);
+  const systemPrompt = getSystemPrompt(interviewType);
   
-  // Build conversation context
   const messages = [
     { role: 'system', content: systemPrompt },
     ...conversationHistory.map(msg => ({
@@ -387,7 +316,7 @@ async function generateAIResponse(
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: messages,
-      max_tokens: 500,
+      max_tokens: 300,
       temperature: 0.7,
     }),
   });
@@ -402,39 +331,31 @@ async function generateAIResponse(
   return data.choices[0].message.content;
 }
 
-function getSystemPrompt(interviewType: string, evaluationCriteria: any): string {
-  const basePrompt = `You are an experienced interviewer conducting a ${interviewType} interview. Be professional, engaging, and ask relevant follow-up questions based on the candidate's responses.`;
+function getSystemPrompt(interviewType: string): string {
+  const basePrompt = `You are an experienced interviewer conducting a ${interviewType} interview. Be professional, engaging, and ask relevant follow-up questions.`;
   
   const typeSpecificPrompts = {
-    technical: `Focus on technical skills, problem-solving abilities, and coding knowledge. Ask about specific technologies, methodologies, and real-world scenarios. Probe deeper into technical decisions and trade-offs.`,
-    behavioral: `Focus on past experiences, soft skills, and how the candidate handles various workplace situations. Use the STAR method (Situation, Task, Action, Result) to guide responses. Ask about teamwork, leadership, and conflict resolution.`,
-    situational: `Present hypothetical scenarios and ask how the candidate would handle them. Focus on decision-making processes, prioritization skills, and ethical considerations.`
+    technical: `Focus on technical skills, problem-solving abilities, and coding knowledge. Ask about specific technologies and real-world scenarios.`,
+    behavioral: `Focus on past experiences and soft skills. Use the STAR method to guide responses. Ask about teamwork, leadership, and problem-solving.`,
+    situational: `Present hypothetical scenarios and ask how the candidate would handle them. Focus on decision-making and ethical considerations.`
   };
 
-  let criteriaText = '';
-  if (evaluationCriteria?.criteria && evaluationCriteria.criteria.length > 0) {
-    criteriaText = `\n\nEvaluation criteria to keep in mind: ${evaluationCriteria.criteria.join(', ')}`;
-  }
-
-  return `${basePrompt}\n\n${typeSpecificPrompts[interviewType] || typeSpecificPrompts.behavioral}${criteriaText}\n\nKeep responses concise but thorough. Ask one question at a time and build on previous answers.`;
+  return `${basePrompt}\n\n${typeSpecificPrompts[interviewType] || typeSpecificPrompts.behavioral}\n\nKeep responses concise and ask one question at a time.`;
 }
 
 async function transcribeAudio(audioBase64: string): Promise<string | null> {
   try {
-    // Convert base64 to binary
     const binaryAudio = atob(audioBase64);
     const audioBytes = new Uint8Array(binaryAudio.length);
     for (let i = 0; i < binaryAudio.length; i++) {
       audioBytes[i] = binaryAudio.charCodeAt(i);
     }
 
-    // Create form data
     const formData = new FormData();
     const blob = new Blob([audioBytes], { type: 'audio/webm' });
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'whisper-1');
 
-    // Send to OpenAI Whisper
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
@@ -478,12 +399,8 @@ async function generateSpeechResponse(text: string): Promise<string | null> {
       return null;
     }
 
-    // Convert audio buffer to base64
     const arrayBuffer = await response.arrayBuffer();
-    const base64Audio = btoa(
-      String.fromCharCode(...new Uint8Array(arrayBuffer))
-    );
-
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     return base64Audio;
 
   } catch (error) {

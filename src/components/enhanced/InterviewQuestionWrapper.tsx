@@ -1,5 +1,4 @@
 import React from 'react';
-import { ErrorBoundary } from '@/components/ui/error-boundary';
 import StableInterviewQuestion from '@/components/stable/StableInterviewQuestion';
 
 interface InterviewQuestionWrapperProps {
@@ -13,26 +12,14 @@ interface InterviewQuestionWrapperProps {
   onComplete: (answer: any) => void;
 }
 
+// Simplified wrapper - no error boundary to prevent mounting issues
 export const InterviewQuestionWrapper: React.FC<InterviewQuestionWrapperProps> = (props) => {
-  console.log('InterviewQuestionWrapper mounting with props:', {
+  console.log('InterviewQuestionWrapper rendering with:', {
     questionId: props.question.id,
     instanceId: props.instanceId
   });
 
-  return (
-    <ErrorBoundary 
-      fallback={
-        <div className="p-4 border border-red-200 rounded-lg bg-red-50">
-          <h3 className="text-red-800 font-medium">Interview Component Error</h3>
-          <p className="text-red-600 text-sm mt-1">
-            The interview component encountered an error. Please refresh the page to try again.
-          </p>
-        </div>
-      }
-    >
-      <StableInterviewQuestion {...props} />
-    </ErrorBoundary>
-  );
+  return <StableInterviewQuestion {...props} />;
 };
 
 export default InterviewQuestionWrapper;

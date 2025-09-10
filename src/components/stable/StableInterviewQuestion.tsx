@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Mic, MicOff, Send, MessageCircle, Clock, User, Bot, Volume2, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useInterviewWebSocket } from '@/hooks/useInterviewWebSocket';
-import { useInterviewSessionRecovery } from '@/hooks/useInterviewSessionRecovery';
 import { useEnhancedAudioProcessing } from '@/hooks/useEnhancedAudioProcessing';
-import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 interface InterviewQuestionProps {
   question: {
@@ -21,7 +18,6 @@ interface InterviewQuestionProps {
       interview_type?: 'technical' | 'behavioral' | 'situational';
       duration_minutes?: number;
       instructions?: string;
-      evaluation_criteria?: string[];
     };
   };
   instanceId: string;
@@ -35,61 +31,7 @@ interface Message {
   type: 'text' | 'audio';
 }
 
-// Memoized components for performance
-const MessageBubble = memo(({ message, index }: { message: Message; index: number }) => (
-  <div
-    key={index}
-    className={`flex ${message.speaker === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
-  >
-    <div
-      className={`max-w-[80%] p-3 rounded-lg ${
-        message.speaker === 'user'
-          ? 'bg-primary text-primary-foreground ml-4'
-          : 'bg-muted mr-4'
-      }`}
-    >
-      <div className="flex items-start gap-2 mb-1">
-        {message.speaker === 'user' ? (
-          <User className="h-4 w-4 mt-0.5 flex-shrink-0" />
-        ) : (
-          <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />
-        )}
-        <span className="text-xs opacity-70">
-          {message.speaker === 'user' ? 'You' : 'AI Interviewer'}
-        </span>
-        {message.type === 'audio' && (
-          <Volume2 className="h-3 w-3 ml-1 opacity-70" />
-        )}
-      </div>
-      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-      <div className="text-xs opacity-50 mt-1">
-        {message.timestamp.toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })}
-      </div>
-    </div>
-  </div>
-));
-
-const LoadingIndicator = memo(({ isProcessing }: { isProcessing: boolean }) => (
-  <div className="flex justify-start mb-4">
-    <div className="bg-muted p-3 rounded-lg mr-4 max-w-[80%]">
-      <div className="flex items-center gap-2">
-        <Bot className="h-4 w-4" />
-        <span className="text-xs opacity-70">AI Interviewer</span>
-      </div>
-      <div className="flex items-center gap-2 mt-1">
-        <RefreshCw className="h-3 w-3 animate-spin" />
-        <span className="text-sm">
-          {isProcessing ? 'Processing voice...' : 'Thinking...'}
-        </span>
-      </div>
-    </div>
-  </div>
-));
-
-const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
+const StableInterviewQuestion: React.FC<InterviewQuestionProps> = ({
   question,
   instanceId,
   onComplete,
@@ -105,70 +47,75 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  // Memoized configurations to prevent unnecessary re-renders
-  const config = React.useMemo(() => question.config || {}, [question.config]);
-  const interviewType = React.useMemo(() => config.interview_type || 'behavioral', [config.interview_type]);
-  const duration = React.useMemo(() => config.duration_minutes || 30, [config.duration_minutes]);
+  const config = question.config || {};
+  const interviewType = config.interview_type || 'behavioral';
+  const duration = config.duration_minutes || 30;
   
-  // Memoized WebSocket URL to prevent reconnections
-  const wsUrl = React.useMemo(() => 
-    `wss://axdwgxtukqqzupboojmx.functions.supabase.co/functions/v1/interview-bot`, 
-    []
-  );
-  
-  // Enhanced WebSocket with stability improvements
+  // WebSocket connection
   const { 
     isConnected, 
-    connectionState, 
     sessionReady,
     lastMessage, 
-    lastHeartbeat,
+    connectionState,
     sendMessage: sendWebSocketMessage,
     retry: retryConnection
-  } = useInterviewWebSocket(sessionId || undefined, wsUrl);
+  } = useInterviewWebSocket(sessionId || undefined);
 
-  // Enhanced audio processing
+  // Audio processing
   const { 
     isRecording, 
     isProcessing, 
     hasPermission, 
-    audioLevel,
     requestPermissions,
     startRecording, 
     stopRecording, 
     convertBlobToBase64,
     cleanup: cleanupAudio 
   } = useEnhancedAudioProcessing();
-  
-  // Session recovery
-  const { 
-    canRecover,
-    isRecovering,
-    recoverSession,
-    clearRecovery,
-    checkForRecovery
-  } = useInterviewSessionRecovery(question.id, instanceId);
 
-  // Stable scroll function
-  const scrollToBottom = useCallback(() => {
-    if (scrollAreaRef.current) {
-      const timer = setTimeout(() => {
-        const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-        if (scrollContainer) {
-          scrollContainer.scrollTo({
-            top: scrollContainer.scrollHeight,
-            behavior: 'smooth'
-          });
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // Auto-scroll when messages change
+  // Initialize session on component mount
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    const initializeSession = async () => {
+      try {
+        console.log('Initializing interview session...');
+        
+        const { data, error } = await supabase
+          .from('interview_sessions')
+          .insert({
+            question_id: question.id,
+            instance_id: instanceId,
+            current_state: 'initializing'
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        console.log('Session created:', data.id);
+        setSessionId(data.id);
+        
+        // Add initial AI message
+        const initialMessage: Message = {
+          speaker: 'assistant',
+          content: `Hello! Welcome to your ${interviewType} interview. ${config.instructions || 'I\'m ready to begin when you are. You can respond using text or voice.'} How are you doing today?`,
+          timestamp: new Date(),
+          type: 'text'
+        };
+        
+        setMessages([initialMessage]);
+
+      } catch (error) {
+        console.error('Failed to initialize session:', error);
+        toast({
+          title: "Session Error",
+          description: "Failed to start interview session. Please refresh and try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    initializeSession();
+  }, [question.id, instanceId, interviewType, config.instructions, toast]);
 
   // Timer for elapsed time
   useEffect(() => {
@@ -183,130 +130,77 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
     };
   }, []);
 
-  // Initialize session
-  const initializeSession = useCallback(async () => {
-    try {
-      console.log('Initializing interview session...');
-      
-      const { data, error } = await supabase
-        .from('interview_sessions')
-        .insert({
-          question_id: question.id,
-          instance_id: instanceId,
-          interview_type: interviewType,
-          duration_minutes: duration,
-          current_state: 'active'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setSessionId(data.id);
-      
-      // Add initial AI message
-      const initialMessage: Message = {
+  // Handle WebSocket messages
+  useEffect(() => {
+    if (!lastMessage) return;
+    
+    console.log('Processing WebSocket message:', lastMessage);
+    
+    if (lastMessage.type === 'ai_response') {
+      const aiMessage: Message = {
         speaker: 'assistant',
-        content: `Hello! Welcome to your ${interviewType} interview. ${config.instructions || 'Let me know when you\'re ready to begin, and we\'ll start with some questions.'} You can respond using text or voice - just toggle the mode below.`,
+        content: lastMessage.data.content,
         timestamp: new Date(),
         type: 'text'
       };
       
-      setMessages([initialMessage]);
-
-    } catch (error) {
-      console.error('Failed to initialize session:', error);
-      toast({
-        title: "Session Error",
-        description: "Failed to start interview session",
-        variant: "destructive",
-      });
-    }
-  }, [question.id, instanceId, interviewType, duration, config, toast]);
-
-  // Handle initial load and recovery
-  useEffect(() => {
-    const handleInitialLoad = async () => {
-      try {
-        const recoveryData = await checkForRecovery();
-        if (recoveryData.canRecover) {
-          toast({
-            title: "Session Available",
-            description: "Found an incomplete interview session. Would you like to continue?",
-          });
-        } else {
-          await initializeSession();
-        }
-      } catch (error) {
-        console.error('Error during initial load:', error);
-        toast({
-          title: "Initialization Error",
-          description: "Failed to initialize interview. Please try again.",
-          variant: "destructive",
-        });
-      }
-    };
-
-    handleInitialLoad();
-  }, [initializeSession, checkForRecovery, toast]);
-
-  // Handle WebSocket messages with comprehensive error handling
-  useEffect(() => {
-    if (!lastMessage || !sessionId) return;
-    
-    try {
-      console.log('Processing WebSocket message:', lastMessage);
-      
-      if (lastMessage.type === 'ai_response') {
-        const aiMessage: Message = {
-          speaker: 'assistant',
-          content: lastMessage.data.content,
-          timestamp: new Date(),
-          type: 'text'
-        };
-        
-        setMessages(prev => [...prev, aiMessage]);
-        setIsLoading(false);
-        
-        // Handle transcription display if present
-        if (lastMessage.data.transcription && mode === 'voice') {
-          toast({
-            title: "Voice Transcribed",
-            description: `You said: "${lastMessage.data.transcription}"`,
-          });
-        }
-        
-        // Handle audio response if present
-        if (lastMessage.data.audio_response || lastMessage.data.audio) {
-          playAudioResponse(lastMessage.data.audio_response || lastMessage.data.audio);
-        }
-      }
-      
-      if (lastMessage.type === 'audio_response') {
-        playAudioResponse(lastMessage.data.audio);
-      }
-      
-      if (lastMessage.type === 'message_error' || lastMessage.type === 'audio_error') {
-        setIsLoading(false);
-        toast({
-          title: "Message Error",
-          description: lastMessage.error || "Failed to process message",
-          variant: "destructive",
-        });
-      }
-      
-    } catch (error) {
-      console.error('Error processing WebSocket message:', error);
+      setMessages(prev => [...prev, aiMessage]);
       setIsLoading(false);
-      toast({
-        title: "Processing Error",
-        description: "Failed to process server response",
-        variant: "destructive",
-      });
+      
+      // Show transcription if present
+      if (lastMessage.data.transcription && mode === 'voice') {
+        toast({
+          title: "Voice Transcribed",
+          description: `You said: "${lastMessage.data.transcription}"`,
+        });
+      }
     }
-  }, [lastMessage, sessionId, mode, toast]);
+    
+    if (lastMessage.type === 'audio_response') {
+      playAudioResponse(lastMessage.data.audio);
+    }
+    
+  }, [lastMessage, mode, toast]);
 
-  // Enhanced voice recording with better error recovery
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      setTimeout(() => {
+        const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) {
+          scrollContainer.scrollTo({
+            top: scrollContainer.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [messages]);
+
+  const handleSendMessage = useCallback(async () => {
+    if (!currentMessage.trim() || !sessionReady || isLoading) return;
+
+    const userMessage: Message = {
+      speaker: 'user',
+      content: currentMessage.trim(),
+      timestamp: new Date(),
+      type: 'text'
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setCurrentMessage('');
+    setIsLoading(true);
+    
+    const success = sendWebSocketMessage({
+      type: 'text_message',
+      data: { message: currentMessage.trim() }
+    });
+    
+    if (!success) {
+      setIsLoading(false);
+    }
+  }, [currentMessage, sessionReady, isLoading, sendWebSocketMessage]);
+
   const handleVoiceRecord = useCallback(async () => {
     try {
       if (!hasPermission) {
@@ -315,65 +209,43 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
       }
 
       if (isRecording) {
-        // Stop recording
         setIsLoading(true);
         const audioBlob = await stopRecording();
         
         if (audioBlob && audioBlob.size > 0) {
-          try {
-            const base64Audio = await convertBlobToBase64(audioBlob);
-            console.log('Audio recorded, size:', audioBlob.size);
-            
-            const audioMessage: Message = {
-              speaker: 'user',
-              content: `[Voice message - ${Math.round(audioBlob.size / 1024)}KB]`,
-              timestamp: new Date(),
-              type: 'audio'
-            };
-            
-            setMessages(prev => [...prev, audioMessage]);
-            
-            if (isConnected && sessionReady && sendWebSocketMessage) {
-              const success = sendWebSocketMessage({
-                type: 'audio_message',
-                data: { 
-                  audio_data: base64Audio
-                }
-              });
-              
-              if (!success) {
-                throw new Error('Failed to send WebSocket message');
-              }
-            } else {
-              const issue = !isConnected ? 'not connected' : !sessionReady ? 'session not ready' : 'no send function';
-              throw new Error(`WebSocket ${issue}`);
-            }
-            
-          } catch (error) {
-            console.error('Error processing audio:', error);
-            toast({
-              title: "Audio Processing Error",
-              description: "Failed to process voice message. Please try again.",
-              variant: "destructive",
-            });
+          const base64Audio = await convertBlobToBase64(audioBlob);
+          
+          const audioMessage: Message = {
+            speaker: 'user',
+            content: `[Voice message - ${Math.round(audioBlob.size / 1024)}KB]`,
+            timestamp: new Date(),
+            type: 'audio'
+          };
+          
+          setMessages(prev => [...prev, audioMessage]);
+          
+          const success = sendWebSocketMessage({
+            type: 'audio_message',
+            data: { audio_data: base64Audio }
+          });
+          
+          if (!success) {
             setIsLoading(false);
           }
         } else {
           toast({
-            title: "Recording Error", 
+            title: "Recording Error",
             description: "No audio data recorded. Please try again.",
             variant: "destructive",
           });
           setIsLoading(false);
         }
-        
       } else {
-        // Start recording
         const success = await startRecording();
         if (!success) {
           toast({
             title: "Recording Failed",
-            description: "Could not start voice recording. Please check your microphone.",
+            description: "Could not start voice recording.",
             variant: "destructive",
           });
         }
@@ -383,54 +255,11 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
       setIsLoading(false);
       toast({
         title: "Voice Error",
-        description: "An error occurred with voice recording. Please try again.",
+        description: "An error occurred with voice recording.",
         variant: "destructive",
       });
     }
-  }, [hasPermission, requestPermissions, isRecording, stopRecording, startRecording, convertBlobToBase64, isConnected, sendWebSocketMessage, sessionId, toast]);
-
-  // Enhanced text message sending
-  const handleSendMessage = useCallback(async () => {
-    if (!currentMessage.trim() || !sessionId || isLoading) return;
-
-    try {
-      const userMessage: Message = {
-        speaker: 'user',
-        content: currentMessage.trim(),
-        timestamp: new Date(),
-        type: 'text'
-      };
-      
-      setMessages(prev => [...prev, userMessage]);
-      setCurrentMessage('');
-      setIsLoading(true);
-      
-      if (isConnected && sessionReady && sendWebSocketMessage) {
-        const success = sendWebSocketMessage({
-          type: 'text_message',
-          data: { 
-            message: currentMessage.trim()
-          }
-        });
-        
-        if (!success) {
-          throw new Error('Failed to send message');
-        }
-      } else {
-        const issue = !isConnected ? 'not connected' : !sessionReady ? 'session not ready' : 'no send function';
-        throw new Error(`WebSocket ${issue}`);
-      }
-      
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setIsLoading(false);
-      toast({
-        title: "Message Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [currentMessage, sessionId, isLoading, isConnected, sendWebSocketMessage, toast]);
+  }, [hasPermission, requestPermissions, isRecording, stopRecording, startRecording, convertBlobToBase64, sendWebSocketMessage, toast]);
 
   const playAudioResponse = async (audioBase64: string) => {
     try {
@@ -462,7 +291,6 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
           })
           .eq('id', sessionId);
 
-        clearRecovery();
         cleanupAudio();
         
         toast({
@@ -481,11 +309,11 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
       console.error('Error completing interview:', error);
       toast({
         title: "Completion Error",
-        description: "Failed to complete interview. Please try again.",
+        description: "Failed to complete interview.",
         variant: "destructive",
       });
     }
-  }, [sessionId, messages, timeElapsed, interviewType, clearRecovery, cleanupAudio, onComplete, toast]);
+  }, [sessionId, messages, timeElapsed, interviewType, cleanupAudio, onComplete, toast]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -497,187 +325,190 @@ const StableInterviewQuestion: React.FC<InterviewQuestionProps> = memo(({
     };
   }, [cleanupAudio]);
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getConnectionStatusColor = () => {
+    if (!isConnected) return 'text-red-500';
+    if (!sessionReady) return 'text-yellow-500';
+    return 'text-green-500';
+  };
+
+  const getConnectionStatusText = () => {
+    if (!isConnected) return 'Disconnected';
+    if (!sessionReady) return 'Connecting...';
+    return 'Connected';
+  };
+
   return (
-    <ErrorBoundary>
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
-        {/* Header */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5" />
-                {question.title}
-              </CardTitle>
-              <div className="flex items-center gap-4 mt-2">
-                <Badge variant={interviewType === 'technical' ? 'default' : 'secondary'}>
-                  {interviewType.charAt(0).toUpperCase() + interviewType.slice(1)}
-                </Badge>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
-                </div>
-                <div className="flex items-center gap-1 text-sm">
-                  {isConnected && sessionReady ? (
-                    <>
-                      <Wifi className="h-4 w-4 text-green-500" />
-                      <span className="text-green-600">Ready</span>
-                    </>
-                  ) : isConnected ? (
-                    <>
-                      <Wifi className="h-4 w-4 text-yellow-500" />
-                      <span className="text-yellow-600">Connecting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="h-4 w-4 text-red-500" />
-                      <span className="text-red-600">Disconnected</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-
-        {/* Chat Interface */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Interview Conversation</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-96 p-4" ref={scrollAreaRef}>
-              <div className="space-y-4">
-                {messages.length === 0 && (
-                  <div className="text-center text-muted-foreground py-8">
-                    <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Start the conversation by typing or recording a voice message</p>
-                  </div>
-                )}
-                
-                {messages.map((message, index) => (
-                  <MessageBubble key={index} message={message} index={index} />
-                ))}
-                
-                {(isLoading || isProcessing) && (
-                  <LoadingIndicator isProcessing={isProcessing} />
-                )}
-              </div>
-            </ScrollArea>
-
-            {/* Input Area */}
-            <div className="border-t pt-4 space-y-3">
-              <div className="flex gap-2">
-                <Button
-                  variant={mode === 'text' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setMode('text')}
-                >
-                  Text
-                </Button>
-                <Button
-                  variant={mode === 'voice' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setMode('voice')}
-                >
-                  Voice
-                </Button>
-              </div>
-              
-              {mode === 'text' ? (
-                <div className="flex gap-2">
-                  <Textarea
-                    placeholder="Type your response..."
-                    value={currentMessage}
-                    onChange={(e) => setCurrentMessage(e.target.value)}
-                    className="min-h-[60px] resize-none"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!currentMessage.trim() || isLoading || !isConnected}
-                    className="self-end"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
+    <Card className="w-full max-w-4xl mx-auto h-[700px] flex flex-col">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">{question.title}</CardTitle>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              {isConnected ? (
+                <Wifi className={`h-4 w-4 ${getConnectionStatusColor()}`} />
               ) : (
-                <div className="flex gap-2 items-center">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={isRecording ? "destructive" : "outline"}
-                    onClick={handleVoiceRecord}
-                    disabled={isProcessing || isLoading || !isConnected}
-                    className="min-w-[120px]"
-                  >
-                    {isRecording ? (
-                      <>
-                        <MicOff className="h-4 w-4 mr-2" />
-                        Stop ({Math.round(audioLevel * 100)}%)
-                      </>
-                    ) : isProcessing ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="h-4 w-4 mr-2" />
-                        Record Voice
-                      </>
-                    )}
-                  </Button>
-                  
-                  {!isConnected && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={retryConnection}
-                      disabled={connectionState === 'connecting'}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Retry Connection
-                    </Button>
-                  )}
-                </div>
+                <WifiOff className="h-4 w-4 text-red-500" />
               )}
+              <span className={getConnectionStatusColor()}>{getConnectionStatusText()}</span>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Action Buttons */}
-        <div className="flex justify-between">
-          <Button variant="outline" onClick={completeInterview}>
-            Complete Interview
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>{formatTime(timeElapsed)}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button
+            variant={mode === 'text' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setMode('text')}
+          >
+            <MessageCircle className="h-4 w-4 mr-1" />
+            Text
           </Button>
-          
-          {canRecover && (
-            <Button 
-              variant="secondary" 
-              onClick={recoverSession}
-              disabled={isRecovering}
-            >
-              {isRecovering ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Recovering...
-                </>
-              ) : (
-                'Continue Previous Session'
-              )}
-            </Button>
+          <Button
+            variant={mode === 'voice' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setMode('voice')}
+            disabled={!hasPermission}
+          >
+            <Mic className="h-4 w-4 mr-1" />
+            Voice
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex-1 flex flex-col gap-4 min-h-0">
+        <ScrollArea ref={scrollAreaRef} className="flex-1 pr-4">
+          <div className="space-y-4">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${message.speaker === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] p-3 rounded-lg ${
+                    message.speaker === 'user'
+                      ? 'bg-primary text-primary-foreground ml-4'
+                      : 'bg-muted mr-4'
+                  }`}
+                >
+                  <div className="flex items-start gap-2 mb-1">
+                    {message.speaker === 'user' ? (
+                      <User className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    )}
+                    <span className="text-xs opacity-70">
+                      {message.speaker === 'user' ? 'You' : 'AI Interviewer'}
+                    </span>
+                    {message.type === 'audio' && (
+                      <Volume2 className="h-3 w-3 ml-1 opacity-70" />
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                  <div className="text-xs opacity-50 mt-1">
+                    {message.timestamp.toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-muted p-3 rounded-lg mr-4 max-w-[80%]">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-4 w-4" />
+                    <span className="text-xs opacity-70">AI Interviewer</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    <span className="text-sm">
+                      {isProcessing ? 'Processing voice...' : 'Thinking...'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        <div className="border-t pt-4">
+          {mode === 'text' ? (
+            <div className="flex gap-2">
+              <Textarea
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                placeholder="Type your response..."
+                className="flex-1 min-h-[80px] resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                disabled={!sessionReady || isLoading}
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!currentMessage.trim() || !sessionReady || isLoading}
+                className="self-end"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
+              <Button
+                onClick={handleVoiceRecord}
+                disabled={!sessionReady || isLoading}
+                variant={isRecording ? 'destructive' : 'default'}
+                size="lg"
+                className="w-32 h-32 rounded-full"
+              >
+                {isRecording ? (
+                  <MicOff className="h-8 w-8" />
+                ) : (
+                  <Mic className="h-8 w-8" />
+                )}
+              </Button>
+              <p className="text-sm text-muted-foreground text-center">
+                {isRecording ? 'Click to stop recording' : 'Click to start recording'}
+              </p>
+            </div>
           )}
         </div>
-      </div>
-    </ErrorBoundary>
-  );
-});
 
-StableInterviewQuestion.displayName = 'StableInterviewQuestion';
+        <div className="flex justify-between items-center pt-2 border-t">
+          <Button
+            variant="outline"
+            onClick={retryConnection}
+            disabled={isConnected}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry Connection
+          </Button>
+          
+          <Button
+            onClick={completeInterview}
+            disabled={!sessionId}
+          >
+            Complete Interview
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 export default StableInterviewQuestion;
