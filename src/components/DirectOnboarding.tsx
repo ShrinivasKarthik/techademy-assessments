@@ -86,11 +86,14 @@ const DirectOnboarding: React.FC<DirectOnboardingProps> = ({ onUsersCreated }) =
     setLoading(true);
 
     try {
-      await createSingleUser(formData);
+      const result = await createSingleUser(formData);
 
       toast({
-        title: "User Created Successfully",
-        description: `${formData.fullName} has been created as a ${formData.role}. They can now sign in immediately.`,
+        title: result?.action === 'updated' ? 'User Confirmed & Password Set' : 'User Created Successfully',
+        description:
+          result?.action === 'updated'
+            ? `${formData.fullName} was already onboarded. We confirmed their email and set the new password.`
+            : `${formData.fullName} has been created as a ${formData.role}. They can now sign in immediately.`,
       });
 
       // Reset form
@@ -182,15 +185,16 @@ const DirectOnboarding: React.FC<DirectOnboardingProps> = ({ onUsersCreated }) =
     }
 
     setLoading(true);
-    let successful = 0;
+    let created = 0;
+    let updated = 0;
     let failed = 0;
     const failedUsers: string[] = [];
 
     try {
       for (const user of batchUsers) {
         try {
-          await createSingleUser(user);
-          successful++;
+          const r = await createSingleUser(user);
+          if (r?.action === 'updated') updated++; else created++;
         } catch (error: any) {
           failed++;
           failedUsers.push(`${user.email}: ${error.message}`);
@@ -200,8 +204,8 @@ const DirectOnboarding: React.FC<DirectOnboardingProps> = ({ onUsersCreated }) =
 
       toast({
         title: "Batch Creation Complete",
-        description: `Successfully created ${successful} users. ${failed} failed.`,
-        variant: successful > 0 ? "default" : "destructive"
+        description: `Created ${created}, Confirmed ${updated}. Failed ${failed}.`,
+        variant: created + updated > 0 ? "default" : "destructive"
       });
 
       if (failed > 0) {
@@ -244,7 +248,7 @@ const DirectOnboarding: React.FC<DirectOnboardingProps> = ({ onUsersCreated }) =
       <div className="text-center">
         <h1 className="text-3xl font-bold mb-2">Direct User Onboarding</h1>
         <p className="text-muted-foreground">
-          Create user accounts directly without email verification
+          Create accounts without email verification. If a user already exists and is unconfirmed, we will confirm the email and set the new password.
         </p>
       </div>
 
