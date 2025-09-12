@@ -222,10 +222,10 @@ const AssessmentWorkflow: React.FC<AssessmentWorkflowProps> = ({
           </div>
 
           {/* Secondary Actions Row */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {secondaryActions
               .filter(action => !action.hidden)
-              .slice(0, 2)
+              .slice(0, 3)
               .map((action, index) => {
                 const Icon = action.icon;
                 return (
