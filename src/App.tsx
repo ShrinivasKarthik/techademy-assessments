@@ -48,6 +48,7 @@ import ResultsPage from "./pages/ResultsPage";
 import AssessmentResultsPage from "./pages/AssessmentResultsPage";
 import AssessmentEvaluationPage from "./pages/AssessmentEvaluationPage";
 import InterviewAnalyticsPage from "./pages/InterviewAnalyticsPage";
+import DirectOnboardingPage from "./pages/DirectOnboardingPage";
 import ConversationIntelligencePage from "./pages/ConversationIntelligencePage";
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
@@ -110,6 +111,11 @@ const App = () => (
             <Route path="/admin" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/direct-onboarding" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <DirectOnboardingPage />
               </ProtectedRoute>
             } />
             <Route path="/instructor/students" element={

@@ -73,56 +73,38 @@ const ManualUserCreation: React.FC<ManualUserCreationProps> = ({ onUserCreated }
     setLoading(true);
 
     try {
-      // Generate a proper UUID for demo purposes
-      const generateUUID = () => {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-          const r = Math.random() * 16 | 0;
-          const v = c == 'x' ? r : (r & 0x3 | 0x8);
-          return v.toString(16);
-        });
-      };
-      
-      // Check if user already exists
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', formData.email)
-        .single();
+      // Call the edge function to create a real Supabase auth user
+      const { data, error } = await supabase.functions.invoke('create-user-manual', {
+        body: {
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.fullName,
+          role: formData.role
+        }
+      });
 
-      if (existingProfile) {
+      if (error) {
+        console.error('Edge function error:', error);
         toast({
-          title: "User Already Exists",
-          description: "A user with this email already exists",
+          title: "User Creation Failed",
+          description: error.message || "Failed to create user",
           variant: "destructive"
         });
         return;
       }
 
-      // Create a profile entry with proper UUID
-      const mockUserId = generateUUID();
-      
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: mockUserId,
-          email: formData.email,
-          full_name: formData.fullName,
-          role: formData.role
-        });
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
+      if (data?.error) {
         toast({
           title: "User Creation Failed",
-          description: profileError.message,
+          description: data.error,
           variant: "destructive"
         });
         return;
       }
 
       toast({
-        title: "Demo User Created",
-        description: `${formData.fullName} has been added as a ${formData.role} (demo mode - password stored for reference: ${formData.password})`,
+        title: "User Created Successfully",
+        description: `${formData.fullName} has been created as a ${formData.role}. They can now sign in with their credentials.`,
         variant: "default"
       });
 
