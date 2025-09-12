@@ -73,38 +73,31 @@ const ManualUserCreation: React.FC<ManualUserCreationProps> = ({ onUserCreated }
     setLoading(true);
 
     try {
-      // Call the edge function to create a real Supabase auth user
-      const { data, error } = await supabase.functions.invoke('create-user-manual', {
-        body: {
-          email: formData.email,
-          password: formData.password,
-          fullName: formData.fullName,
-          role: formData.role
+      // Use regular Supabase signup (will send email verification)
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            role: formData.role
+          },
+          emailRedirectTo: `${window.location.origin}/`
         }
       });
 
       if (error) {
-        console.error('Edge function error:', error);
         toast({
           title: "User Creation Failed",
-          description: error.message || "Failed to create user",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (data?.error) {
-        toast({
-          title: "User Creation Failed",
-          description: data.error,
+          description: error.message,
           variant: "destructive"
         });
         return;
       }
 
       toast({
-        title: "User Created Successfully",
-        description: `${formData.fullName} has been created as a ${formData.role}. They can now sign in with their credentials.`,
+        title: "User Invitation Sent",
+        description: `An email verification has been sent to ${formData.email}. They need to verify their email to complete registration.`,
         variant: "default"
       });
 
