@@ -52,28 +52,14 @@ const DirectOnboarding: React.FC<DirectOnboardingProps> = ({ onUsersCreated }) =
   };
 
   const createSingleUser = async (userData: UserCreationData) => {
-    try {
-      // Use regular Supabase signup (will send email verification)
-      const { data, error } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          data: {
-            full_name: userData.fullName,
-            role: userData.role
-          },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
+    const { data, error } = await supabase.functions.invoke('create-user-direct', {
+      body: userData
+    });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return { success: true, user: data.user };
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    
+    return data;
   };
 
   const handleSingleSubmit = async (e: React.FormEvent) => {
@@ -103,8 +89,8 @@ const DirectOnboarding: React.FC<DirectOnboardingProps> = ({ onUsersCreated }) =
       await createSingleUser(formData);
 
       toast({
-        title: "User Invitation Sent",
-        description: `An email verification has been sent to ${formData.fullName}. They need to verify their email to complete registration.`,
+        title: "User Created Successfully",
+        description: `${formData.fullName} has been created as a ${formData.role}. They can now sign in immediately.`,
       });
 
       // Reset form
@@ -213,8 +199,8 @@ const DirectOnboarding: React.FC<DirectOnboardingProps> = ({ onUsersCreated }) =
       }
 
       toast({
-        title: "Batch Invitations Sent",
-        description: `Email verifications sent to ${successful} users. ${failed} failed.`,
+        title: "Batch Creation Complete",
+        description: `Successfully created ${successful} users. ${failed} failed.`,
         variant: successful > 0 ? "default" : "destructive"
       });
 
@@ -258,7 +244,7 @@ const DirectOnboarding: React.FC<DirectOnboardingProps> = ({ onUsersCreated }) =
       <div className="text-center">
         <h1 className="text-3xl font-bold mb-2">Direct User Onboarding</h1>
         <p className="text-muted-foreground">
-          Send email invitations to users to complete their registration
+          Create user accounts directly without email verification
         </p>
       </div>
 
