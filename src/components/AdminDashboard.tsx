@@ -210,6 +210,37 @@ const AdminDashboard: React.FC = () => {
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const deleteAssessment = async (assessmentId: string, assessmentTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${assessmentTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // Delete from database
+      const { error } = await supabase
+        .from('assessments')
+        .delete()
+        .eq('id', assessmentId);
+
+      if (error) throw error;
+
+      // Update local state
+      setAssessments(prev => prev.filter(a => a.id !== assessmentId));
+      
+      toast({
+        title: "Assessment deleted",
+        description: `"${assessmentTitle}" has been deleted successfully.`
+      });
+    } catch (error) {
+      console.error('Error deleting assessment:', error);
+      toast({
+        title: "Error deleting assessment",
+        description: "Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredAssessments = assessments.filter(assessment =>
     assessment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     assessment.creator.toLowerCase().includes(searchTerm.toLowerCase())
@@ -506,7 +537,10 @@ const AdminDashboard: React.FC = () => {
                             <Edit className="w-4 h-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">
+                          <DropdownMenuItem 
+                            className="text-red-600"
+                            onClick={() => deleteAssessment(assessment.id, assessment.title)}
+                          >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
