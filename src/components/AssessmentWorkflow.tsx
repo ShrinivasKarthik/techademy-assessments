@@ -140,19 +140,6 @@ const AssessmentWorkflow: React.FC<AssessmentWorkflowProps> = ({
       }
     });
 
-    // Add status-specific secondary action
-    if (assessment.status === 'published') {
-      secondaryActions.push({
-        label: 'Archive',
-        icon: Archive,
-        variant: 'outline' as const,
-        action: async () => {
-          const success = await archiveAssessment(assessment.id);
-          if (success) onStatusChange?.();
-        }
-      });
-    }
-
     // Add delete action for all statuses
     if (onDelete) {
       secondaryActions.push({

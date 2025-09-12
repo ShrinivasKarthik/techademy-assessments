@@ -48,6 +48,12 @@ const AssessmentList = () => {
     }
 
     try {
+      // Delete related data first (questions, submissions, etc.)
+      await supabase.from('questions').delete().eq('assessment_id', id);
+      await supabase.from('assessment_instances').delete().eq('assessment_id', id);
+      await supabase.from('assessment_shares').delete().eq('assessment_id', id);
+      
+      // Delete the assessment
       const { error } = await supabase
         .from('assessments')
         .delete()
