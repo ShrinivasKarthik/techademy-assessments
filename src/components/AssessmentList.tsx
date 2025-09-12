@@ -127,6 +127,7 @@ const AssessmentList = () => {
               key={assessment.id}
               assessment={assessment}
               onStatusChange={refreshAssessments}
+              onDelete={deleteAssessment}
             />
           ))}
         </div>

@@ -15,7 +15,8 @@ import {
   Settings,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 
 interface Assessment {
@@ -31,11 +32,13 @@ interface Assessment {
 interface AssessmentWorkflowProps {
   assessment: Assessment;
   onStatusChange?: () => void;
+  onDelete?: (assessmentId: string, assessmentTitle: string) => void;
 }
 
 const AssessmentWorkflow: React.FC<AssessmentWorkflowProps> = ({ 
   assessment, 
-  onStatusChange 
+  onStatusChange,
+  onDelete
 }) => {
   const navigate = useNavigate();
   const { 
@@ -150,6 +153,17 @@ const AssessmentWorkflow: React.FC<AssessmentWorkflowProps> = ({
       });
     }
 
+    // Add delete action for all statuses
+    if (onDelete) {
+      secondaryActions.push({
+        label: 'Delete',
+        icon: Trash2,
+        variant: 'outline' as const,
+        action: () => onDelete(assessment.id, assessment.title),
+        className: 'text-destructive hover:text-destructive'
+      });
+    }
+
     return { primaryActions, secondaryActions };
   };
 
@@ -221,7 +235,7 @@ const AssessmentWorkflow: React.FC<AssessmentWorkflowProps> = ({
                     size="sm"
                     onClick={action.action}
                     disabled={loading}
-                    className="flex items-center justify-center gap-1 h-9"
+                    className={`flex items-center justify-center gap-1 h-9 ${action.className || ''}`}
                   >
                     <Icon className="w-4 h-4" />
                     {action.label}
