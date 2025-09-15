@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useProgressPersistence } from '@/hooks/useProgressPersistence';
 import { useFrontendMCQEvaluation } from '@/hooks/useFrontendMCQEvaluation';
+import { useSecureMCQFetching } from '@/hooks/useSecureMCQFetching';
 import InstantMCQResults from './InstantMCQResults';
 
 // Import question components
@@ -106,6 +107,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
 
   // Frontend MCQ evaluation
   const { evaluateMCQAssessment, saveBatchResults, evaluating } = useFrontendMCQEvaluation();
+  const { fetchSecureQuestions, validateQuestionSecurity } = useSecureMCQFetching();
 
   // Enhanced progress persistence
   const {
@@ -206,21 +208,35 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
         return;
       }
 
-      // Fetch questions separately
-      const { data: questionsData, error: questionsError } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('assessment_id', assessmentId)
-        .order('order_index');
-
-      if (questionsError) {
-        console.error('Error fetching questions:', questionsError);
-        setError('Failed to load assessment questions');
-        return;
+      // Fetch questions securely (MCQ answers will be encoded)
+      const secureQuestions = await fetchSecureQuestions(assessmentId);
+      
+      if (!secureQuestions) {
+        throw new Error('Failed to load questions securely');
       }
 
-      // Sort questions by order_index (already ordered by database query)
-      const sortedQuestions = questionsData || [];
+      // Validate question security for MCQ questions
+      let securityWarnings = 0;
+      secureQuestions.forEach(question => {
+        if (question.question_type === 'mcq') {
+          const validation = validateQuestionSecurity(question);
+          if (!validation.isSecure) {
+            console.warn(`Security issues in question ${question.id}:`, validation.issues);
+            securityWarnings++;
+          }
+        }
+      });
+
+      if (securityWarnings > 0) {
+        console.warn(`Found ${securityWarnings} questions with security issues`);
+      }
+
+      // Add order_index to questions and sort by created_at
+      const sortedQuestions = secureQuestions.map((q, index) => ({
+        ...q,
+        order_index: index
+      }));
+      
       setAssessment({ ...assessmentData, questions: sortedQuestions });
 
       // Load existing answers and check for resume capability
@@ -241,7 +257,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
 
     } catch (err: any) {
       console.error('Error initializing assessment:', err);
-      setError('Failed to initialize assessment');
+      setError('Failed to initialize assessment securely');
     } finally {
       setLoading(false);
     }
