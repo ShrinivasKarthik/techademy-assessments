@@ -1,10 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import TTSButton from '@/components/TTSButton';
-import { useFrontendMCQEvaluation } from '@/hooks/useFrontendMCQEvaluation';
 
 interface MCQQuestionProps {
   question: {
@@ -36,19 +35,9 @@ const MCQQuestion: React.FC<MCQQuestionProps> = ({
 }) => {
   const selectedOptions = answer?.selectedOptions || [];
   const allowMultiple = question.config.allowMultiple || false;
-  const { startQuestionTiming, recordAnswerChange } = useFrontendMCQEvaluation();
-
-  // Start timing when component mounts
-  useEffect(() => {
-    startQuestionTiming(question.id);
-  }, [question.id, startQuestionTiming]);
 
   const handleSingleSelect = (optionId: string) => {
     if (disabled) return;
-    
-    // Track answer change for security monitoring
-    recordAnswerChange(question.id);
-    
     onAnswerChange({
       selectedOptions: [optionId]
     });
@@ -56,9 +45,6 @@ const MCQQuestion: React.FC<MCQQuestionProps> = ({
 
   const handleMultipleSelect = (optionId: string, checked: boolean) => {
     if (disabled) return;
-    
-    // Track answer change for security monitoring
-    recordAnswerChange(question.id);
     
     let newSelection;
     if (checked) {
