@@ -531,21 +531,7 @@ ${execution.improvements?.length > 0 ? `\nSuggested Improvements: ${execution.im
                     evaluated_at: new Date().toISOString()
                   });
 
-                // Update total score in instance
-                const { data: currentInstance } = await supabase
-                  .from('assessment_instances')
-                  .select('total_score')
-                  .eq('id', instanceId)
-                  .single();
-
-                if (currentInstance) {
-                  await supabase
-                    .from('assessment_instances')
-                    .update({
-                      total_score: (currentInstance.total_score || 0) + projectScore
-                    })
-                    .eq('id', instanceId);
-                }
+                // Score will be calculated in final aggregation step
               } else {
                 console.log(`Evaluation already exists for submission ${submission.id}, skipping`);
               }

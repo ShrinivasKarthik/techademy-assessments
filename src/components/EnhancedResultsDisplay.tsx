@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import InterviewAnalyticsDisplay from '@/components/interview/InterviewAnalyticsDisplay';
+import { FixScoresButton } from '@/components/FixScoresButton';
 
 interface Question {
   id: string;
@@ -232,6 +233,16 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
               <span>{percentage}%</span>
             </div>
             <Progress value={percentage} className="h-2" />
+            
+            {/* Show fix button if scores are inconsistent */}
+            {totalScore > maxScore && (
+              <div className="mt-4 text-center">
+                <FixScoresButton instanceId={instanceId} />
+                <p className="text-sm text-muted-foreground mt-2">
+                  Score inconsistency detected. Click to fix and re-evaluate.
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
