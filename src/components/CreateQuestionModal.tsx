@@ -347,10 +347,74 @@ export default function CreateQuestionModal({
                         ? 'ring-2 ring-primary bg-primary/5' 
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => updateFormData({ 
-                      question_type: option.type,
-                      config: {} // Reset config when type changes
-                    })}
+                    onClick={() => {
+                      // Provide appropriate default config for each question type
+                      let defaultConfig = {};
+                      
+                      switch (option.type) {
+                        case 'project_based':
+                          defaultConfig = {
+                            technology: '',
+                            problemDescription: '',
+                            projectFiles: [],
+                            testScenarios: [],
+                            evaluationCriteria: [],
+                            estimatedDuration: 60,
+                            allowedResources: []
+                          };
+                          break;
+                        case 'coding':
+                          defaultConfig = {
+                            language: 'javascript',
+                            supportedLanguages: ['javascript'],
+                            starterCode: '',
+                            solution: '',
+                            testCases: []
+                          };
+                          break;
+                        case 'mcq':
+                          defaultConfig = {
+                            options: [{ text: '', isCorrect: false }],
+                            allowMultiple: false,
+                            randomizeOptions: false
+                          };
+                          break;
+                        case 'subjective':
+                          defaultConfig = {
+                            wordLimit: null,
+                            expectedKeywords: [],
+                            rubricCriteria: []
+                          };
+                          break;
+                        case 'file_upload':
+                          defaultConfig = {
+                            allowedFileTypes: [],
+                            maxFileSize: 10,
+                            maxFiles: 1
+                          };
+                          break;
+                        case 'audio':
+                          defaultConfig = {
+                            maxDuration: 300,
+                            allowRetake: true
+                          };
+                          break;
+                        case 'interview':
+                          defaultConfig = {
+                            interviewType: 'behavioral',
+                            evaluationCriteria: [],
+                            maxDuration: 30
+                          };
+                          break;
+                        default:
+                          defaultConfig = {};
+                      }
+                      
+                      updateFormData({ 
+                        question_type: option.type,
+                        config: defaultConfig
+                      });
+                    }}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
