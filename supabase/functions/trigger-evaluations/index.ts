@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { forceSeleniumReEvaluation } = await req.json().catch(() => ({}));
+    const { forceSeleniumReEvaluation, assessmentId, reprocessEvaluated = false, force = false } = await req.json().catch(() => ({}));
     
     if (forceSeleniumReEvaluation) {
       console.log('Starting Selenium re-evaluation process...');
@@ -126,10 +126,8 @@ serve(async (req) => {
 
     console.log('Starting evaluation trigger process...');
 
-    // Find all instances that need evaluation:
-    // 1. Submitted but not started evaluation
-    // 2. Marked as completed but have no actual evaluations (corrupted state)
-    const { data: instances, error: fetchError } = await supabase
+    // Build query with optional assessment filtering and status conditions
+    let query = supabase
       .from('assessment_instances')
       .select(`
         id,
@@ -140,9 +138,21 @@ serve(async (req) => {
         status,
         max_possible_score,
         total_score
-      `)
-      .eq('status', 'submitted')
-      .in('evaluation_status', ['not_started', 'completed']);
+      `);
+
+    // Filter by assessment if specified
+    if (assessmentId) {
+      query = query.eq('assessment_id', assessmentId);
+    }
+
+    // Include both submitted and evaluated instances if reprocessEvaluated is true
+    if (reprocessEvaluated) {
+      query = query.or('status.eq.submitted,status.eq.evaluated');
+    } else {
+      query = query.eq('status', 'submitted');
+    }
+
+    const { data: instances, error: fetchError } = await query;
 
     if (fetchError) {
       throw new Error(`Failed to fetch instances: ${fetchError.message}`);
@@ -154,6 +164,7 @@ serve(async (req) => {
     let evaluatedCount = 0;
     let scoredZeroCount = 0;
     let reprocessedCount = 0;
+    let fixedCorrupted = 0;
 
     for (const instance of instances || []) {
       try {
@@ -168,10 +179,10 @@ serve(async (req) => {
           continue;
         }
 
-        // Check if this instance has actual evaluations
+        // Check if this instance has actual evaluations and get their scores
         const { data: evaluations, error: evalCheckError } = await supabase
           .from('evaluations')
-          .select('id')
+          .select('id, score, max_score')
           .in('submission_id', (submissions || []).map(s => s.id));
 
         if (evalCheckError) {
@@ -181,6 +192,15 @@ serve(async (req) => {
 
         const hasSubmissions = submissions && submissions.length > 0;
         const hasEvaluations = evaluations && evaluations.length > 0;
+
+        // Calculate correct scores from evaluations
+        let correctTotalScore = 0;
+        let correctMaxScore = 0;
+        
+        if (hasEvaluations) {
+          correctTotalScore = evaluations.reduce((sum, eval) => sum + (eval.score || 0), 0);
+          correctMaxScore = evaluations.reduce((sum, eval) => sum + (eval.max_score || 0), 0);
+        }
 
         if (!hasSubmissions) {
           // No submissions - mark as evaluated with 0 score
@@ -240,6 +260,45 @@ serve(async (req) => {
             evaluatedCount++;
             console.log(`Triggered evaluation for instance ${instance.id}`);
           }
+        } else if (hasEvaluations) {
+          // Check if cached scores match calculated scores
+          const cachedTotal = instance.total_score || 0;
+          const cachedMax = instance.max_possible_score || 0;
+          
+          const totalMismatch = Math.abs(cachedTotal - correctTotalScore) > 0.1;
+          const maxMismatch = Math.abs(cachedMax - correctMaxScore) > 0.1;
+          
+          if (totalMismatch || maxMismatch) {
+            console.log(`Fixing corrupted scores for instance ${instance.id}: cached ${cachedTotal}/${cachedMax} vs actual ${correctTotalScore}/${correctMaxScore}`);
+            
+            // Update with correct scores
+            await supabase
+              .from('assessment_instances')
+              .update({
+                total_score: Math.round(correctTotalScore),
+                max_possible_score: correctMaxScore,
+                evaluation_status: 'completed',
+                status: 'evaluated',
+                evaluated_at: new Date().toISOString()
+              })
+              .eq('id', instance.id);
+            
+            fixedCorrupted++;
+          } else if (force && reprocessEvaluated) {
+            // Force re-evaluation even if scores match
+            const { error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
+              body: { instanceId: instance.id, forceReEvaluation: true }
+            });
+
+            if (evalError) {
+              console.error(`Error force re-evaluating instance ${instance.id}:`, evalError);
+            } else {
+              evaluatedCount++;
+              console.log(`Force re-evaluated instance ${instance.id}`);
+            }
+          } else {
+            console.log(`Instance ${instance.id} already properly evaluated with correct scores, skipping`);
+          }
         } else {
           console.log(`Instance ${instance.id} already properly evaluated, skipping`);
         }
@@ -250,7 +309,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Evaluation trigger completed. Processed: ${processedCount}, Evaluated: ${evaluatedCount}, Scored Zero: ${scoredZeroCount}, Re-processed corrupted: ${reprocessedCount}`);
+    console.log(`Evaluation trigger completed. Processed: ${processedCount}, Evaluated: ${evaluatedCount}, Scored Zero: ${scoredZeroCount}, Re-processed corrupted: ${reprocessedCount}, Fixed corrupted: ${fixedCorrupted}`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -259,6 +318,7 @@ serve(async (req) => {
       evaluated: evaluatedCount,
       scored_zero: scoredZeroCount,
       reprocessed_corrupted: reprocessedCount,
+      fixed_corrupted: fixedCorrupted,
       total_found: instances?.length || 0
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

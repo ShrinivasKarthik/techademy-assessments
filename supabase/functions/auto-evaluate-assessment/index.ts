@@ -114,7 +114,7 @@ serve(async (req) => {
     let maxPossibleScore = 0;
     const evaluationPromises: Promise<void>[] = [];
 
-    // First pass: Evaluate MCQ questions instantly and start AI evaluations in background
+    // First pass: Evaluate MCQ questions instantly and collect background evaluation promises
     for (const submission of submissions || []) {
       const question = questionMap.get(submission.question_id);
       if (!question) continue;
@@ -561,58 +561,124 @@ ${execution.improvements?.length > 0 ? `\nSuggested Improvements: ${execution.im
       }
     }
 
-    // Apply integrity score to MCQ-only final score
-    const finalScore = Math.round(totalScore * (integrityScore / 100));
-
-    // Update assessment instance with immediate results (MCQ scores)
-    const { error: updateError } = await supabase
-      .from('assessment_instances')
-      .update({
-        status: 'evaluated',
-        evaluation_status: 'completed',
-        total_score: finalScore,
-        max_possible_score: maxPossibleScore,
-        integrity_score: integrityScore,
-        proctoring_summary: {
-          integrity_score: integrityScore,
-          violations_count: violations.length + securityEvents.length,
-          notes: proctoringNotes
-        },
-        evaluated_at: new Date().toISOString()
-      })
-      .eq('id', instanceId);
-
-    if (updateError) {
-      console.error('Error updating instance:', updateError);
-      throw updateError;
-    }
-
-    // Process AI evaluations in background
+    // Handle the update based on whether there are background evaluations
     if (evaluationPromises.length > 0) {
+      // Set status to in_progress while background evaluations run
+      const { error: updateError } = await supabase
+        .from('assessment_instances')
+        .update({
+          status: 'submitted',
+          evaluation_status: 'in_progress',
+          total_score: Math.round(totalScore), // MCQ scores only for now
+          max_possible_score: maxPossibleScore,
+          integrity_score: integrityScore,
+          proctoring_summary: {
+            integrity_score: integrityScore,
+            violations_count: violations.length + securityEvents.length,
+            technical_issues: securityEvents.filter(event => 
+              event.type === 'technical_issue' || 
+              event.violation_type === 'technical_issue'
+            ),
+            notes: proctoringNotes
+          }
+        })
+        .eq('id', instanceId);
+
+      if (updateError) {
+        console.error('Error updating assessment instance:', updateError);
+        throw new Error(`Failed to update assessment instance: ${updateError.message}`);
+      }
+
+      // Wait for all background evaluations to complete, then update final scores
       EdgeRuntime.waitUntil(
-        Promise.all(evaluationPromises).then(() => {
-          console.log('Background AI evaluations completed');
-        }).catch(error => {
-          console.error('Background AI evaluations failed:', error);
+        Promise.all(evaluationPromises).then(async () => {
+          try {
+            console.log('Background evaluations completed, calculating final scores...');
+            
+            // Recompute total scores from evaluations table
+            const submissionIds = (submissions || []).map(s => s.id);
+            const { data: finalEvaluations } = await supabase
+              .from('evaluations')
+              .select('score, max_score')
+              .in('submission_id', submissionIds);
+
+            const finalTotalScore = (finalEvaluations || []).reduce((sum, eval) => sum + (eval.score || 0), 0);
+            const finalMaxScore = (finalEvaluations || []).reduce((sum, eval) => sum + (eval.max_score || 0), 0);
+
+            // Final update with complete scores
+            await supabase
+              .from('assessment_instances')
+              .update({
+                status: 'evaluated',
+                evaluation_status: 'completed',
+                total_score: Math.round(finalTotalScore),
+                max_possible_score: finalMaxScore,
+                evaluated_at: new Date().toISOString()
+              })
+              .eq('id', instanceId);
+
+            console.log(`Final evaluation completed for instance ${instanceId}: ${finalTotalScore}/${finalMaxScore}`);
+          } catch (error) {
+            console.error('Error in background evaluation completion:', error);
+          }
         })
       );
-    }
 
-    console.log(`Evaluation completed. Score: ${finalScore}/${maxPossibleScore}, Integrity: ${integrityScore}%`);
-
-    return new Response(
-      JSON.stringify({
+      console.log(`Evaluation started for instance ${instanceId} with ${evaluationPromises.length} background tasks`);
+      return new Response(JSON.stringify({
         success: true,
-        finalScore,
+        message: 'Evaluation started successfully',
+        instanceId,
+        totalScore: Math.round(totalScore),
         maxPossibleScore,
         integrityScore,
-        evaluationsCreated: (submissions || []).length - evaluatedSubmissionIds.size,
-        backgroundProcessing: evaluationPromises.length > 0
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        backgroundEvaluations: evaluationPromises.length,
+        backgroundProcessing: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } else {
+      // MCQ-only assessment, complete evaluation immediately
+      const finalScore = Math.round(totalScore * (integrityScore / 100));
+      
+      const { error: updateError } = await supabase
+        .from('assessment_instances')
+        .update({
+          status: 'evaluated',
+          evaluation_status: 'completed',
+          total_score: finalScore,
+          max_possible_score: maxPossibleScore,
+          integrity_score: integrityScore,
+          proctoring_summary: {
+            integrity_score: integrityScore,
+            violations_count: violations.length + securityEvents.length,
+            notes: proctoringNotes
+          },
+          evaluated_at: new Date().toISOString()
+        })
+        .eq('id', instanceId);
+
+      if (updateError) {
+        console.error('Error updating instance:', updateError);
+        throw updateError;
       }
-    );
+
+      console.log(`Evaluation completed. Score: ${finalScore}/${maxPossibleScore}, Integrity: ${integrityScore}%`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          finalScore,
+          maxPossibleScore,
+          integrityScore,
+          evaluationsCreated: (submissions || []).length - evaluatedSubmissionIds.size,
+          backgroundProcessing: false
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
   } catch (error) {
     console.error('Error in auto-evaluate-assessment:', error);

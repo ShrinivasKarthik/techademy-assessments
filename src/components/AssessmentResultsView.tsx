@@ -270,7 +270,12 @@ const AssessmentResultsView: React.FC = () => {
         description: "Processing submitted assessments and calculating scores...",
       });
 
-      const { data, error } = await supabase.functions.invoke('trigger-evaluations');
+      const { data, error } = await supabase.functions.invoke('trigger-evaluations', {
+        body: { 
+          assessmentId: selectedAssessment, 
+          reprocessEvaluated: true 
+        }
+      });
 
       if (error) {
         throw error;
@@ -280,7 +285,11 @@ const AssessmentResultsView: React.FC = () => {
       let message = `Processed ${result.processed} assessments. Evaluated: ${result.evaluated}, Scored zero: ${result.scored_zero}`;
       
       if (result.reprocessed_corrupted > 0) {
-        message += `, Fixed corrupted: ${result.reprocessed_corrupted}`;
+        message += `, Re-processed corrupted: ${result.reprocessed_corrupted}`;
+      }
+      
+      if (result.fixed_corrupted > 0) {
+        message += `, Fixed corrupted scores: ${result.fixed_corrupted}`;
       }
       
       toast({
