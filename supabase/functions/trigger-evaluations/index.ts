@@ -145,8 +145,8 @@ serve(async (req) => {
       query = query.eq('assessment_id', assessmentId);
     }
 
-    // Include both submitted and evaluated instances if reprocessEvaluated is true
-    if (reprocessEvaluated) {
+    // Always include submitted instances, and include evaluated instances if reprocessEvaluated is true OR if no specific assessment is selected
+    if (reprocessEvaluated || !assessmentId) {
       query = query.or('status.eq.submitted,status.eq.evaluated');
     } else {
       query = query.eq('status', 'submitted');
