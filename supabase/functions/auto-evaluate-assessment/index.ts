@@ -439,46 +439,97 @@ serve(async (req) => {
               
               console.log(`Analyzing ${projectCode.length} characters of ${language} code`);
               
-              // Call analyze-code function
-              const { data: analysisResult, error: analysisError } = await supabase.functions.invoke('analyze-code', {
+              // Call enhanced-code-execution function for comprehensive analysis
+              const { data: executionResult, error: executionError } = await supabase.functions.invoke('enhanced-code-execution', {
                 body: {
                   code: projectCode,
                   language: language,
-                  questionContext: questionContext,
-                  testCases: question.config?.testCases || []
+                  testCases: question.config?.testCases || [],
+                  executionMode: 'standard',
+                  debugMode: false,
+                  performanceAnalysis: true,
+                  enableHints: true,
+                  realTimeAnalysis: true
                 }
               });
               
-              if (analysisError) {
-                throw new Error(`Code analysis failed: ${analysisError.message}`);
+              if (executionError) {
+                throw new Error(`Enhanced code execution failed: ${executionError.message}`);
               }
               
-              const analysis = analysisResult?.analysis;
-              if (!analysis) {
-                throw new Error('No analysis results received');
+              const execution = executionResult;
+              if (!execution) {
+                throw new Error('No execution results received');
               }
               
-              // Calculate score based on overall analysis score
-              const projectScore = Math.round((analysis.overallScore / 100) * (question.points || 10));
-              
-              // Create comprehensive feedback
-              const aiFeedback = {
-                overallScore: analysis.overallScore,
-                syntaxErrors: analysis.syntaxErrors || [],
-                logicAnalysis: analysis.logicAnalysis || {},
-                codeQuality: analysis.codeQuality || {},
-                performance: analysis.performance || {},
-                security: analysis.security || {},
-                testCasePredictions: analysis.testCasePredictions || [],
-                summary: analysis.summary || 'Project code analysis completed'
+              // Calculate score based on multiple factors from enhanced execution
+              let scoreFactors = {
+                codeQuality: execution.codeQuality?.score || 0,
+                testResults: 0,
+                performance: 0,
+                errors: 0
               };
               
-              const feedbackText = `Project Evaluation - Overall Score: ${analysis.overallScore}%
-Logic Correctness: ${analysis.logicAnalysis?.correctness || 'N/A'}%
-Code Quality: ${analysis.codeQuality?.score || 'N/A'}%
-Performance: ${analysis.performance?.timeComplexity || 'N/A'} time complexity
-${analysis.syntaxErrors?.length > 0 ? `Syntax Issues: ${analysis.syntaxErrors.length}` : 'No syntax errors detected'}
-${analysis.summary || ''}`;
+              // Test results scoring
+              if (execution.testResults && execution.testResults.length > 0) {
+                const passedTests = execution.testResults.filter(test => test.passed).length;
+                scoreFactors.testResults = (passedTests / execution.testResults.length) * 100;
+              } else {
+                // If no tests, base on success and code quality
+                scoreFactors.testResults = execution.success ? 75 : 25;
+              }
+              
+              // Performance scoring
+              if (execution.performance?.timeComplexity) {
+                const complexityScore = {
+                  'O(1)': 100, 'O(log n)': 90, 'O(n)': 80, 'O(n log n)': 70,
+                  'O(n²)': 50, 'O(n³)': 30, 'O(2^n)': 10
+                }[execution.performance.timeComplexity] || 60;
+                scoreFactors.performance = complexityScore;
+              } else {
+                scoreFactors.performance = 60; // neutral score
+              }
+              
+              // Errors penalty
+              scoreFactors.errors = Math.max(0, 100 - (execution.errors?.length || 0) * 20);
+              
+              // Weighted overall score
+              const overallScore = Math.round(
+                (scoreFactors.codeQuality * 0.3) +
+                (scoreFactors.testResults * 0.4) +
+                (scoreFactors.performance * 0.2) +
+                (scoreFactors.errors * 0.1)
+              );
+              
+              const projectScore = Math.round((overallScore / 100) * (question.points || 10));
+              
+              // Create comprehensive feedback from enhanced execution results
+              const aiFeedback = {
+                overallScore: overallScore,
+                executionResults: {
+                  success: execution.success,
+                  executionTime: execution.executionTime,
+                  testResults: execution.testResults || [],
+                  errors: execution.errors || [],
+                  warnings: execution.warnings || []
+                },
+                codeQuality: execution.codeQuality || {},
+                performance: execution.performance || {},
+                debugging: execution.debugging || {},
+                hints: execution.hints || [],
+                improvements: execution.improvements || [],
+                optimizationSuggestions: execution.optimizationSuggestions || [],
+                scoreBreakdown: scoreFactors
+              };
+              
+              const feedbackText = `Enhanced Project Evaluation - Overall Score: ${overallScore}%
+Test Results: ${execution.testResults ? `${execution.testResults.filter(t => t.passed).length}/${execution.testResults.length} passed` : 'No tests provided'}
+Code Quality Score: ${execution.codeQuality?.score || 'N/A'}%
+Performance: ${execution.performance?.timeComplexity || 'Not analyzed'} time complexity
+${execution.errors?.length > 0 ? `Errors Found: ${execution.errors.length}` : 'No errors detected'}
+${execution.warnings?.length > 0 ? `Warnings: ${execution.warnings.length}` : ''}
+${execution.hints?.length > 0 ? `\nHints: ${execution.hints.slice(0, 2).join('; ')}` : ''}
+${execution.improvements?.length > 0 ? `\nSuggested Improvements: ${execution.improvements.slice(0, 3).join('; ')}` : ''}`;
               
               // Create evaluation record
               await supabase
