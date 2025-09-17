@@ -193,32 +193,43 @@ serve(async (req) => {
                 }
 
                 // Update evaluation with AI score and feedback
-                await supabase
+                // Check for existing evaluation first
+                const { data: existingEval } = await supabase
                   .from('evaluations')
-                  .upsert({
-                    submission_id: submission.id,
-                    score: aiScore,
-                    max_score: question.points || 0,
-                    integrity_score: integrityScore,
-                    ai_feedback: aiFeedback,
-                    feedback: aiFeedback ? JSON.stringify(aiFeedback) : `AI-powered ${question.question_type} evaluation`,
-                    evaluated_at: new Date().toISOString()
-                  });
-
-                // Update total score in instance
-                const { data: currentInstance } = await supabase
-                  .from('assessment_instances')
-                  .select('total_score')
-                  .eq('id', instanceId)
+                  .select('id')
+                  .eq('submission_id', submission.id)
                   .single();
 
-                if (currentInstance) {
+                if (!existingEval) {
                   await supabase
+                    .from('evaluations')
+                    .insert({
+                      submission_id: submission.id,
+                      score: aiScore,
+                      max_score: question.points || 0,
+                      integrity_score: integrityScore,
+                      ai_feedback: aiFeedback,
+                      feedback: aiFeedback ? JSON.stringify(aiFeedback) : `AI-powered ${question.question_type} evaluation`,
+                      evaluated_at: new Date().toISOString()
+                    });
+
+                  // Update total score in instance
+                  const { data: currentInstance } = await supabase
                     .from('assessment_instances')
-                    .update({
-                      total_score: (currentInstance.total_score || 0) + aiScore
-                    })
-                    .eq('id', instanceId);
+                    .select('total_score')
+                    .eq('id', instanceId)
+                    .single();
+
+                  if (currentInstance) {
+                    await supabase
+                      .from('assessment_instances')
+                      .update({
+                        total_score: (currentInstance.total_score || 0) + aiScore
+                      })
+                      .eq('id', instanceId);
+                  }
+                } else {
+                  console.log(`Evaluation already exists for submission ${submission.id}, skipping`);
                 }
               } catch (error) {
                 console.error(`AI evaluation failed for ${question.question_type} question:`, error);
@@ -531,33 +542,43 @@ ${execution.warnings?.length > 0 ? `Warnings: ${execution.warnings.length}` : ''
 ${execution.hints?.length > 0 ? `\nHints: ${execution.hints.slice(0, 2).join('; ')}` : ''}
 ${execution.improvements?.length > 0 ? `\nSuggested Improvements: ${execution.improvements.slice(0, 3).join('; ')}` : ''}`;
               
-              // Create evaluation record
-              await supabase
+              // Create evaluation record - check for existing evaluation first
+              const { data: existingEval } = await supabase
                 .from('evaluations')
-                .upsert({
-                  submission_id: submission.id,
-                  score: projectScore,
-                  max_score: question.points || 0,
-                  integrity_score: integrityScore,
-                  ai_feedback: aiFeedback,
-                  feedback: feedbackText,
-                  evaluated_at: new Date().toISOString()
-                });
-
-              // Update total score in instance
-              const { data: currentInstance } = await supabase
-                .from('assessment_instances')
-                .select('total_score')
-                .eq('id', instanceId)
+                .select('id')
+                .eq('submission_id', submission.id)
                 .single();
 
-              if (currentInstance) {
+              if (!existingEval) {
                 await supabase
+                  .from('evaluations')
+                  .insert({
+                    submission_id: submission.id,
+                    score: projectScore,
+                    max_score: question.points || 0,
+                    integrity_score: integrityScore,
+                    ai_feedback: aiFeedback,
+                    feedback: feedbackText,
+                    evaluated_at: new Date().toISOString()
+                  });
+
+                // Update total score in instance
+                const { data: currentInstance } = await supabase
                   .from('assessment_instances')
-                  .update({
-                    total_score: (currentInstance.total_score || 0) + projectScore
-                  })
-                  .eq('id', instanceId);
+                  .select('total_score')
+                  .eq('id', instanceId)
+                  .single();
+
+                if (currentInstance) {
+                  await supabase
+                    .from('assessment_instances')
+                    .update({
+                      total_score: (currentInstance.total_score || 0) + projectScore
+                    })
+                    .eq('id', instanceId);
+                }
+              } else {
+                console.log(`Evaluation already exists for submission ${submission.id}, skipping`);
               }
               
               console.log(`Project evaluation completed with score: ${projectScore}/${question.points}`);
@@ -758,8 +779,94 @@ async function evaluateSubjectiveWithAI(submission: any, question: any): Promise
   }
 }
 
-async function evaluateCodingWithAI(submission: any, question: any): Promise<number> {
-  if (!openAIApiKey) return 0;
+async function evaluateCodingWithAI(submission: any, question: any): Promise<{score: number, feedback: any}> {
+  console.log('Starting enhanced coding evaluation for question:', question.id);
+  
+  try {
+    const code = submission.answer?.code || '';
+    const language = submission.answer?.language || question.config?.language || 'javascript';
+    const testCases = question.config?.testCases || [];
+    
+    // Use enhanced-code-execution for comprehensive evaluation
+    const response = await supabase.functions.invoke('enhanced-code-execution', {
+      body: {
+        code,
+        language,
+        testCases,
+        options: {
+          executionMode: 'comprehensive',
+          debugMode: true,
+          performanceAnalysis: true
+        }
+      }
+    });
+
+    if (response.error) {
+      console.error('Enhanced execution failed:', response.error);
+      return await fallbackCodingEvaluation(submission, question);
+    }
+
+    const executionResult = response.data;
+    
+    // Calculate comprehensive score based on multiple factors
+    let score = 0;
+    const maxScore = question.points || 10;
+    
+    // Test case results (40% of score)
+    const testPassRate = executionResult.testResults?.length > 0 
+      ? executionResult.testResults.filter((t: any) => t.passed).length / executionResult.testResults.length
+      : 0.5; // Give 50% if no tests
+    score += testPassRate * maxScore * 0.4;
+    
+    // Code quality (30% of score)
+    const codeQuality = executionResult.analysis?.codeQuality?.overallScore || 50;
+    score += (codeQuality / 100) * maxScore * 0.3;
+    
+    // Performance analysis (20% of score)
+    const performanceScore = executionResult.performance?.efficiencyScore || 70;
+    score += (performanceScore / 100) * maxScore * 0.2;
+    
+    // Syntax and correctness (10% of score)
+    const syntaxScore = executionResult.analysis?.syntaxErrors?.length === 0 ? 100 : 50;
+    score += (syntaxScore / 100) * maxScore * 0.1;
+    
+    // Apply error penalties
+    if (executionResult.analysis?.syntaxErrors?.length > 0) {
+      score *= 0.8; // 20% penalty for syntax errors
+    }
+    if (executionResult.analysis?.logicErrors?.length > 0) {
+      score *= 0.9; // 10% penalty for logic errors
+    }
+    
+    // Cap the score at maximum
+    score = Math.min(Math.round(score), maxScore);
+    
+    const feedback = {
+      evaluation_method: 'enhanced_execution',
+      confidence: 0.95,
+      test_results: executionResult.testResults || [],
+      code_quality_score: codeQuality,
+      performance_score: performanceScore,
+      syntax_errors: executionResult.analysis?.syntaxErrors || [],
+      logic_errors: executionResult.analysis?.logicErrors || [],
+      detailed_feedback: generateDetailedFeedback(executionResult, score, maxScore),
+      improvements: executionResult.recommendations || [],
+      debugging_info: executionResult.debugging || {},
+      performance_analysis: executionResult.performance || {}
+    };
+    
+    console.log(`Enhanced coding evaluation completed. Score: ${score}/${maxScore}`);
+    return { score, feedback };
+    
+  } catch (error) {
+    console.error('Error in enhanced coding evaluation:', error);
+    return await fallbackCodingEvaluation(submission, question);
+  }
+}
+
+// Fallback to simple evaluation if enhanced fails
+async function fallbackCodingEvaluation(submission: any, question: any): Promise<{score: number, feedback: any}> {
+  if (!openAIApiKey) return { score: 0, feedback: { evaluation_method: 'fallback', error: 'No API key' } };
 
   const prompt = `
     Evaluate this coding solution. Provide a score out of ${question.points || 10} points.
@@ -801,11 +908,38 @@ async function evaluateCodingWithAI(submission: any, question: any): Promise<num
     const scoreText = data.choices[0].message.content.trim();
     const score = parseFloat(scoreText);
     
-    return isNaN(score) ? 0 : Math.min(score, question.points || 0);
+    return { 
+      score: isNaN(score) ? 0 : Math.min(score, question.points || 0),
+      feedback: { evaluation_method: 'fallback_ai', confidence: 0.6 }
+    };
   } catch (error) {
-    console.error('Error in AI coding evaluation:', error);
-    return 0;
+    console.error('Error in fallback coding evaluation:', error);
+    return { score: 0, feedback: { evaluation_method: 'fallback', error: error.message } };
   }
+}
+
+function generateDetailedFeedback(executionResult: any, score: number, maxScore: number): string {
+  const percentage = Math.round((score / maxScore) * 100);
+  let feedback = `Overall Score: ${score}/${maxScore} (${percentage}%). `;
+  
+  if (executionResult.testResults?.length > 0) {
+    const passedTests = executionResult.testResults.filter((t: any) => t.passed).length;
+    feedback += `Test Cases: ${passedTests}/${executionResult.testResults.length} passed. `;
+  }
+  
+  if (executionResult.analysis?.codeQuality?.overallScore) {
+    feedback += `Code Quality: ${executionResult.analysis.codeQuality.overallScore}/100. `;
+  }
+  
+  if (executionResult.analysis?.syntaxErrors?.length > 0) {
+    feedback += `Found ${executionResult.analysis.syntaxErrors.length} syntax error(s). `;
+  }
+  
+  if (executionResult.performance?.timeComplexity) {
+    feedback += `Time Complexity: ${executionResult.performance.timeComplexity}. `;
+  }
+  
+  return feedback;
 }
 
 async function evaluateSeleniumWithAI(submission: any, question: any): Promise<{score: number, feedback: any}> {

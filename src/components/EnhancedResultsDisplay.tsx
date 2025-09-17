@@ -136,7 +136,7 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
     return { variant: 'destructive' as const, text: 'Needs Improvement', icon: TrendingUp };
   };
 
-  const calculatePercentage = () => Math.round((totalScore / maxScore) * 100);
+  const calculatePercentage = () => maxScore > 0 ? Math.min(Math.round((totalScore / maxScore) * 100), 100) : 0;
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -252,7 +252,7 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
           <CardContent className="p-4 text-center">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
             <div className="text-2xl font-bold">
-              {instance?.questions_answered || evaluations.length}
+              {instance?.questions_answered || questions.length}
             </div>
             <div className="text-sm text-muted-foreground">Questions Answered</div>
           </CardContent>
