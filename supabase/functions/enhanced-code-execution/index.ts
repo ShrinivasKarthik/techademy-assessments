@@ -157,7 +157,7 @@ Return your response as a valid JSON object with this structure:
   const aiData = await response.json();
   const aiContent = aiData.choices[0].message.content;
 
-  try {
+    try {
     const result = JSON.parse(aiContent);
     
     // Enhance with additional AI-powered features
@@ -175,6 +175,9 @@ Return your response as a valid JSON object with this structure:
       autoComplete: await generateAutoCompleteSuggestions(code, language, apiKey),
       refactoringSuggestions: await generateRefactoringSuggestions(code, language, apiKey)
     };
+
+    // Generate concise detailed feedback for UI display
+    result.detailed_feedback = generateDetailedFeedbackSummary(result);
 
     return result;
   } catch (e) {
@@ -366,10 +369,38 @@ function getLanguageKeywords(language: string): string[] {
   return keywordMap[language.toLowerCase()] || [];
 }
 
+function generateDetailedFeedbackSummary(result: any): string {
+  const parts = [];
+  
+  if (result.testResults && result.testResults.length > 0) {
+    const passed = result.testResults.filter((t: any) => t.passed).length;
+    const total = result.testResults.length;
+    parts.push(`Test Results: ${passed}/${total} tests passed`);
+  }
+  
+  if (result.codeQuality?.score) {
+    parts.push(`Code Quality: ${result.codeQuality.score}/100`);
+  }
+  
+  if (result.performance?.timeComplexity) {
+    parts.push(`Time Complexity: ${result.performance.timeComplexity}`);
+  }
+  
+  if (result.improvements && result.improvements.length > 0) {
+    parts.push(`Key Improvements: ${result.improvements.slice(0, 2).join(', ')}`);
+  }
+  
+  if (result.errors && result.errors.length > 0) {
+    parts.push(`Issues Found: ${result.errors.slice(0, 2).join(', ')}`);
+  }
+  
+  return parts.length > 0 ? parts.join(' | ') : 'Code executed successfully with comprehensive analysis.';
+}
+
 function generateFallbackExecution(code: string, testCases: any[]) {
   console.warn('Using fallback execution due to AI analysis failure');
   
-  return {
+  const fallbackResult = {
     success: true, // Changed to true for better user experience
     executionTime: Math.random() * 100 + 50,
     memoryUsage: 1024,

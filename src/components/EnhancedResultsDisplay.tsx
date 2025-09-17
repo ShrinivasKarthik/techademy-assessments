@@ -252,7 +252,7 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
           <CardContent className="p-4 text-center">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
             <div className="text-2xl font-bold">
-              {instance?.questions_answered || questions.length}
+              {instance?.questions_answered || evaluations.length}
             </div>
             <div className="text-sm text-muted-foreground">Questions Answered</div>
           </CardContent>

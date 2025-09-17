@@ -142,17 +142,17 @@ serve(async (req) => {
           score = evaluateMCQ(submission, question);
           totalScore += score;
 
-          // Insert evaluation immediately for MCQ
+          // Insert evaluation immediately for MCQ using UPSERT to prevent duplicates
           await supabase
             .from('evaluations')
-            .insert({
+            .upsert({
               submission_id: submission.id,
               score: score,
               max_score: question.points || 0,
               integrity_score: integrityScore,
-              evaluation_notes: 'Automated MCQ evaluation',
+              feedback: 'Automated MCQ evaluation',
               evaluated_at: new Date().toISOString()
-            });
+            }, { onConflict: 'submission_id' });
           break;
         
         case 'subjective':
@@ -200,37 +200,20 @@ serve(async (req) => {
                   .eq('submission_id', submission.id)
                   .single();
 
-                if (!existingEval) {
-                  await supabase
-                    .from('evaluations')
-                    .insert({
-                      submission_id: submission.id,
-                      score: aiScore,
-                      max_score: question.points || 0,
-                      integrity_score: integrityScore,
-                      ai_feedback: aiFeedback,
-                      feedback: aiFeedback ? JSON.stringify(aiFeedback) : `AI-powered ${question.question_type} evaluation`,
-                      evaluated_at: new Date().toISOString()
-                    });
+                // Use UPSERT to prevent duplicates and handle conflicts gracefully
+                await supabase
+                  .from('evaluations')
+                  .upsert({
+                    submission_id: submission.id,
+                    score: aiScore,
+                    max_score: question.points || 0,
+                    integrity_score: integrityScore,
+                    ai_feedback: aiFeedback,
+                    feedback: aiFeedback ? JSON.stringify(aiFeedback) : `AI-powered ${question.question_type} evaluation`,
+                    evaluated_at: new Date().toISOString()
+                  }, { onConflict: 'submission_id' });
 
-                  // Update total score in instance
-                  const { data: currentInstance } = await supabase
-                    .from('assessment_instances')
-                    .select('total_score')
-                    .eq('id', instanceId)
-                    .single();
-
-                  if (currentInstance) {
-                    await supabase
-                      .from('assessment_instances')
-                      .update({
-                        total_score: (currentInstance.total_score || 0) + aiScore
-                      })
-                      .eq('id', instanceId);
-                  }
-                } else {
-                  console.log(`Evaluation already exists for submission ${submission.id}, skipping`);
-                }
+                console.log(`Evaluation created/updated for submission ${submission.id} with score ${aiScore}`);
               } catch (error) {
                 console.error(`AI evaluation failed for ${question.question_type} question:`, error);
                 // Insert fallback evaluation with 0 score
@@ -249,17 +232,17 @@ serve(async (req) => {
             
             evaluationPromises.push(aiEvaluationPromise);
           } else {
-            // No AI key, insert 0 score evaluation
+            // No AI key, insert 0 score evaluation using UPSERT
             await supabase
               .from('evaluations')
-              .insert({
+              .upsert({
                 submission_id: submission.id,
                 score: 0,
                 max_score: question.points || 0,
                 integrity_score: integrityScore,
                 feedback: 'Manual evaluation required (no AI key)',
                 evaluated_at: new Date().toISOString()
-              });
+              }, { onConflict: 'submission_id' });
           }
           break;
         
@@ -329,7 +312,7 @@ serve(async (req) => {
                     recommendations: conversationIntelligence?.recommendations || []
                   };
                   
-                  // Create evaluation record
+                  // Create evaluation record using UPSERT
                   await supabase
                     .from('evaluations')
                     .upsert({
@@ -340,23 +323,9 @@ serve(async (req) => {
                       ai_feedback: aiFeedback,
                       feedback: `Interview evaluation - Overall: ${performanceMetrics.overall_score}%, Communication: ${performanceMetrics.communication_score}%, Technical: ${performanceMetrics.technical_score}%`,
                       evaluated_at: new Date().toISOString()
-                    });
+                    }, { onConflict: 'submission_id' });
 
-                  // Update total score in instance
-                  const { data: currentInstance } = await supabase
-                    .from('assessment_instances')
-                    .select('total_score')
-                    .eq('id', instanceId)
-                    .single();
-
-                  if (currentInstance) {
-                    await supabase
-                      .from('assessment_instances')
-                      .update({
-                        total_score: (currentInstance.total_score || 0) + interviewScore
-                      })
-                      .eq('id', instanceId);
-                  }
+                  console.log(`Interview evaluation completed with score: ${interviewScore}/${question.points}`);
                   
                   console.log(`Interview evaluation completed with score: ${interviewScore}/${question.points}`);
                 }
