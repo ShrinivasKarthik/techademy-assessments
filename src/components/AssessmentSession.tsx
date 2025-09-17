@@ -332,37 +332,73 @@ const AssessmentSession: React.FC<AssessmentSessionProps> = ({
 
   // Assessment in progress - show unified interface
   if (sessionState === 'in_progress') {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-0 h-screen">
-          {/* Assessment Taking Area */}
-          <div className="lg:col-span-3 overflow-auto">
-          <EnhancedAssessmentTaking 
-            assessmentId={assessmentId}
-          />
-          </div>
-
-          {/* Proctoring Sidebar */}
-          {assessment.proctoring_enabled && (
-            <div className="lg:col-span-1 border-l bg-card overflow-auto">
-              <div className="p-4">
-                <h3 className="font-medium mb-4 flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Live Monitoring
-                </h3>
-                <LiveProctoringSystem
-                  assessmentId={assessmentId}
-                  participantId={participantId}
-                  config={assessment.proctoring_config}
-                  onSecurityEvent={handleSecurityEvent}
-                  onStatusChange={handleProctoringStatusChange}
-                />
+    // Check if current question is project-based for conditional layout
+    const hasProjectQuestions = assessment?.questions?.some(q => q.question_type === 'project_based');
+    
+    if (hasProjectQuestions) {
+      // Full-width layout for project-based questions with floating proctoring
+      return (
+        <div className="min-h-screen bg-background">
+          <div className="relative h-screen">
+            <EnhancedAssessmentTaking assessmentId={assessmentId} />
+            
+            {/* Floating proctoring panel - collapsible */}
+            {assessment.proctoring_enabled && (
+              <div className="fixed top-20 right-4 z-40 max-w-sm">
+                <Card className="bg-background/80 backdrop-blur-sm shadow-lg">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Live Monitoring
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <LiveProctoringSystem
+                      assessmentId={assessmentId}
+                      participantId={participantId}
+                      config={assessment.proctoring_config}
+                      onSecurityEvent={handleSecurityEvent}
+                      onStatusChange={handleProctoringStatusChange}
+                    />
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    );
+      );
+    } else {
+      // Traditional layout for other question types
+      return (
+        <div className="min-h-screen bg-background">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-0 h-screen">
+            {/* Assessment Taking Area */}
+            <div className="lg:col-span-3 overflow-auto">
+              <EnhancedAssessmentTaking assessmentId={assessmentId} />
+            </div>
+
+            {/* Proctoring Sidebar */}
+            {assessment.proctoring_enabled && (
+              <div className="lg:col-span-1 border-l bg-card overflow-auto">
+                <div className="p-4">
+                  <h3 className="font-medium mb-4 flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Live Monitoring
+                  </h3>
+                  <LiveProctoringSystem
+                    assessmentId={assessmentId}
+                    participantId={participantId}
+                    config={assessment.proctoring_config}
+                    onSecurityEvent={handleSecurityEvent}
+                    onStatusChange={handleProctoringStatusChange}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
   }
 
   // Pre-assessment setup screens

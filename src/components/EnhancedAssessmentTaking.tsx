@@ -36,6 +36,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import MobileAssessmentInterface from './mobile/MobileAssessmentInterface';
 import { useConsolidatedAutoSave } from '@/hooks/useConsolidatedAutoSave';
 import ErrorBoundary from './ErrorBoundary';
+import FloatingQuestionNavigator from './FloatingQuestionNavigator';
 
 interface Question {
   id: string;
@@ -511,6 +512,7 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
   const isLastQuestion = currentQuestionIndex === assessment.questions.length - 1;
   const isTimeWarning = timeRemaining <= 300; // 5 minutes
   const isCodingQuestion = currentQuestion?.question_type === 'coding';
+  const isProjectQuestion = currentQuestion?.question_type === 'project_based';
 
   // If mobile, use mobile interface
   if (isMobile) {
@@ -641,10 +643,22 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
         </div>
       </div>
 
+      {/* Floating Question Navigator for Project Questions */}
+      {isProjectQuestion && (
+        <FloatingQuestionNavigator
+          questions={assessment.questions}
+          currentQuestionIndex={currentQuestionIndex}
+          answers={answers}
+          flaggedQuestions={flaggedQuestions}
+          onQuestionChange={navigateToQuestion}
+          disabled={instance.status === 'submitted'}
+        />
+      )}
+
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Accessibility Controls */}
-        {showAccessibilityControls && (
+      <div className={`${isProjectQuestion ? 'p-0' : 'max-w-7xl mx-auto p-6'}`}>
+        {/* Accessibility Controls - only for non-project questions */}
+        {!isProjectQuestion && showAccessibilityControls && (
           <div className="mb-6">
             <AccessibilityControls 
               isOpen={showAccessibilityControls}
@@ -653,98 +667,106 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
           </div>
         )}
 
-        <div className={`grid gap-6 ${isCodingQuestion && showEvaluationPanel ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
-          {/* Question Area */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      {currentQuestion.title}
-                      {flaggedQuestions.has(currentQuestion.id) && (
-                        <Flag className="w-4 h-4 text-yellow-600" />
-                      )}
-                    </CardTitle>
-                     <div className="flex gap-2 mt-2">
-                       <Badge variant="secondary">{currentQuestion.question_type}</Badge>
-                       <Badge variant="outline">{currentQuestion.difficulty}</Badge>
-                       <Badge variant="outline">
-                         {assessment.questions.length > 0 ? Math.round(100 / assessment.questions.length) : 0}%
-                       </Badge>
-                     </div>
-                  </div>
-                  <TTSButton text={currentQuestion.title} />
-                </div>
-                {currentQuestion.question_text && (
-                  <div className="flex items-start justify-between mt-2">
-                    <p className="text-muted-foreground">{currentQuestion.question_text}</p>
-                    <TTSButton text={currentQuestion.question_text} />
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent>
-                {renderQuestion()}
-              </CardContent>
-            </Card>
-
-            {/* Navigation */}
-            <div className="flex justify-between items-center">
-              <Button
-                variant="outline"
-                onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
-                disabled={currentQuestionIndex === 0 || instance.status === 'submitted'}
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Previous
-              </Button>
-              
-              <div className="flex gap-2">
-                {assessment.questions.map((question, index) => (
-                  <Button
-                    key={index}
-                    variant={
-                      index === currentQuestionIndex 
-                        ? "default" 
-                        : answers[question.id] 
-                          ? "secondary" 
-                          : "outline"
-                    }
-                    size="sm"
-                    onClick={() => navigateToQuestion(index)}
-                    disabled={instance.status === 'submitted'}
-                    className="w-10 h-10 p-0 relative"
-                  >
-                    {index + 1}
-                    {flaggedQuestions.has(question.id) && (
-                      <Flag className="w-2 h-2 absolute -top-1 -right-1 text-yellow-600" />
-                    )}
-                  </Button>
-                ))}
-              </div>
-
-              <Button
-                variant="outline"
-                onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
-                disabled={isLastQuestion || instance.status === 'submitted'}
-              >
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
+        {isProjectQuestion ? (
+          /* Full-width layout for project questions */
+          <div className="h-screen">
+            {renderQuestion()}
           </div>
+        ) : (
+          /* Traditional layout for other question types */
+          <div className={`grid gap-6 ${isCodingQuestion && showEvaluationPanel ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+            {/* Question Area */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {currentQuestion.title}
+                        {flaggedQuestions.has(currentQuestion.id) && (
+                          <Flag className="w-4 h-4 text-yellow-600" />
+                        )}
+                      </CardTitle>
+                       <div className="flex gap-2 mt-2">
+                         <Badge variant="secondary">{currentQuestion.question_type}</Badge>
+                         <Badge variant="outline">{currentQuestion.difficulty}</Badge>
+                         <Badge variant="outline">
+                           {assessment.questions.length > 0 ? Math.round(100 / assessment.questions.length) : 0}%
+                         </Badge>
+                       </div>
+                    </div>
+                    <TTSButton text={currentQuestion.title} />
+                  </div>
+                  {currentQuestion.question_text && (
+                    <div className="flex items-start justify-between mt-2">
+                      <p className="text-muted-foreground">{currentQuestion.question_text}</p>
+                      <TTSButton text={currentQuestion.question_text} />
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {renderQuestion()}
+                </CardContent>
+              </Card>
 
-          {/* AI Evaluation Panel (for coding questions) */}
-          {isCodingQuestion && showEvaluationPanel && (
-            <div className="lg:sticky lg:top-24 lg:h-fit">
-              <RealTimeEvaluationPanel
-                data={answers[currentQuestion.id] || {}}
-                question={currentQuestion}
-                isLoading={false}
-              />
+              {/* Navigation */}
+              <div className="flex justify-between items-center">
+                <Button
+                  variant="outline"
+                  onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
+                  disabled={currentQuestionIndex === 0 || instance.status === 'submitted'}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+                
+                <div className="flex gap-2">
+                  {assessment.questions.map((question, index) => (
+                    <Button
+                      key={index}
+                      variant={
+                        index === currentQuestionIndex 
+                          ? "default" 
+                          : answers[question.id] 
+                            ? "secondary" 
+                            : "outline"
+                      }
+                      size="sm"
+                      onClick={() => navigateToQuestion(index)}
+                      disabled={instance.status === 'submitted'}
+                      className="w-10 h-10 p-0 relative"
+                    >
+                      {index + 1}
+                      {flaggedQuestions.has(question.id) && (
+                        <Flag className="w-2 h-2 absolute -top-1 -right-1 text-yellow-600" />
+                      )}
+                    </Button>
+                  ))}
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
+                  disabled={isLastQuestion || instance.status === 'submitted'}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* AI Evaluation Panel (for coding questions) */}
+            {isCodingQuestion && showEvaluationPanel && (
+              <div className="lg:sticky lg:top-24 lg:h-fit">
+                <RealTimeEvaluationPanel
+                  data={answers[currentQuestion.id] || {}}
+                  question={currentQuestion}
+                  isLoading={false}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Submission Status */}
         {instance.status === 'submitted' && (
@@ -760,15 +782,29 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
         )}
       </div>
 
-      {/* Keyboard shortcuts help */}
-      <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-card p-3 rounded border shadow-sm">
-        <div className="space-y-1">
-          <div><kbd>Ctrl+S</kbd> Save</div>
-          <div><kbd>Ctrl+←/→</kbd> Navigate</div>
-          <div><kbd>Ctrl+F</kbd> Flag</div>
-          <div><kbd>F11</kbd> Fullscreen</div>
+      {/* Keyboard shortcuts help - updated for project questions */}
+      {!isProjectQuestion && (
+        <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-card p-3 rounded border shadow-sm">
+          <div className="space-y-1">
+            <div><kbd>Ctrl+S</kbd> Save</div>
+            <div><kbd>Ctrl+←/→</kbd> Navigate</div>
+            <div><kbd>Ctrl+F</kbd> Flag</div>
+            <div><kbd>F11</kbd> Fullscreen</div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Project question keyboard shortcuts */}
+      {isProjectQuestion && (
+        <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-card p-3 rounded border shadow-sm">
+          <div className="space-y-1">
+            <div><kbd>Ctrl+Q</kbd> Questions</div>
+            <div><kbd>Ctrl+S</kbd> Save</div>
+            <div><kbd>Ctrl+F</kbd> Flag</div>
+            <div><kbd>F11</kbd> Fullscreen</div>
+          </div>
+        </div>
+      )}
       </div>
     </ErrorBoundary>
   );
