@@ -1050,6 +1050,66 @@ export type Database = {
         }
         Relationships: []
       }
+      project_files: {
+        Row: {
+          created_at: string
+          file_content: string | null
+          file_language: string | null
+          file_name: string
+          file_path: string
+          id: string
+          is_folder: boolean | null
+          is_main_file: boolean | null
+          order_index: number | null
+          parent_folder_id: string | null
+          question_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_content?: string | null
+          file_language?: string | null
+          file_name: string
+          file_path: string
+          id?: string
+          is_folder?: boolean | null
+          is_main_file?: boolean | null
+          order_index?: number | null
+          parent_folder_id?: string | null
+          question_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_content?: string | null
+          file_language?: string | null
+          file_name?: string
+          file_path?: string
+          id?: string
+          is_folder?: boolean | null
+          is_main_file?: boolean | null
+          order_index?: number | null
+          parent_folder_id?: string | null
+          question_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_files_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "project_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_files_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_collections: {
         Row: {
           collection_type: string | null
@@ -1278,6 +1338,7 @@ export type Database = {
           order_index: number
           parent_question_id: string | null
           points: number
+          project_type: string | null
           quality_rating: number | null
           question_text: string | null
           question_type: Database["public"]["Enums"]["question_type"]
@@ -1303,6 +1364,7 @@ export type Database = {
           order_index: number
           parent_question_id?: string | null
           points?: number
+          project_type?: string | null
           quality_rating?: number | null
           question_text?: string | null
           question_type: Database["public"]["Enums"]["question_type"]
@@ -1328,6 +1390,7 @@ export type Database = {
           order_index?: number
           parent_question_id?: string | null
           points?: number
+          project_type?: string | null
           quality_rating?: number | null
           question_text?: string | null
           question_type?: Database["public"]["Enums"]["question_type"]

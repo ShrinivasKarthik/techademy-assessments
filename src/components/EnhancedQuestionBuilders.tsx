@@ -13,7 +13,7 @@ import InterviewBuilder from './EnhancedQuestionBuilders/InterviewBuilder';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
+type QuestionType = 'project_based' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
 
 interface QuestionConfig {
   coding?: {
@@ -69,6 +69,7 @@ interface EnhancedQuestionBuildersProps {
   onConfigChange: (config: any) => void;
   questionDescription?: string;
   difficulty?: string;
+  questionId?: string;
 }
 
 const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
@@ -76,10 +77,15 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   config,
   onConfigChange,
   questionDescription = '',
-  difficulty = 'intermediate'
+  difficulty = 'intermediate',
+  questionId
 }) => {
   const { toast } = useToast();
   const [isGeneratingRubric, setIsGeneratingRubric] = useState(false);
+  const renderProjectBasedBuilder = () => {
+    return <div className="p-4 text-center">Project-Based Assessment Builder (Coming Soon)</div>;
+  };
+
   const renderCodingBuilder = () => {
     const codingConfig = (config && Object.keys(config).length > 0) ? config : {
       language: 'javascript',
@@ -543,8 +549,8 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
 
   const renderBuilder = () => {
     switch (questionType) {
-      case 'coding':
-        return renderCodingBuilder();
+      case 'project_based':
+        return renderProjectBasedBuilder();
       case 'mcq':
         return renderMCQBuilder();
       case 'subjective':
