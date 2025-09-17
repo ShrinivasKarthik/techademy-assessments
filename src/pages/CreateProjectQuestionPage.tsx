@@ -8,6 +8,9 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { 
   Layers3, 
   Sparkles, 
@@ -25,6 +28,7 @@ const CreateProjectQuestionPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  const [questionTitle, setQuestionTitle] = useState('');
   const [config, setConfig] = useState({
     technology: '',
     problemDescription: '',
@@ -39,24 +43,24 @@ const CreateProjectQuestionPage = () => {
     setConfig(newConfig);
     
     // Auto-save when there's meaningful content
-    if (newConfig.technology && newConfig.problemDescription) {
+    if (questionTitle.trim() && newConfig.technology && newConfig.problemDescription) {
       await handleSave(newConfig);
     }
   };
 
   const handleSave = async (configToSave = config) => {
     try {
-      if (!configToSave.technology.trim() || !configToSave.problemDescription.trim()) {
+      if (!questionTitle.trim() || !configToSave.technology.trim() || !configToSave.problemDescription.trim()) {
         toast({
           title: "Missing Information",
-          description: "Please fill in both technology and problem description before saving.",
+          description: "Please fill in question title, technology and problem description before saving.",
           variant: "destructive",
         });
         return;
       }
 
       const questionData = {
-        title: `${configToSave.technology} Project Question`,
+        title: questionTitle,
         question_text: configToSave.problemDescription,
         question_type: 'project_based' as const,
         difficulty: 'intermediate' as const,
@@ -177,44 +181,6 @@ const CreateProjectQuestionPage = () => {
           ))}
         </div>
 
-        {/* Implementation Status */}
-        <Card className="border-2 border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
-              <CheckCircle className="w-5 h-5" />
-              Implementation Complete
-            </CardTitle>
-            <CardDescription className="text-green-600 dark:text-green-400">
-              All core features of the Enhanced Universal Technology Question Framework are now ready for production use.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h4 className="font-semibold text-green-800 dark:text-green-200">✅ Completed Features:</h4>
-                <ul className="text-sm space-y-1 text-green-700 dark:text-green-300">
-                  <li>• Clean separation of question types</li>
-                  <li>• Unlimited technology support</li>
-                  <li>• AI-powered project generation</li>
-                  <li>• Enhanced file explorer with drag-and-drop</li>
-                  <li>• Universal evaluation engine</li>
-                  <li>• Hierarchical folder structure</li>
-                </ul>
-              </div>
-              <div className="space-y-2">
-                <h4 className="font-semibold text-green-800 dark:text-green-200">🚀 Ready to Use:</h4>
-                <ul className="text-sm space-y-1 text-green-700 dark:text-green-300">
-                  <li>• Technology-agnostic questions</li>
-                  <li>• Real-world project simulation</li>
-                  <li>• Professional development experience</li>
-                  <li>• Automated test scenario generation</li>
-                  <li>• Intelligent evaluation criteria</li>
-                  <li>• Context-aware AI analysis</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Main Builder */}
         <Card>
@@ -231,14 +197,35 @@ const CreateProjectQuestionPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ErrorBoundary>
-              <ProjectBasedQuestionBuilder
-                config={config}
-                onConfigChange={handleConfigChange}
-                questionId={currentQuestionId || undefined}
-                onAutoSave={async () => await handleSave()}
-              />
-            </ErrorBoundary>
+            <div className="space-y-6">
+              {/* Question Title Field */}
+              <div className="space-y-2">
+                <Label htmlFor="question-title" className="text-sm font-medium">
+                  Question Title <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="question-title"
+                  value={questionTitle}
+                  onChange={(e) => setQuestionTitle(e.target.value)}
+                  placeholder="Enter a descriptive title for your project-based question"
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This title will appear in your question bank and assessments
+                </p>
+              </div>
+              
+              <Separator />
+              
+              <ErrorBoundary>
+                <ProjectBasedQuestionBuilder
+                  config={config}
+                  onConfigChange={handleConfigChange}
+                  questionId={currentQuestionId || undefined}
+                  onAutoSave={async () => await handleSave()}
+                />
+              </ErrorBoundary>
+            </div>
           </CardContent>
         </Card>
       </div>
