@@ -459,7 +459,7 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
 
     switch (question.question_type) {
       case 'project_based':
-        return <ProjectBasedQuestion {...questionProps} />;
+        return <ProjectBasedQuestion {...questionProps} instanceId={instance?.id} />;
       case 'coding':
         return <EnhancedCodingQuestion {...questionProps} />;
       case 'mcq':

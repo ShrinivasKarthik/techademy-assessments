@@ -57,13 +57,17 @@ interface ProjectBasedQuestionProps {
   };
   onAnswerChange: (answer: any) => void;
   disabled?: boolean;
+  instanceId?: string;
+  shareToken?: string;
 }
 
 const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
   question,
   answer,
   onAnswerChange,
-  disabled = false
+  disabled = false,
+  instanceId,
+  shareToken
 }) => {
   const { toast } = useToast();
   const [files, setFiles] = useState<ProjectFile[]>([]);
@@ -104,15 +108,19 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
 
   const fetchProjectFiles = async () => {
     try {
-      const { data, error } = await supabase
-        .from('project_files')
-        .select('*')
-        .eq('question_id', question.id)
-        .order('order_index');
+      const { data, error } = await supabase.functions.invoke('get-project-structure', {
+        body: {
+          questionId: question.id,
+          instanceId,
+          shareToken
+        }
+      });
 
       if (error) throw error;
 
-      const projectFiles = data.map(file => ({
+      const rows = data?.files || [];
+
+      const projectFiles = rows.map((file: any) => ({
         id: file.id,
         fileName: file.file_name,
         filePath: file.file_path,

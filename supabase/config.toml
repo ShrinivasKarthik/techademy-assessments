@@ -97,3 +97,6 @@ verify_jwt = false
 
 [functions.cleanup-stuck-assessments]
 verify_jwt = false
+
+[functions.get-project-structure]
+verify_jwt = false
