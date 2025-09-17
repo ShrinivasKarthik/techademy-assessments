@@ -1,5 +1,11 @@
 project_id = "axdwgxtukqqzupboojmx"
 
+[functions.analyze-technology]
+verify_jwt = false
+
+[functions.generate-project-structure]
+verify_jwt = false
+
 [functions.interview-bot]
 verify_jwt = false
 

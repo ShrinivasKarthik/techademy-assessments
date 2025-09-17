@@ -99,32 +99,48 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
 
     setIsAnalyzing(true);
     try {
+      toast({
+        title: "Analysis Starting",
+        description: `Analyzing ${config.technology} with AI...`,
+      });
+
       const { data, error } = await supabase.functions.invoke('analyze-technology', {
         body: {
           technology: config.technology,
-          problemDescription: questionDescription
+          problemDescription: questionDescription || config.problemDescription
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Technology analysis error:', error);
+        throw new Error(error.message || 'Failed to analyze technology');
+      }
 
-      const analysis = data.analysis;
+      const analysis = data?.analysis;
+      if (!analysis) {
+        throw new Error('No analysis data returned from AI');
+      }
       
       updateConfig({
-        evaluationCriteria: analysis.evaluationCriteria,
-        testScenarios: analysis.testScenarios
+        evaluationCriteria: analysis.evaluationCriteria || [],
+        testScenarios: analysis.testScenarios || []
       });
 
       toast({
-        title: "Technology Analyzed",
-        description: `Successfully analyzed ${config.technology} and extracted evaluation criteria`,
+        title: "Analysis Complete!",
+        description: `Successfully analyzed ${config.technology}. Generated ${analysis.evaluationCriteria?.length || 0} criteria and ${analysis.testScenarios?.length || 0} test scenarios.`,
       });
+
+      // Auto-switch to evaluation tab if analysis is successful
+      if (analysis.evaluationCriteria?.length > 0 || analysis.testScenarios?.length > 0) {
+        setTimeout(() => setActiveTab('evaluation'), 1000);
+      }
 
     } catch (error) {
       console.error('Technology analysis error:', error);
       toast({
         title: "Analysis Failed",
-        description: "Could not analyze technology. Please try again.",
+        description: error instanceof Error ? error.message : "Could not analyze technology. Please check your connection and try again.",
         variant: "destructive"
       });
     } finally {
@@ -133,10 +149,20 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
   };
 
   const generateProjectStructure = async () => {
-    if (!config.technology.trim() || !questionId) {
+    if (!config.technology.trim()) {
       toast({
-        title: "Missing Information",
-        description: "Technology and saved question required to generate project structure",
+        title: "Technology Required",
+        description: "Please specify a technology in the Technology Setup tab first",
+        variant: "destructive"
+      });
+      setActiveTab('technology');
+      return;
+    }
+
+    if (!questionId) {
+      toast({
+        title: "Question Not Saved",
+        description: "Please save the question first to enable project structure generation",
         variant: "destructive"
       });
       return;
@@ -144,6 +170,11 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
 
     setIsGeneratingStructure(true);
     try {
+      toast({
+        title: "Generation Starting",
+        description: `Creating project structure for ${config.technology}...`,
+      });
+
       const { data, error } = await supabase.functions.invoke('generate-project-structure', {
         body: {
           technology: config.technology,
@@ -152,7 +183,10 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Project structure generation error:', error);
+        throw new Error(error.message || 'Failed to generate project structure');
+      }
 
       // Fetch the generated files from database
       const { data: files, error: fetchError } = await supabase
@@ -161,9 +195,12 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
         .eq('question_id', questionId)
         .order('order_index');
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Fetch files error:', fetchError);
+        throw new Error('Failed to fetch generated files from database');
+      }
 
-      const projectFiles = files.map(file => ({
+      const projectFiles = files?.map(file => ({
         id: file.id,
         fileName: file.file_name,
         filePath: file.file_path,
@@ -172,20 +209,20 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
         isFolder: file.is_folder,
         isMainFile: file.is_main_file,
         orderIndex: file.order_index
-      }));
+      })) || [];
 
       updateConfig({ projectFiles });
 
       toast({
-        title: "Project Structure Generated",
-        description: `Created ${data.filesCreated} files and ${data.foldersCreated} folders`,
+        title: "Structure Generated!",
+        description: `Created ${data?.filesCreated || 0} files and ${data?.foldersCreated || 0} folders for your ${config.technology} project`,
       });
 
     } catch (error) {
       console.error('Project structure generation error:', error);
       toast({
         title: "Generation Failed",
-        description: "Could not generate project structure. Please try again.",
+        description: error instanceof Error ? error.message : "Could not generate project structure. Please check your connection and try again.",
         variant: "destructive"
       });
     } finally {
@@ -296,9 +333,20 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
 
             {/* Technology Setup Tab */}
             <TabsContent value="technology" className="space-y-6">
+              {/* Step Indicator */}
+              <div className="bg-muted/30 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">1</div>
+                  <h3 className="font-semibold">Technology Setup & Analysis</h3>
+                </div>
+                <p className="text-sm text-muted-foreground ml-11">
+                  Choose your technology stack and let AI analyze the requirements for optimal project structure.
+                </p>
+              </div>
+
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="technology">Technology / Framework / Skill</Label>
+                  <Label htmlFor="technology">Technology / Framework / Skill *</Label>
                   <div className="flex gap-2 mt-2">
                     <Input
                       id="technology"
@@ -309,14 +357,19 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                     />
                     <Button 
                       onClick={analyzeTechnology}
-                      disabled={isAnalyzing}
+                      disabled={isAnalyzing || !config.technology.trim()}
                       variant="outline"
                       className="flex items-center gap-2"
                     >
                       <Brain className="w-4 h-4" />
-                      {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+                      {isAnalyzing ? 'Analyzing...' : 'AI Analyze'}
                     </Button>
                   </div>
+                  {!config.technology.trim() && (
+                    <p className="text-sm text-destructive mt-1">
+                      Technology is required for AI analysis and project generation
+                    </p>
+                  )}
                   <p className="text-sm text-muted-foreground mt-1">
                     Enter any technology, framework, or skill. AI will analyze and determine appropriate project structure.
                   </p>
@@ -359,6 +412,33 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
 
             {/* Project Structure Tab */}
             <TabsContent value="structure" className="space-y-6">
+              {/* Step Indicator */}
+              <div className="bg-muted/30 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">2</div>
+                  <h3 className="font-semibold">Generate Project Structure</h3>
+                </div>
+                <p className="text-sm text-muted-foreground ml-11">
+                  AI will create a complete project structure with files, folders, and starter code based on your technology choice.
+                </p>
+                
+                {/* Prerequisites Check */}
+                <div className="ml-11 mt-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${config.technology.trim() ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={config.technology.trim() ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
+                      Technology specified
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${questionId ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={questionId ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
+                      Question saved (required for file generation)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold">Project Files & Folders</h3>
@@ -368,13 +448,28 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                 </div>
                 <Button 
                   onClick={generateProjectStructure}
-                  disabled={isGeneratingStructure || !questionId}
+                  disabled={isGeneratingStructure || !questionId || !config.technology.trim()}
                   className="flex items-center gap-2"
                 >
                   <Sparkles className="w-4 h-4" />
-                  {isGeneratingStructure ? 'Generating...' : 'Generate Structure'}
+                  {isGeneratingStructure ? 'Generating...' : 'AI Generate Structure'}
                 </Button>
               </div>
+
+              {(!questionId || !config.technology.trim()) && (
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-1">Prerequisites Required</h4>
+                      <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
+                        {!config.technology.trim() && <li>• Enter a technology in the Technology Setup tab</li>}
+                        {!questionId && <li>• Save the question first to enable file generation</li>}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {questionId ? (
                 <EnhancedProjectFileExplorer
@@ -394,6 +489,33 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
 
             {/* Evaluation Tab */}
             <TabsContent value="evaluation" className="space-y-6">
+              {/* Step Indicator */}
+              <div className="bg-muted/30 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">3</div>
+                  <h3 className="font-semibold">Define Evaluation & Testing</h3>
+                </div>
+                <p className="text-sm text-muted-foreground ml-11">
+                  Set up test scenarios and evaluation criteria to automatically assess candidate submissions.
+                </p>
+                
+                {/* Prerequisites for AI generation */}
+                <div className="ml-11 mt-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${config.technology.trim() ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={config.technology.trim() ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
+                      Technology specified (for test generation)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${config.problemDescription.trim() ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={config.problemDescription.trim() ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
+                      Problem description provided
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Test Scenarios */}
                 <div className="space-y-4">
@@ -402,7 +524,7 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                     <div className="flex gap-2">
                       <Button 
                         onClick={generateTestScenarios}
-                        disabled={isGeneratingTests}
+                        disabled={isGeneratingTests || !config.technology.trim() || !config.problemDescription.trim()}
                         variant="outline"
                         size="sm"
                         className="flex items-center gap-2"
@@ -417,10 +539,18 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                         className="flex items-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
-                        Add
+                        Add Manual
                       </Button>
                     </div>
                   </div>
+
+                  {(!config.technology.trim() || !config.problemDescription.trim()) && (
+                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        💡 Fill technology and problem description for AI-powered test generation
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     {config.testScenarios.map((scenario, index) => (
