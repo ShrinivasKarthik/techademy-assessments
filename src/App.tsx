@@ -22,6 +22,7 @@ import MonitoringPage from "./pages/MonitoringPage";
 import ProctoringPage from "./pages/ProctoringPage";
 import AdvancedAnalyticsPage from "./pages/AdvancedAnalyticsPage";
 import QuestionBankPage from "./pages/QuestionBankPage";
+import QuestionBuilderPage from "./pages/QuestionBuilderPage";
 import QuestionQualityPage from "./pages/QuestionQualityPage";
 import SkillAnalyticsPage from "./pages/SkillAnalyticsPage";
 import AIInsightsPage from "./pages/AIInsightsPage";
@@ -107,6 +108,11 @@ const App = () => (
             <Route path="/question-bank" element={
               <ProtectedRoute>
                 <QuestionBankPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/question-builder/:questionId" element={
+              <ProtectedRoute>
+                <QuestionBuilderPage />
               </ProtectedRoute>
             } />
             <Route path="/admin" element={

@@ -17,15 +17,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Code, HelpCircle, FileText, Upload, Mic, Sparkles, Loader2, BookOpen, MessageCircle } from "lucide-react";
+import { X, Plus, Code, HelpCircle, FileText, Upload, Mic, Loader2, MessageCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import QuestionTemplateSelector from "./QuestionTemplateSelector";
 import { Question } from "@/hooks/useQuestionBank";
 import EnhancedQuestionBuilders from "./EnhancedQuestionBuilders";
 import { useSkills } from "@/hooks/useSkills";
 import { useToast } from "@/hooks/use-toast";
 import { useFormPersistence } from "@/hooks/useFormPersistence";
-import { useNavigationProtection } from "@/hooks/useNavigationProtection";
 
 interface CreateQuestionModalProps {
   question?: Question | null;
@@ -113,28 +111,18 @@ export default function CreateQuestionModal({
     }
   );
 
-  const { protectedNavigate, clearProtection } = useNavigationProtection({
-    enabled: isDirty && isOpen,
-    message: 'You have unsaved changes to your question. Are you sure you want to close?'
-  });
-
   const [newTag, setNewTag] = useState('');
   const [newSkill, setNewSkill] = useState('');
   const [loading, setLoading] = useState(false);
-  const [draftSaving, setDraftSaving] = useState(false);
-  const [suggestingSkills, setSuggestingSkills] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [questionId, setQuestionId] = useState<string | undefined>(question?.id);
   
-  const { skills: availableSkills, getOrCreateSkills, suggestSkillsForQuestion } = useSkills();
+  const { getOrCreateSkills } = useSkills();
   const { toast } = useToast();
 
-  // Only reset form when switching between edit/create modes, not on every modal open
+  // Reset form when switching between edit/create modes
   useEffect(() => {
     if (!isOpen) return;
     
     if (question) {
-      // Editing mode - only update if it's a different question
       const questionData = {
         question_text: question.question_text || '',
         question_type: question.question_type,
@@ -147,7 +135,7 @@ export default function CreateQuestionModal({
       };
       updateFormData(questionData);
     }
-  }, [question?.id]); // Only depend on question ID, not isOpen
+  }, [question?.id]);
 
   const handleAddTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
@@ -179,115 +167,8 @@ export default function CreateQuestionModal({
     });
   };
 
-  const handleSuggestSkills = async () => {
-    if (!formData.question_text.trim()) {
-      toast({
-        title: "Question Text Required",
-        description: "Please enter question text before suggesting skills",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSuggestingSkills(true);
-    try {
-      const suggestedSkills = await suggestSkillsForQuestion(
-        formData.question_text,
-        formData.question_type
-      );
-
-      if (suggestedSkills.length > 0) {
-        // Add only new skills that aren't already selected
-        const newSkills = suggestedSkills.filter(skill => !formData.skills.includes(skill));
-        if (newSkills.length > 0) {
-          updateFormData({
-            skills: [...formData.skills, ...newSkills]
-          });
-          toast({
-            title: "Skills Suggested",
-            description: `Added ${newSkills.length} suggested skill(s)`,
-          });
-        } else {
-          toast({
-            title: "No New Skills",
-            description: "All suggested skills are already selected",
-          });
-        }
-      } else {
-        toast({
-          title: "No Suggestions",
-          description: "Could not generate skill suggestions for this question",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Suggestion Failed",
-        description: "Failed to generate skill suggestions",
-        variant: "destructive",
-      });
-    } finally {
-      setSuggestingSkills(false);
-    }
-  };
-
-  const handleTemplateSelect = (template: any) => {
-    updateFormData({
-      question_text: template.template_config.question_text || '',
-      question_type: template.question_type,
-      config: template.template_config || {},
-      tags: template.template_config.tags || [],
-      skills: template.template_config.skills || [],
-    });
-    setShowTemplates(false);
-  };
-
-  const handleConfigUpdate = (config: any) => {
-    updateFormData({ config });
-  };
-
-  const handleSaveAsDraft = async () => {
-    if (!formData.question_text.trim()) {
-      toast({
-        title: "Question Text Required",
-        description: "Please enter question text before saving as draft",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setDraftSaving(true);
-    try {
-      // Generate title from question text (first 50 chars or full text if shorter)
-      const title = formData.question_text.length > 50 
-        ? formData.question_text.substring(0, 50).trim() + '...'
-        : formData.question_text.trim();
-      
-      // Ensure skills exist in database (if any)
-      const skillObjects = formData.skills.length > 0 ? await getOrCreateSkills(formData.skills) : [];
-      
-      const questionData = { 
-        ...formData, 
-        title, 
-        points: 1,
-        skills: skillObjects.map(s => ({ name: s.name }))
-      };
-
-      const result = await onSave(questionData);
-      
-      toast({
-        title: "Draft Saved",
-        description: "Question saved as draft. You can now use AI features.",
-      });
-      
-    } catch (error) {
-      toast({
-        title: "Save Failed",
-        description: "Could not save draft. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setDraftSaving(false);
-    }
+  const isComplexType = (type: string) => {
+    return ['project_based', 'coding', 'interview'].includes(type);
   };
 
   const handleSubmit = async () => {
@@ -295,7 +176,7 @@ export default function CreateQuestionModal({
 
     setLoading(true);
     try {
-      // Generate title from question text (first 50 chars or full text if shorter)
+      // Generate title from question text
       const title = formData.question_text.length > 50 
         ? formData.question_text.substring(0, 50).trim() + '...'
         : formData.question_text.trim();
@@ -303,29 +184,41 @@ export default function CreateQuestionModal({
       // Ensure skills exist in database
       const skillObjects = await getOrCreateSkills(formData.skills);
       
-      await onSave({ 
+      // Create minimal question data for simple types or editing
+      const questionData = { 
         ...formData, 
-        title, 
-        points: 1,
+        title,
         skills: skillObjects.map(s => ({ name: s.name }))
-      });
+      };
+
+      await onSave(questionData);
       
       // Clear form persistence after successful save
       clearPersistedData();
-      clearProtection();
+      
+      toast({
+        title: question ? "Question Updated" : "Question Created",
+        description: question ? "Question has been updated successfully." : "Question has been created successfully.",
+      });
+      
+      onClose();
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: "Could not save question. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle modal close with protection
   const handleClose = () => {
     if (isDirty) {
-      const confirmed = window.confirm('You have unsaved changes to your question. Are you sure you want to close?');
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to close?');
       if (!confirmed) return;
     }
     clearPersistedData();
-    clearProtection();
     onClose();
   };
 
@@ -333,37 +226,15 @@ export default function CreateQuestionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl">
-              {question ? 'Edit Question' : 'Create New Question'}
-            </DialogTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowTemplates(!showTemplates)}
-              className="gap-2"
-            >
-              <BookOpen className="w-4 h-4" />
-              {showTemplates ? 'Hide Templates' : 'Use Template'}
-            </Button>
-          </div>
+          <DialogTitle className="text-xl">
+            {question ? 'Edit Question' : 'Create New Question'}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-8">
-          {/* Template Selector */}
-          {showTemplates && (
-            <div className="border rounded-lg p-4 bg-muted/20">
-              <QuestionTemplateSelector
-                onSelectTemplate={handleTemplateSelect}
-                selectedType={formData.question_type}
-                mode="select"
-              />
-            </div>
-          )}
-
-          {/* Question Text - Primary Field */}
+        <div className="space-y-6">
+          {/* Question Text */}
           <div className="space-y-3">
             <Label htmlFor="question-text" className="text-base font-semibold">
               Question Text *
@@ -373,15 +244,15 @@ export default function CreateQuestionModal({
               value={formData.question_text}
               onChange={(e) => updateFormData({ question_text: e.target.value })}
               placeholder="What do you want to ask? Write your question here..."
-              className="min-h-[120px] text-base resize-none"
-              rows={5}
+              className="min-h-[100px] text-base resize-none"
+              rows={4}
             />
           </div>
 
           {/* Question Type Selection */}
           <div className="space-y-4">
             <Label className="text-base font-semibold">Question Type *</Label>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {questionTypeOptions.map((option) => {
                 const IconComponent = option.icon;
                 const isSelected = formData.question_type === option.type;
@@ -394,74 +265,7 @@ export default function CreateQuestionModal({
                         ? 'ring-2 ring-primary bg-primary/5' 
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => {
-                      // Provide appropriate default config for each question type
-                      let defaultConfig = {};
-                      
-                      switch (option.type) {
-                        case 'project_based':
-                          defaultConfig = {
-                            technology: '',
-                            problemDescription: '',
-                            projectFiles: [],
-                            testScenarios: [],
-                            evaluationCriteria: [],
-                            estimatedDuration: 60,
-                            allowedResources: []
-                          };
-                          break;
-                        case 'coding':
-                          defaultConfig = {
-                            language: 'javascript',
-                            supportedLanguages: ['javascript'],
-                            starterCode: '',
-                            solution: '',
-                            testCases: []
-                          };
-                          break;
-                        case 'mcq':
-                          defaultConfig = {
-                            options: [{ text: '', isCorrect: false }],
-                            allowMultiple: false,
-                            randomizeOptions: false
-                          };
-                          break;
-                        case 'subjective':
-                          defaultConfig = {
-                            wordLimit: null,
-                            expectedKeywords: [],
-                            rubricCriteria: []
-                          };
-                          break;
-                        case 'file_upload':
-                          defaultConfig = {
-                            allowedFileTypes: [],
-                            maxFileSize: 10,
-                            maxFiles: 1
-                          };
-                          break;
-                        case 'audio':
-                          defaultConfig = {
-                            maxDuration: 300,
-                            allowRetake: true
-                          };
-                          break;
-                        case 'interview':
-                          defaultConfig = {
-                            interviewType: 'behavioral',
-                            evaluationCriteria: [],
-                            maxDuration: 30
-                          };
-                          break;
-                        default:
-                          defaultConfig = {};
-                      }
-                      
-                      updateFormData({ 
-                        question_type: option.type,
-                        config: defaultConfig
-                      });
-                    }}
+                    onClick={() => updateFormData({ question_type: option.type })}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
@@ -486,8 +290,8 @@ export default function CreateQuestionModal({
             </div>
           </div>
 
-          {/* Question Configuration */}
-          {selectedQuestionType && (
+          {/* Simple Question Configuration */}
+          {!isComplexType(formData.question_type) && selectedQuestionType && (
             <div className="space-y-3">
               <Label className="text-base font-semibold">
                 {selectedQuestionType.label} Configuration
@@ -495,24 +299,21 @@ export default function CreateQuestionModal({
               <EnhancedQuestionBuilders
                 questionType={formData.question_type}
                 config={formData.config}
-                onConfigChange={handleConfigUpdate}
+                onConfigChange={(config) => updateFormData({ config })}
                 questionDescription={formData.question_text}
                 difficulty={formData.difficulty}
-                questionId={questionId}
-                onAutoSave={handleSaveAsDraft}
               />
             </div>
           )}
 
           {/* Basic Settings */}
-          <div className="grid grid-cols-1 gap-4 p-4 bg-muted/30 rounded-lg">
-            <div className="space-y-2">
-              <Label>Difficulty</Label>
-                <Select 
-                  value={formData.difficulty} 
-                  onValueChange={(value: Question['difficulty']) => 
-                    updateFormData({ difficulty: value })
-                  }
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Difficulty */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Difficulty</Label>
+              <Select 
+                value={formData.difficulty} 
+                onValueChange={(value) => updateFormData({ difficulty: value as Question['difficulty'] })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -524,125 +325,162 @@ export default function CreateQuestionModal({
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          {/* Skills */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-semibold">Skills *</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleSuggestSkills}
-                disabled={suggestingSkills || !formData.question_text.trim()}
-              >
-                {suggestingSkills ? (
-                  <>
-                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                    Suggesting...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-3 w-3" />
-                    AI Suggest
-                  </>
-                )}
-              </Button>
-            </div>
-            <div className="flex gap-2 mb-2">
+            {/* Points */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Points</Label>
               <Input
-                value={newSkill}
-                onChange={(e) => setNewSkill(e.target.value)}
-                placeholder="Add a skill (e.g., JavaScript, Problem Solving)"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddSkill();
-                  }
-                }}
+                type="number"
+                min="1"
+                max="100"
+                value={formData.points}
+                onChange={(e) => updateFormData({ points: parseInt(e.target.value) || 10 })}
               />
-              <Button type="button" variant="outline" size="sm" onClick={handleAddSkill}>
-                <Plus className="h-4 w-4" />
-              </Button>
             </div>
-            {formData.skills.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {formData.skills.map((skill, index) => (
-                  <Badge key={index} variant="default" className="cursor-pointer">
-                    {skill}
-                    <X
-                      className="ml-1 h-3 w-3"
-                      onClick={() => handleRemoveSkill(skill)}
-                    />
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {formData.skills.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Skills help categorize and filter questions. Use AI Suggest for automatic recommendations.
-              </p>
-            )}
           </div>
 
-          {/* Tags */}
-          <div className="space-y-3">
-            <Label>Tags (Optional)</Label>
-            <div className="flex gap-2 mb-2">
+          {/* Tags Management */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Tags</Label>
+            
+            {/* Tags List */}
+            <div className="flex flex-wrap gap-2">
+              {formData.tags.map((tag, index) => (
+                <Badge key={index} variant="secondary" className="gap-1 pr-1">
+                  {tag}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => handleRemoveTag(tag)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+
+            {/* Add Tag */}
+            <div className="flex gap-2">
               <Input
+                placeholder="Add tag..."
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
-                placeholder="Add a tag"
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     handleAddTag();
                   }
                 }}
+                className="flex-1"
               />
-              <Button type="button" variant="outline" size="sm" onClick={handleAddTag}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={handleAddTag}
+                disabled={!newTag.trim()}
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            {formData.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {formData.tags.map((tag, index) => (
-                  <Badge key={index} variant="secondary" className="cursor-pointer">
-                    {tag}
-                    <X
-                      className="ml-1 h-3 w-3"
-                      onClick={() => handleRemoveTag(tag)}
-                    />
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-6 border-t">
-            <Button variant="outline" onClick={handleClose}>
-              Cancel
-            </Button>
-            {formData.question_type === 'project_based' && !questionId && (
+          {/* Skills Management */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Required Skills</Label>
+            
+            {/* Skills List */}
+            <div className="flex flex-wrap gap-2">
+              {formData.skills.map((skill, index) => (
+                <Badge key={index} variant="secondary" className="gap-1 pr-1">
+                  {skill}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => handleRemoveSkill(skill)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+
+            {/* Add Skill */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add required skill..."
+                value={newSkill}
+                onChange={(e) => setNewSkill(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddSkill();
+                  }
+                }}
+                className="flex-1"
+              />
               <Button 
-                onClick={handleSaveAsDraft} 
-                disabled={draftSaving || !formData.question_text.trim()}
-                variant="secondary"
-                className="min-w-[140px]"
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={handleAddSkill}
+                disabled={!newSkill.trim()}
               >
-                {draftSaving ? 'Saving Draft...' : 'Save as Draft'}
+                <Plus className="h-4 w-4" />
               </Button>
-            )}
-            <Button 
-              onClick={handleSubmit} 
-              disabled={loading || !formData.question_text.trim() || formData.skills.length === 0}
-              className="min-w-[120px]"
-            >
-              {loading ? 'Saving...' : question ? 'Update Question' : 'Create Question'}
-            </Button>
+            </div>
           </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-3 pt-6 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          
+          {isComplexType(formData.question_type) && !question ? (
+            <Button
+              onClick={handleSubmit}
+              disabled={loading || !formData.question_text.trim()}
+              className="gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  Create & Configure
+                  <Code className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              disabled={loading || !formData.question_text.trim()}
+              className="gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {question ? 'Updating...' : 'Creating...'}
+                </>
+              ) : (
+                question ? 'Update Question' : 'Create Question'
+              )}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

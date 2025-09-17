@@ -127,8 +127,13 @@ export default function QuestionBank() {
   };
 
   const handleEdit = (question: Question) => {
-    setSelectedQuestion(question);
-    setShowCreateModal(true);
+    // For complex question types, redirect to dedicated builder
+    if (['project_based', 'coding', 'interview'].includes(question.question_type)) {
+      window.location.href = `/question-builder/${question.id}`;
+    } else {
+      setSelectedQuestion(question);
+      setShowCreateModal(true);
+    }
   };
 
   const handleDelete = async (question: Question) => {
