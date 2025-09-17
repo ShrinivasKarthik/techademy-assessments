@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Save, Eye, CheckCircle } from "lucide-react";
 import ProjectBasedQuestionBuilder from "@/components/ProjectBasedQuestionBuilder";
+import AdvancedCodingQuestionBuilder from "@/components/questions/AdvancedCodingQuestionBuilder";
 import { useQuestionBank, Question } from "@/hooks/useQuestionBank";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -127,16 +128,12 @@ useEffect(() => {
         );
       case 'coding':
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Coding Question Configuration</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Coding question configuration will be available soon.
-              </p>
-            </CardContent>
-          </Card>
+          <AdvancedCodingQuestionBuilder
+            config={config}
+            onConfigChange={handleConfigChange}
+            questionDescription={(question as any).description || ''}
+            difficulty={(question as any).difficulty || 'intermediate'}
+          />
         );
       default:
         return (
