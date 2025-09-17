@@ -443,8 +443,51 @@ serve(async (req) => {
                 throw new Error('No execution results received');
               }
               
-              // Calculate score based on multiple factors from enhanced execution
+              // Extract and evaluate test scenarios
+              const questionScenarios = question.config?.testScenarios || [];
+              const completedScenarios = submission.answer?.completedScenarios || [];
+              
+              console.log(`Evaluating scenarios - Total: ${questionScenarios.length}, Completed: ${completedScenarios.length}`);
+              
+              // Calculate scenario completion rate
+              let scenarioScore = 0;
+              const scenarioResults = [];
+              
+              if (questionScenarios.length > 0) {
+                for (const scenario of questionScenarios) {
+                  const isCompleted = completedScenarios.some((completed: any) => 
+                    completed.id === scenario.id || completed.description === scenario.description
+                  );
+                  
+                  scenarioResults.push({
+                    id: scenario.id,
+                    description: scenario.description,
+                    completed: isCompleted,
+                    priority: scenario.priority || 'medium'
+                  });
+                  
+                  if (isCompleted) {
+                    // Weight by priority: high=1.2, medium=1.0, low=0.8
+                    const priorityWeight = scenario.priority === 'high' ? 1.2 : scenario.priority === 'low' ? 0.8 : 1.0;
+                    scenarioScore += priorityWeight;
+                  }
+                }
+                
+                // Calculate weighted completion percentage
+                const maxScenarioScore = questionScenarios.reduce((sum, scenario) => {
+                  const priorityWeight = scenario.priority === 'high' ? 1.2 : scenario.priority === 'low' ? 0.8 : 1.0;
+                  return sum + priorityWeight;
+                }, 0);
+                
+                scenarioScore = maxScenarioScore > 0 ? (scenarioScore / maxScenarioScore) * 100 : 0;
+              } else {
+                // If no scenarios defined, give neutral score
+                scenarioScore = 75;
+              }
+              
+              // Calculate score based on multiple factors including scenarios
               let scoreFactors = {
+                scenarios: scenarioScore,
                 codeQuality: execution.codeQuality?.score || 0,
                 testResults: 0,
                 performance: 0,
@@ -474,12 +517,13 @@ serve(async (req) => {
               // Errors penalty
               scoreFactors.errors = Math.max(0, 100 - (execution.errors?.length || 0) * 20);
               
-              // Weighted overall score
+              // Weighted overall score with scenarios as major component
               const overallScore = Math.round(
-                (scoreFactors.codeQuality * 0.3) +
-                (scoreFactors.testResults * 0.4) +
-                (scoreFactors.performance * 0.2) +
-                (scoreFactors.errors * 0.1)
+                (scoreFactors.scenarios * 0.4) +        // 40% scenario completion
+                (scoreFactors.codeQuality * 0.25) +     // 25% code quality
+                (scoreFactors.testResults * 0.2) +      // 20% test results
+                (scoreFactors.performance * 0.1) +      // 10% performance
+                (scoreFactors.errors * 0.05)            // 5% error penalty
               );
               
               const projectScore = Math.round((overallScore / 100) * (question.points || 10));
@@ -487,6 +531,13 @@ serve(async (req) => {
               // Create comprehensive feedback from enhanced execution results
               const aiFeedback = {
                 overallScore: overallScore,
+                scenarioEvaluation: {
+                  totalScenarios: questionScenarios.length,
+                  completedScenarios: completedScenarios.length,
+                  scenarioScore: scenarioScore,
+                  scenarioResults: scenarioResults,
+                  completionRate: questionScenarios.length > 0 ? Math.round((completedScenarios.length / questionScenarios.length) * 100) : 0
+                },
                 executionResults: {
                   success: execution.success,
                   executionTime: execution.executionTime,
@@ -504,6 +555,7 @@ serve(async (req) => {
               };
               
               const feedbackText = `Enhanced Project Evaluation - Overall Score: ${overallScore}%
+Scenario Completion: ${completedScenarios.length}/${questionScenarios.length} scenarios completed (${Math.round((completedScenarios.length / Math.max(questionScenarios.length, 1)) * 100)}%)
 Test Results: ${execution.testResults ? `${execution.testResults.filter(t => t.passed).length}/${execution.testResults.length} passed` : 'No tests provided'}
 Code Quality Score: ${execution.codeQuality?.score || 'N/A'}%
 Performance: ${execution.performance?.timeComplexity || 'Not analyzed'} time complexity

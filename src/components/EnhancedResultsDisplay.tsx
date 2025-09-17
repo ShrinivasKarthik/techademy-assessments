@@ -468,8 +468,79 @@ const EnhancedResultsDisplay: React.FC<EnhancedResultsDisplayProps> = ({
                          </Card>
                        )}
 
-                       {/* Performance Analysis */}
-                       {evaluation.ai_feedback.performance && Object.keys(evaluation.ai_feedback.performance).length > 0 && (
+                        {/* Test Scenarios Section */}
+                        {evaluation.ai_feedback.scenarioEvaluation && (
+                          <Card>
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                <Target className="w-4 h-4" />
+                                Test Scenarios Completion
+                                <Badge variant="outline" className="ml-auto">
+                                  {evaluation.ai_feedback.scenarioEvaluation.completedScenarios}/{evaluation.ai_feedback.scenarioEvaluation.totalScenarios}
+                                </Badge>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              <div className="mb-4">
+                                <div className="flex justify-between text-sm mb-2">
+                                  <span>Overall Completion</span>
+                                  <span className="font-medium">
+                                    {evaluation.ai_feedback.scenarioEvaluation.completionRate}% 
+                                    ({Math.round(evaluation.ai_feedback.scenarioEvaluation.scenarioScore)}% weighted)
+                                  </span>
+                                </div>
+                                <Progress 
+                                  value={evaluation.ai_feedback.scenarioEvaluation.completionRate} 
+                                  className="h-3"
+                                />
+                              </div>
+                              
+                              {evaluation.ai_feedback.scenarioEvaluation.scenarioResults && 
+                               evaluation.ai_feedback.scenarioEvaluation.scenarioResults.length > 0 && (
+                                <div className="space-y-2">
+                                  <div className="text-sm font-medium">Scenario Details:</div>
+                                  {evaluation.ai_feedback.scenarioEvaluation.scenarioResults.map((scenario: any, i: number) => (
+                                    <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${
+                                      scenario.completed 
+                                        ? 'bg-green-50 border-green-200' 
+                                        : 'bg-red-50 border-red-200'
+                                    }`}>
+                                      {scenario.completed ? 
+                                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" /> : 
+                                        <Target className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                      }
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium">
+                                          {scenario.description}
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <Badge 
+                                            variant={scenario.completed ? "default" : "secondary"}
+                                            className="text-xs"
+                                          >
+                                            {scenario.completed ? "Completed" : "Not Completed"}
+                                          </Badge>
+                                          <Badge variant="outline" className="text-xs">
+                                            {scenario.priority || 'medium'} priority
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {evaluation.ai_feedback.scenarioEvaluation.totalScenarios === 0 && (
+                                <div className="text-sm text-muted-foreground text-center py-4">
+                                  No test scenarios were defined for this question
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {/* Performance Analysis */}
+                        {evaluation.ai_feedback.performance && Object.keys(evaluation.ai_feedback.performance).length > 0 && (
                          <Card>
                            <CardHeader className="pb-3">
                              <CardTitle className="text-sm flex items-center gap-2">
