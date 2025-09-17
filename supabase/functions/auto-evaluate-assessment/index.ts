@@ -602,8 +602,8 @@ ${execution.improvements?.length > 0 ? `\nSuggested Improvements: ${execution.im
               .select('score, max_score')
               .in('submission_id', submissionIds);
 
-            const finalTotalScore = (finalEvaluations || []).reduce((sum, eval) => sum + (eval.score || 0), 0);
-            const finalMaxScore = (finalEvaluations || []).reduce((sum, eval) => sum + (eval.max_score || 0), 0);
+            const finalTotalScore = (finalEvaluations || []).reduce((sum, evaluation) => sum + (evaluation.score || 0), 0);
+            const finalMaxScore = (finalEvaluations || []).reduce((sum, evaluation) => sum + (evaluation.max_score || 0), 0);
 
             // Final update with complete scores
             await supabase

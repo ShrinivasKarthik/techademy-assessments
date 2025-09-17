@@ -58,7 +58,7 @@ serve(async (req) => {
           const toDelete = evaluations.slice(1);
           
           // Calculate total score from duplicates
-          const duplicateScore = toDelete.reduce((sum, eval) => sum + (eval.score || 0), 0);
+          const duplicateScore = toDelete.reduce((sum, evaluation) => sum + (evaluation.score || 0), 0);
           totalScoreFixed += duplicateScore;
           
           // Delete the duplicates
