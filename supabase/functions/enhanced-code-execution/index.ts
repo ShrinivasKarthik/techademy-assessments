@@ -496,7 +496,3 @@ function generateFallbackExecution(code: string, testCases: any[]) {
   fallbackResult.detailed_feedback = generateDetailedFeedbackSummary(fallbackResult);
   return fallbackResult;
 }
-      visualizations: []
-    }
-  };
-}
