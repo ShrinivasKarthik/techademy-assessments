@@ -100,3 +100,6 @@ verify_jwt = false
 
 [functions.get-project-structure]
 verify_jwt = false
+
+[functions.clone-project-files]
+verify_jwt = false

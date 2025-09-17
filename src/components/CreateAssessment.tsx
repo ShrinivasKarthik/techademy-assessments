@@ -181,7 +181,12 @@ const CreateAssessment = () => {
       difficulty: bankQ.difficulty,
       points: bankQ.points,
       order_index: assessment.questions.length + index,
-      config: bankQ.config || {},
+      // Preserve source for project files cloning
+      config: {
+        ...(bankQ.config || {}),
+        _sourceQuestionId: bankQ.id,
+        _tempGuid: crypto.randomUUID(),
+      },
     }));
 
     setAssessment(prev => ({
@@ -237,11 +242,22 @@ const CreateAssessment = () => {
           config: q.config
         }));
 
-        const { error: questionsError } = await supabase
+        const { data: insertedQuestions, error: questionsError } = await supabase
           .from('questions')
-          .insert(questionsData.map(q => ({ ...q, question_type: q.question_type as any })));
+          .insert(questionsData.map(q => ({ ...q, question_type: q.question_type as any })))
+          .select('id, config');
 
         if (questionsError) throw questionsError;
+
+        // Clone project files for questions sourced from the bank
+        await Promise.all((insertedQuestions || []).map(async (q: any) => {
+          const sourceId = (q.config as any)?._sourceQuestionId;
+          if (sourceId) {
+            await supabase.functions.invoke('clone-project-files', {
+              body: { sourceQuestionId: sourceId, targetQuestionId: q.id, overwrite: false }
+            });
+          }
+        }));
       }
 
       toast({

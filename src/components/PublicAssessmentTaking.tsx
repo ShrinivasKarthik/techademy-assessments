@@ -585,7 +585,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
 
     switch (question.question_type) {
       case 'project_based':
-        return <ProjectBasedQuestion {...questionProps} />;
+        return <ProjectBasedQuestion {...questionProps} instanceId={instance?.id} shareToken={instance?.share_token} />;
       case 'mcq':
         return <MCQQuestion {...questionProps} />;
       case 'subjective':
