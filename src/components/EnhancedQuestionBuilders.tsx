@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, X, Code, FileText, Upload, Mic, HelpCircle, Sparkles, MessageCircle } from 'lucide-react';
 import AdvancedCodingQuestionBuilder from './questions/AdvancedCodingQuestionBuilder';
 import InterviewBuilder from './EnhancedQuestionBuilders/InterviewBuilder';
+import ProjectBasedQuestionBuilder from './ProjectBasedQuestionBuilder';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -83,7 +84,23 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   const { toast } = useToast();
   const [isGeneratingRubric, setIsGeneratingRubric] = useState(false);
   const renderProjectBasedBuilder = () => {
-    return <div className="p-4 text-center">Project-Based Assessment Builder (Coming Soon)</div>;
+    const projectConfig = config || {
+      technology: '',
+      problemDescription: '',
+      projectFiles: [],
+      testScenarios: [],
+      evaluationCriteria: [],
+      estimatedDuration: 60,
+      allowedResources: []
+    };
+
+    return (
+      <ProjectBasedQuestionBuilder
+        config={projectConfig}
+        onConfigChange={onConfigChange}
+        questionId={questionId}
+      />
+    );
   };
 
   const renderCodingBuilder = () => {

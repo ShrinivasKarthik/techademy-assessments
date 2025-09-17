@@ -34,7 +34,8 @@ import {
   Home,
   MonitorSpeaker,
   Target,
-  Globe
+  Globe,
+  Code
 } from 'lucide-react';
 import AccessibilityControls from "./AccessibilityControls";
 import MobileNavigationDrawer from "./mobile/MobileNavigationDrawer";
@@ -87,6 +88,7 @@ const Navigation = () => {
             icon: BookOpen,
             items: [
               { name: "Create Assessment", href: "/assessments/create", icon: Plus },
+              { name: "Project Assessments", href: "/project-assessments", icon: Code },
               { name: "Smart Assembly", href: "/smart-assembly", icon: Brain },
               { name: "Advanced Builder", href: "/advanced-builder", icon: Settings },
               { name: "Collaborative", href: "/collaborative", icon: Users }
@@ -145,6 +147,7 @@ const Navigation = () => {
             icon: BookOpen,
             items: [
               { name: "Create Assessment", href: "/assessments/create", icon: Plus },
+              { name: "Project Assessments", href: "/project-assessments", icon: Code },
               { name: "Smart Assembly", href: "/smart-assembly", icon: Brain },
               { name: "Advanced Builder", href: "/advanced-builder", icon: Settings },
               { name: "Collaborative", href: "/collaborative", icon: Users }

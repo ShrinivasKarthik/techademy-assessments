@@ -48,6 +48,12 @@ const questionTypeOptions = [
     icon: Code
   },
   {
+    type: 'project_based' as const,
+    label: 'Project-Based',
+    description: 'Complete project development and evaluation',
+    icon: Code
+  },
+  {
     type: 'subjective' as const,
     label: 'Written Response',
     description: 'Open-ended text-based answers',

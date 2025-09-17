@@ -88,6 +88,12 @@ const InstructorDashboard = () => {
       action: () => navigate('/assessments/create')
     },
     {
+      title: "Project Assessments",
+      description: "Create project-based evaluations",
+      icon: BookOpen,
+      action: () => navigate('/project-assessments')
+    },
+    {
       title: "Monitor Live",
       description: "Real-time monitoring",
       icon: Activity,
