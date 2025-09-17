@@ -377,9 +377,12 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
               </div>
 
               {questionId ? (
-                <ProjectFileExplorer 
+                <EnhancedProjectFileExplorer
                   questionId={questionId}
-                  technology={config.technology}
+                  technology={config.technology || 'General'}
+                  onFilesChange={(files) => {
+                    console.log('Files updated:', files);
+                  }}
                 />
               ) : (
                 <div className="text-center py-8 text-muted-foreground">

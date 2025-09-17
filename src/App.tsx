@@ -50,6 +50,7 @@ import AssessmentEvaluationPage from "./pages/AssessmentEvaluationPage";
 import InterviewAnalyticsPage from "./pages/InterviewAnalyticsPage";
 import DirectOnboardingPage from "./pages/DirectOnboardingPage";
 import ConversationIntelligencePage from "./pages/ConversationIntelligencePage";
+import ProjectBasedAssessmentsPage from "./pages/ProjectBasedAssessmentsPage";
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 
@@ -171,6 +172,11 @@ const App = () => (
             <Route path="/advanced-builder" element={
               <ProtectedRoute allowedRoles={['admin', 'instructor']}>
                 <AdvancedQuestionBuilderPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/project-assessments" element={
+              <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+                <ProjectBasedAssessmentsPage />
               </ProtectedRoute>
             } />
             <Route path="/assessments/:id/insights" element={
