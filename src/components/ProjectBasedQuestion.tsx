@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { ProgressRing } from '@/components/ui/progress-ring';
 import { 
   FolderTree, 
   Play, 
@@ -23,10 +24,20 @@ import {
   BookOpen,
   ListChecks,
   Shield,
-  ChevronUp
+  ChevronUp,
+  Maximize2,
+  Minimize2,
+  Check,
+  X,
+  RotateCcw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { usePanelPersistence } from '@/hooks/usePanelPersistence';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useSaveStatus } from '@/hooks/useSaveStatus';
+import { getBreadcrumbPath } from '@/utils/fileBreadcrumbs';
 import Editor from '@monaco-editor/react';
 import TTSButton from './TTSButton';
 
@@ -76,6 +87,10 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
   shareToken
 }) => {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const { panelSizes, savePanelSizes } = usePanelPersistence();
+  const { saveStatus, markUnsaved, startSaving, markSaved, markError } = useSaveStatus();
+  
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -84,6 +99,7 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
   const [startTime] = useState(Date.now());
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [focusMode, setFocusMode] = useState(false);
   
   // Panel state management
   const [activeLeftTab, setActiveLeftTab] = useState<'problem' | 'explorer'>('problem');
@@ -92,6 +108,11 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
     evaluationCriteria: true,
     allowedResources: true
   });
+
+  // Panel refs for focus management
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const centerPanelRef = useRef<HTMLDivElement>(null);
+  const rightPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchProjectFiles();
@@ -108,17 +129,41 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
   }, [startTime]);
 
   useEffect(() => {
-    // Auto-save answer changes
+    // Auto-save answer changes with save status tracking
+    startSaving();
     const timeoutId = setTimeout(() => {
-      onAnswerChange({
-        files,
-        completedScenarios,
-        timeSpent
-      });
+      try {
+        onAnswerChange({
+          files,
+          completedScenarios,
+          timeSpent
+        });
+        markSaved();
+      } catch (error) {
+        markError();
+      }
     }, 2000);
 
     return () => clearTimeout(timeoutId);
-  }, [files, completedScenarios, timeSpent, onAnswerChange]);
+  }, [files, completedScenarios, timeSpent, onAnswerChange, startSaving, markSaved, markError]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onFocusLeft: () => {
+      leftPanelRef.current?.focus();
+      setActiveLeftTab('problem');
+    },
+    onFocusCenter: () => {
+      centerPanelRef.current?.focus();
+    },
+    onFocusRight: () => {
+      rightPanelRef.current?.focus();
+      setCollapsedSections(prev => ({ ...prev, testScenarios: false }));
+    },
+    onToggleFocus: () => {
+      setFocusMode(prev => !prev);
+    }
+  });
 
   const fetchProjectFiles = async () => {
     try {
@@ -174,6 +219,8 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
   const updateFileContent = (fileId: string, content: string) => {
     if (disabled) return;
 
+    markUnsaved();
+    
     const updatedFiles = files.map(f => 
       f.id === fileId ? { ...f, fileContent: content } : f
     );
@@ -187,6 +234,8 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
   const toggleScenarioCompletion = (scenario: string) => {
     if (disabled) return;
 
+    markUnsaved();
+    
     const updated = completedScenarios.includes(scenario)
       ? completedScenarios.filter(s => s !== scenario)
       : [...completedScenarios, scenario];
@@ -241,6 +290,37 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
       ...prev,
       [section]: !prev[section]
     }));
+  };
+
+  const getSaveStatusIcon = () => {
+    switch (saveStatus) {
+      case 'saved':
+        return <Check className="w-4 h-4 text-green-500" />;
+      case 'saving':
+        return <RotateCcw className="w-4 h-4 text-blue-500 animate-spin" />;
+      case 'unsaved':
+        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
+      case 'error':
+        return <X className="w-4 h-4 text-red-500" />;
+    }
+  };
+
+  const getSaveStatusText = () => {
+    switch (saveStatus) {
+      case 'saved':
+        return 'Saved';
+      case 'saving':
+        return 'Saving...';
+      case 'unsaved':
+        return 'Unsaved changes';
+      case 'error':
+        return 'Save failed';
+    }
+  };
+
+  const getCompletionPercentage = () => {
+    if (!question.config.testScenarios || question.config.testScenarios.length === 0) return 0;
+    return Math.round((completedScenarios.length / question.config.testScenarios.length) * 100);
   };
 
   const getFileIcon = (file: ProjectFile) => {
@@ -314,6 +394,23 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
             <Clock className="w-4 h-4" />
             {timeSpent} minutes
           </div>
+          
+          {/* Save Status */}
+          <div className="flex items-center gap-2 text-sm">
+            {getSaveStatusIcon()}
+            <span className="text-muted-foreground">{getSaveStatusText()}</span>
+          </div>
+          
+          {/* Focus Mode Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFocusMode(!focusMode)}
+            title="Toggle Focus Mode (Ctrl+\)"
+          >
+            {focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </Button>
+          
           {question.config.technology && (
             <Badge variant="outline">{question.config.technology}</Badge>
           )}
@@ -321,10 +418,27 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
       </div>
 
       {/* Three-Panel Layout */}
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
+      <ResizablePanelGroup 
+        direction={isMobile ? "vertical" : "horizontal"} 
+        className="flex-1"
+        onLayout={(sizes) => {
+          if (!isMobile && sizes.length === 3) {
+            savePanelSizes({
+              left: sizes[0],
+              center: sizes[1],
+              right: sizes[2]
+            });
+          }
+        }}
+      >
         {/* Left Panel - Problem Statement & File Explorer */}
-        <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
-          <div className="h-full flex flex-col">
+        <ResizablePanel 
+          defaultSize={focusMode ? 0 : (isMobile ? 30 : panelSizes.left)} 
+          minSize={focusMode ? 0 : (isMobile ? 20 : 15)} 
+          maxSize={focusMode ? 0 : (isMobile ? 50 : 40)}
+          className={focusMode ? "hidden" : ""}
+        >
+          <div ref={leftPanelRef} tabIndex={-1} className="h-full flex flex-col focus:outline-none">
             <Tabs value={activeLeftTab} onValueChange={(value) => setActiveLeftTab(value as 'problem' | 'explorer')} className="flex-1 flex flex-col">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="problem" className="flex items-center gap-2">
@@ -377,22 +491,27 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
           </div>
         </ResizablePanel>
         
-        <ResizableHandle />
+        {!focusMode && <ResizableHandle />}
         
         {/* Center Panel - Code Editor */}
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <div className="h-full flex flex-col">
+        <ResizablePanel 
+          defaultSize={focusMode ? 100 : (isMobile ? 60 : panelSizes.center)} 
+          minSize={focusMode ? 100 : (isMobile ? 40 : 30)}
+        >
+          <div ref={centerPanelRef} tabIndex={-1} className="h-full flex flex-col focus:outline-none">
             <div className="flex items-center justify-between p-3 border-b bg-muted/20">
-              <div className="flex items-center gap-2">
-                <Code className="w-4 h-4" />
-                <span className="text-sm font-medium">
-                  {selectedFile ? selectedFile.fileName : 'Select a file'}
-                </span>
-                {selectedFile && (
-                  <Badge variant="outline" className="text-xs">
-                    {selectedFile.fileLanguage}
-                  </Badge>
-                )}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Code className="w-4 h-4 flex-shrink-0" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium truncate">
+                    {selectedFile ? getBreadcrumbPath(selectedFile, files) : 'Select a file'}
+                  </span>
+                  {selectedFile && (
+                    <Badge variant="outline" className="text-xs w-fit">
+                      {selectedFile.fileLanguage}
+                    </Badge>
+                  )}
+                </div>
               </div>
               <Button 
                 onClick={runEvaluation}
@@ -433,11 +552,16 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
           </div>
         </ResizablePanel>
         
-        <ResizableHandle />
+        {!focusMode && <ResizableHandle />}
         
         {/* Right Panel - Test Scenarios & Assessment Guide */}
-        <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
-          <div className="h-full overflow-y-auto p-4 space-y-4">
+        <ResizablePanel 
+          defaultSize={focusMode ? 0 : (isMobile ? 30 : panelSizes.right)} 
+          minSize={focusMode ? 0 : (isMobile ? 20 : 15)} 
+          maxSize={focusMode ? 0 : (isMobile ? 50 : 40)}
+          className={focusMode ? "hidden" : ""}
+        >
+          <div ref={rightPanelRef} tabIndex={-1} className="h-full overflow-y-auto p-4 space-y-4 focus:outline-none">
             {/* Test Scenarios */}
             {question.config.testScenarios && question.config.testScenarios.length > 0 && (
               <Collapsible open={!collapsedSections.testScenarios} onOpenChange={() => toggleSection('testScenarios')}>
@@ -445,6 +569,12 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4" />
                     <span className="font-medium text-sm">Test Scenarios</span>
+                    <ProgressRing 
+                      progress={getCompletionPercentage()} 
+                      size={24} 
+                      strokeWidth={2}
+                      showLabel={false}
+                    />
                     <Badge variant="secondary" className="text-xs">
                       {completedScenarios.length}/{question.config.testScenarios.length}
                     </Badge>
