@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 const BackfillProjectFiles: React.FC = () => {
   const { toast } = useToast();
-  const [assessmentTitle, setAssessmentTitle] = useState('Health');
+  const [assessmentTitle, setAssessmentTitle] = useState('Health App Spring Boot');
   const [dryRun, setDryRun] = useState(true);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);

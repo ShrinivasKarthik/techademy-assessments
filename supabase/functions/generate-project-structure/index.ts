@@ -397,55 +397,95 @@ CONTENT REQUIREMENTS:
       console.log('Using technology-aware fallback structure');
     }
 
-    // Two-phase write process: Insert folders first, then files
-    let totalInserted = 0;
-    
-    // Phase 1: Insert folders
-    if (structure.projectFolders && structure.projectFolders.length > 0) {
-      const folderInserts = structure.projectFolders.map((folder: any) => ({
-        question_id: questionId,
-        file_name: folder.folderName,
-        file_path: folder.folderPath,
-        file_content: '',
-        file_language: '',
-        is_folder: true,
-        is_main_file: false,
-        order_index: folder.orderIndex || 0
-      }));
-
-      console.log(`Inserting ${folderInserts.length} folders`);
-      const { data: insertedFolders, error: folderError } = await supabase
-        .from('project_files')
-        .insert(folderInserts)
-        .select('id');
-
-      if (folderError) {
-        console.error('Error inserting folders:', folderError);
-        throw new Error(`Failed to insert folders: ${folderError.message}`);
-      }
+    // Helper function to find parent folder ID based on file path
+    function findParentFolderId(filePath: string, pathToIdMap: Map<string, string>): string | null {
+      const pathParts = filePath.split('/');
       
-      totalInserted += insertedFolders?.length || 0;
-      console.log(`Successfully inserted ${insertedFolders?.length || 0} folders`);
+      // Try increasingly shorter paths to find deepest matching folder
+      for (let i = pathParts.length - 1; i >= 1; i--) {
+        const potentialFolderPath = pathParts.slice(0, i).join('/');
+        if (pathToIdMap.has(potentialFolderPath)) {
+          return pathToIdMap.get(potentialFolderPath)!;
+        }
+      }
+      return null;
     }
 
-    // Phase 2: Insert files
-    if (structure.projectFiles && structure.projectFiles.length > 0) {
-      const fileInserts = structure.projectFiles.map((file: any) => ({
-        question_id: questionId,
-        file_name: file.fileName,
-        file_path: file.filePath,
-        file_content: file.fileContent || '',
-        file_language: file.fileLanguage || 'javascript',
-        is_folder: false,
-        is_main_file: file.isMainFile || false,
-        order_index: file.orderIndex || 0
-      }));
+    // Three-phase write process: Insert folders with hierarchy, then files
+    let totalInserted = 0;
+    const pathToIdMap = new Map<string, string>();
+    
+    // Phase 1: Insert folders in dependency order (parents before children)
+    if (structure.projectFolders && structure.projectFolders.length > 0) {
+      // Sort folders by path depth to ensure parents are inserted before children
+      const sortedFolders = structure.projectFolders.sort((a: any, b: any) => {
+        const aDepth = a.folderPath.split('/').length;
+        const bDepth = b.folderPath.split('/').length;
+        return aDepth - bDepth;
+      });
 
-      console.log(`Inserting ${fileInserts.length} files`);
+      console.log(`Inserting ${sortedFolders.length} folders with hierarchy`);
+      
+      // Insert folders one by one to build hierarchy
+      for (const folder of sortedFolders) {
+        const parentFolderId = findParentFolderId(folder.folderPath, pathToIdMap);
+        
+        const folderInsert = {
+          question_id: questionId,
+          file_name: folder.folderName,
+          file_path: folder.folderPath,
+          file_content: '',
+          file_language: '',
+          is_folder: true,
+          is_main_file: false,
+          order_index: folder.orderIndex || 0,
+          parent_folder_id: parentFolderId
+        };
+
+        const { data: insertedFolder, error: folderError } = await supabase
+          .from('project_files')
+          .insert([folderInsert])
+          .select('id, file_path')
+          .single();
+
+        if (folderError) {
+          console.error('Error inserting folder:', folderError);
+          throw new Error(`Failed to insert folder ${folder.folderName}: ${folderError.message}`);
+        }
+        
+        // Map the folder path to its ID for parent resolution
+        pathToIdMap.set(folder.folderPath, insertedFolder.id);
+        totalInserted += 1;
+        
+        console.log(`Inserted folder: ${folder.folderPath} -> ID: ${insertedFolder.id}, Parent: ${parentFolderId || 'root'}`);
+      }
+      
+      console.log(`Successfully inserted ${sortedFolders.length} folders with hierarchy`);
+    }
+
+    // Phase 2: Insert files with proper parent folder references
+    if (structure.projectFiles && structure.projectFiles.length > 0) {
+      const fileInserts = structure.projectFiles.map((file: any) => {
+        const parentFolderId = findParentFolderId(file.filePath, pathToIdMap);
+        
+        return {
+          question_id: questionId,
+          file_name: file.fileName,
+          file_path: file.filePath,
+          file_content: file.fileContent || '',
+          file_language: file.fileLanguage || 'javascript',
+          is_folder: false,
+          is_main_file: file.isMainFile || false,
+          order_index: file.orderIndex || 0,
+          parent_folder_id: parentFolderId
+        };
+      });
+
+      console.log(`Inserting ${fileInserts.length} files with parent references`);
       const { data: insertedFiles, error: fileError } = await supabase
         .from('project_files')
         .insert(fileInserts)
-        .select('id');
+        .select('id, file_name, parent_folder_id');
 
       if (fileError) {
         console.error('Error inserting files:', fileError);
@@ -454,6 +494,11 @@ CONTENT REQUIREMENTS:
       
       totalInserted += insertedFiles?.length || 0;
       console.log(`Successfully inserted ${insertedFiles?.length || 0} files`);
+      
+      // Log parent relationships for debugging
+      insertedFiles?.forEach(file => {
+        console.log(`File: ${file.file_name}, Parent ID: ${file.parent_folder_id || 'root'}`);
+      });
     }
 
     // Phase 3: Comprehensive verification
