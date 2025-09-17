@@ -198,8 +198,8 @@ serve(async (req) => {
         let correctMaxScore = 0;
         
         if (hasEvaluations) {
-          correctTotalScore = evaluations.reduce((sum, eval) => sum + (eval.score || 0), 0);
-          correctMaxScore = evaluations.reduce((sum, eval) => sum + (eval.max_score || 0), 0);
+          correctTotalScore = evaluations.reduce((sum, evaluation) => sum + (evaluation.score || 0), 0);
+          correctMaxScore = evaluations.reduce((sum, evaluation) => sum + (evaluation.max_score || 0), 0);
         }
 
         if (!hasSubmissions) {
