@@ -40,18 +40,6 @@ const questionTypeOptions = [
     icon: HelpCircle
   },
   {
-    type: 'coding' as const,
-    label: 'Coding',
-    description: 'Programming challenges with test cases',
-    icon: Code
-  },
-  {
-    type: 'project_based' as const,
-    label: 'Project-Based',
-    description: 'Complete project development and evaluation',
-    icon: Code
-  },
-  {
     type: 'subjective' as const,
     label: 'Written Response',
     description: 'Open-ended text-based answers',
@@ -68,12 +56,6 @@ const questionTypeOptions = [
     label: 'Audio Response',
     description: 'Spoken answer recording',
     icon: Mic
-  },
-  {
-    type: 'interview' as const,
-    label: 'Interview',
-    description: 'AI-powered conversational interview',
-    icon: MessageCircle
   }
 ];
 

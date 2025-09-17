@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ export default function QuestionBank() {
   } = useQuestionBank();
 
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [filters, setFilters] = useState<QuestionFilters>({
     search: '',
@@ -226,10 +228,20 @@ export default function QuestionBank() {
             Advanced question management and organization
           </p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Question
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/project-assessments')}
+            className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 hover:from-primary/20 hover:to-primary/10"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Project Assessment
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Question
+          </Button>
+        </div>
       </div>
 
       {/* Tabs for different views */}
