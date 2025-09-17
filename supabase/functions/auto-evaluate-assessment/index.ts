@@ -384,6 +384,151 @@ serve(async (req) => {
           
           evaluationPromises.push(interviewEvaluationPromise);
           break;
+        
+        case 'project_based':
+          // Start project-based evaluation in background
+          const projectEvaluationPromise = (async () => {
+            try {
+              console.log(`Starting project-based evaluation for question ${question.id}, submission ${submission.id}`);
+              
+              // Extract project files from submission
+              let projectCode = '';
+              let language = 'javascript'; // default
+              let questionContext = question.config?.description || question.config?.title || '';
+              
+              if (submission.answer?.files && Array.isArray(submission.answer.files)) {
+                // Multi-file project submission
+                const mainFiles = submission.answer.files.filter((file: any) => 
+                  file.isMainFile || file.file_name?.includes('main') || file.file_name?.includes('index')
+                );
+                const filesToAnalyze = mainFiles.length > 0 ? mainFiles : submission.answer.files.slice(0, 3); // Analyze up to 3 files
+                
+                projectCode = filesToAnalyze.map((file: any) => 
+                  `// File: ${file.file_name || file.path || 'unnamed'}\n${file.content || file.file_content || ''}`
+                ).join('\n\n');
+                
+                // Determine language from file extensions
+                const firstFile = filesToAnalyze[0];
+                if (firstFile?.file_name) {
+                  const extension = firstFile.file_name.split('.').pop()?.toLowerCase();
+                  const languageMap: {[key: string]: string} = {
+                    'js': 'javascript',
+                    'ts': 'typescript',
+                    'py': 'python',
+                    'java': 'java',
+                    'cpp': 'cpp',
+                    'c': 'c',
+                    'cs': 'csharp',
+                    'php': 'php',
+                    'go': 'go',
+                    'rb': 'ruby'
+                  };
+                  language = languageMap[extension || ''] || firstFile.language || 'javascript';
+                }
+              } else if (submission.answer?.code) {
+                // Single code submission
+                projectCode = submission.answer.code;
+                language = submission.answer.language || question.config?.language || 'javascript';
+              } else {
+                throw new Error('No code found in project submission');
+              }
+              
+              if (!projectCode.trim()) {
+                throw new Error('Empty code submission');
+              }
+              
+              console.log(`Analyzing ${projectCode.length} characters of ${language} code`);
+              
+              // Call analyze-code function
+              const { data: analysisResult, error: analysisError } = await supabase.functions.invoke('analyze-code', {
+                body: {
+                  code: projectCode,
+                  language: language,
+                  questionContext: questionContext,
+                  testCases: question.config?.testCases || []
+                }
+              });
+              
+              if (analysisError) {
+                throw new Error(`Code analysis failed: ${analysisError.message}`);
+              }
+              
+              const analysis = analysisResult?.analysis;
+              if (!analysis) {
+                throw new Error('No analysis results received');
+              }
+              
+              // Calculate score based on overall analysis score
+              const projectScore = Math.round((analysis.overallScore / 100) * (question.points || 10));
+              
+              // Create comprehensive feedback
+              const aiFeedback = {
+                overallScore: analysis.overallScore,
+                syntaxErrors: analysis.syntaxErrors || [],
+                logicAnalysis: analysis.logicAnalysis || {},
+                codeQuality: analysis.codeQuality || {},
+                performance: analysis.performance || {},
+                security: analysis.security || {},
+                testCasePredictions: analysis.testCasePredictions || [],
+                summary: analysis.summary || 'Project code analysis completed'
+              };
+              
+              const feedbackText = `Project Evaluation - Overall Score: ${analysis.overallScore}%
+Logic Correctness: ${analysis.logicAnalysis?.correctness || 'N/A'}%
+Code Quality: ${analysis.codeQuality?.score || 'N/A'}%
+Performance: ${analysis.performance?.timeComplexity || 'N/A'} time complexity
+${analysis.syntaxErrors?.length > 0 ? `Syntax Issues: ${analysis.syntaxErrors.length}` : 'No syntax errors detected'}
+${analysis.summary || ''}`;
+              
+              // Create evaluation record
+              await supabase
+                .from('evaluations')
+                .upsert({
+                  submission_id: submission.id,
+                  score: projectScore,
+                  max_score: question.points || 0,
+                  integrity_score: integrityScore,
+                  ai_feedback: aiFeedback,
+                  feedback: feedbackText,
+                  evaluated_at: new Date().toISOString()
+                });
+
+              // Update total score in instance
+              const { data: currentInstance } = await supabase
+                .from('assessment_instances')
+                .select('total_score')
+                .eq('id', instanceId)
+                .single();
+
+              if (currentInstance) {
+                await supabase
+                  .from('assessment_instances')
+                  .update({
+                    total_score: (currentInstance.total_score || 0) + projectScore
+                  })
+                  .eq('id', instanceId);
+              }
+              
+              console.log(`Project evaluation completed with score: ${projectScore}/${question.points}`);
+              
+            } catch (error) {
+              console.error('Project-based evaluation failed:', error);
+              // Insert fallback evaluation
+              await supabase
+                .from('evaluations')
+                .upsert({
+                  submission_id: submission.id,
+                  score: 0,
+                  max_score: question.points || 0,
+                  integrity_score: integrityScore,
+                  feedback: `Project evaluation failed: ${error.message}`,
+                  evaluated_at: new Date().toISOString()
+                });
+            }
+          })();
+          
+          evaluationPromises.push(projectEvaluationPromise);
+          break;
         default:
           console.log(`Skipping evaluation for question type: ${question.question_type}`);
       }
