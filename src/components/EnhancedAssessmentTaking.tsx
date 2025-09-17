@@ -652,6 +652,7 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
           flaggedQuestions={flaggedQuestions}
           onQuestionChange={navigateToQuestion}
           disabled={instance.status === 'submitted'}
+          isProjectQuestion={isProjectQuestion}
         />
       )}
 
