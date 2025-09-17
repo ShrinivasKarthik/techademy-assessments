@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { 
   FolderTree, 
   Play, 
@@ -17,7 +19,11 @@ import {
   Folder,
   FolderOpen,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  BookOpen,
+  ListChecks,
+  Shield,
+  ChevronUp
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -78,6 +84,14 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
   const [startTime] = useState(Date.now());
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Panel state management
+  const [activeLeftTab, setActiveLeftTab] = useState<'problem' | 'explorer'>('problem');
+  const [collapsedSections, setCollapsedSections] = useState({
+    testScenarios: false,
+    evaluationCriteria: true,
+    allowedResources: true
+  });
 
   useEffect(() => {
     fetchProjectFiles();
@@ -222,6 +236,13 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
     setExpandedFolders(newExpanded);
   };
 
+  const toggleSection = (section: keyof typeof collapsedSections) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   const getFileIcon = (file: ProjectFile) => {
     if (file.isFolder) {
       return expandedFolders.has(file.id) ? 
@@ -278,9 +299,9 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-[calc(100vh-120px)]">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center gap-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <FolderTree className="w-5 h-5" />
@@ -299,73 +320,92 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
         </div>
       </div>
 
-      {/* Problem Description */}
-      {question.question_text && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="prose prose-sm max-w-none">
-              <p>{question.question_text}</p>
-              {question.config.problemDescription && (
-                <div className="mt-4 p-4 bg-muted/30 rounded-lg">
-                  <h4 className="font-semibold mb-2">Project Requirements:</h4>
-                  <p>{question.config.problemDescription}</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* File Explorer */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Folder className="w-5 h-5" />
-              Project Files
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1 max-h-96 overflow-y-auto">
-              {files.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Folder className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <div className="space-y-2">
-                    <p className="font-medium">No project files available</p>
-                    <p className="text-xs">This question may not have been set up properly.</p>
-                    <p className="text-xs">Please contact your instructor.</p>
+      {/* Three-Panel Layout */}
+      <ResizablePanelGroup direction="horizontal" className="flex-1">
+        {/* Left Panel - Problem Statement & File Explorer */}
+        <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
+          <div className="h-full flex flex-col">
+            <Tabs value={activeLeftTab} onValueChange={(value) => setActiveLeftTab(value as 'problem' | 'explorer')} className="flex-1 flex flex-col">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="problem" className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Problem
+                </TabsTrigger>
+                <TabsTrigger value="explorer" className="flex items-center gap-2">
+                  <Folder className="w-4 h-4" />
+                  Files
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="problem" className="flex-1 overflow-hidden">
+                <div className="h-full overflow-y-auto p-4">
+                  <div className="space-y-4">
+                    {question.question_text && (
+                      <div className="prose prose-sm max-w-none">
+                        <p className="text-sm leading-relaxed">{question.question_text}</p>
+                        {question.config.problemDescription && (
+                          <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                            <h4 className="font-semibold mb-2 text-sm">Project Requirements:</h4>
+                            <p className="text-sm leading-relaxed">{question.config.problemDescription}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-              ) : (
-                renderFileTree(null)
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Code Editor */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Code className="w-5 h-5" />
-                {selectedFile ? selectedFile.fileName : 'Select a file'}
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={runEvaluation}
-                  disabled={disabled || isEvaluating || !selectedFile}
-                  variant="outline"
-                  size="sm"
-                >
-                  {isEvaluating ? 'Evaluating...' : 'Test Code'}
-                </Button>
+              </TabsContent>
+              
+              <TabsContent value="explorer" className="flex-1 overflow-hidden">
+                <div className="h-full overflow-y-auto p-4">
+                  {files.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Folder className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <div className="space-y-2">
+                        <p className="font-medium text-sm">No project files available</p>
+                        <p className="text-xs">This question may not have been set up properly.</p>
+                        <p className="text-xs">Please contact your instructor.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {renderFileTree(null)}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </ResizablePanel>
+        
+        <ResizableHandle />
+        
+        {/* Center Panel - Code Editor */}
+        <ResizablePanel defaultSize={50} minSize={30}>
+          <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between p-3 border-b bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Code className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {selectedFile ? selectedFile.fileName : 'Select a file'}
+                </span>
+                {selectedFile && (
+                  <Badge variant="outline" className="text-xs">
+                    {selectedFile.fileLanguage}
+                  </Badge>
+                )}
               </div>
+              <Button 
+                onClick={runEvaluation}
+                disabled={disabled || isEvaluating || !selectedFile}
+                variant="outline"
+                size="sm"
+              >
+                {isEvaluating ? 'Evaluating...' : 'Test Code'}
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            {selectedFile ? (
-              <div className="h-96">
+            
+            <div className="flex-1">
+              {selectedFile ? (
                 <Editor
                   height="100%"
                   language={selectedFile.fileLanguage}
@@ -381,103 +421,102 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
                     readOnly: disabled
                   }}
                 />
-              </div>
-            ) : (
-              <div className="h-96 flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Select a file to start coding</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Test Scenarios */}
-      {question.config.testScenarios && question.config.testScenarios.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              Test Scenarios
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {question.config.testScenarios.map((scenario, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 border rounded">
-                  <Button
-                    onClick={() => toggleScenarioCompletion(scenario)}
-                    disabled={disabled}
-                    variant="ghost"
-                    size="sm"
-                    className="mt-0.5"
-                  >
-                    {completedScenarios.includes(scenario) ? 
-                      <CheckCircle className="w-5 h-5 text-green-500" /> :
-                      <div className="w-5 h-5 border-2 border-muted-foreground rounded-full" />
-                    }
-                  </Button>
-                  <div className="flex-1">
-                    <p className="text-sm">{scenario}</p>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-sm">Select a file to start coding</p>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-            
-            <Separator className="my-4" />
-            
-            <div className="flex items-center justify-between text-sm">
-              <span>Progress:</span>
-              <Badge variant={completedScenarios.length === question.config.testScenarios.length ? "default" : "secondary"}>
-                {completedScenarios.length} / {question.config.testScenarios.length} completed
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </ResizablePanel>
+        
+        <ResizableHandle />
+        
+        {/* Right Panel - Test Scenarios & Assessment Guide */}
+        <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
+          <div className="h-full overflow-y-auto p-4 space-y-4">
+            {/* Test Scenarios */}
+            {question.config.testScenarios && question.config.testScenarios.length > 0 && (
+              <Collapsible open={!collapsedSections.testScenarios} onOpenChange={() => toggleSection('testScenarios')}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-left hover:bg-muted/50 rounded">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    <span className="font-medium text-sm">Test Scenarios</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {completedScenarios.length}/{question.config.testScenarios.length}
+                    </Badge>
+                  </div>
+                  {collapsedSections.testScenarios ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 mt-2">
+                  {question.config.testScenarios.map((scenario, index) => (
+                    <div key={index} className="flex items-start gap-2 p-2 border rounded text-xs">
+                      <Button
+                        onClick={() => toggleScenarioCompletion(scenario)}
+                        disabled={disabled}
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 mt-0.5"
+                      >
+                        {completedScenarios.includes(scenario) ? 
+                          <CheckCircle className="w-4 h-4 text-green-500" /> :
+                          <div className="w-4 h-4 border border-muted-foreground rounded-full" />
+                        }
+                      </Button>
+                      <p className="flex-1 leading-relaxed">{scenario}</p>
+                    </div>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
-      {/* Evaluation Criteria */}
-      {question.config.evaluationCriteria && question.config.evaluationCriteria.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" />
-              Evaluation Criteria
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {question.config.evaluationCriteria.map((criterion, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full mt-2" />
-                  <p className="text-sm">{criterion}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            {/* Evaluation Criteria */}
+            {question.config.evaluationCriteria && question.config.evaluationCriteria.length > 0 && (
+              <Collapsible open={!collapsedSections.evaluationCriteria} onOpenChange={() => toggleSection('evaluationCriteria')}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-left hover:bg-muted/50 rounded">
+                  <div className="flex items-center gap-2">
+                    <ListChecks className="w-4 h-4" />
+                    <span className="font-medium text-sm">Evaluation Criteria</span>
+                  </div>
+                  {collapsedSections.evaluationCriteria ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 mt-2">
+                  {question.config.evaluationCriteria.map((criterion, index) => (
+                    <div key={index} className="flex items-start gap-2 p-2 bg-muted/20 rounded">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2" />
+                      <p className="text-xs leading-relaxed">{criterion}</p>
+                    </div>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
-      {/* Allowed Resources */}
-      {question.config.allowedResources && question.config.allowedResources.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Allowed Resources</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {question.config.allowedResources.map((resource, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span className="text-sm">{resource}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            {/* Allowed Resources */}
+            {question.config.allowedResources && question.config.allowedResources.length > 0 && (
+              <Collapsible open={!collapsedSections.allowedResources} onOpenChange={() => toggleSection('allowedResources')}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-left hover:bg-muted/50 rounded">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    <span className="font-medium text-sm">Allowed Resources</span>
+                  </div>
+                  {collapsedSections.allowedResources ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 mt-2">
+                  {question.config.allowedResources.map((resource, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-muted/20 rounded">
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                      <span className="text-xs">{resource}</span>
+                    </div>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 };
