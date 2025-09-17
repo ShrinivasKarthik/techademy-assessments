@@ -4,8 +4,10 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useQuestionBank } from "@/hooks/useQuestionBank";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   Layers3, 
   Sparkles, 
@@ -13,12 +15,15 @@ import {
   FolderTree, 
   Zap,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  ArrowLeft,
+  BookOpen
 } from "lucide-react";
 
-const ProjectBasedAssessmentsPage = () => {
+const CreateProjectQuestionPage = () => {
   const { createQuestion, updateQuestion } = useQuestionBank();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
   const [config, setConfig] = useState({
     technology: '',
@@ -51,7 +56,7 @@ const ProjectBasedAssessmentsPage = () => {
       }
 
       const questionData = {
-        title: `${configToSave.technology} Project Assessment`,
+        title: `${configToSave.technology} Project Question`,
         question_text: configToSave.problemDescription,
         question_type: 'project_based' as const,
         difficulty: 'intermediate' as const,
@@ -65,24 +70,24 @@ const ProjectBasedAssessmentsPage = () => {
       if (currentQuestionId) {
         await updateQuestion(currentQuestionId, questionData);
         toast({
-          title: "Project Assessment Updated",
-          description: "Your project assessment has been updated successfully.",
+          title: "Project Question Updated",
+          description: "Your project-based question has been updated successfully.",
         });
       } else {
         const newQuestion = await createQuestion(questionData);
         if (newQuestion) {
           setCurrentQuestionId(newQuestion.id);
           toast({
-            title: "Project Assessment Created",
-            description: "Your project assessment has been created and saved to the question bank.",
+            title: "Project Question Created",
+            description: "Your project-based question has been created and saved to the question bank. You can now use it in any assessment.",
           });
         }
       }
     } catch (error) {
-      console.error('Error saving project assessment:', error);
+      console.error('Error saving project question:', error);
       toast({
         title: "Save Failed",
-        description: "Could not save project assessment. Please try again.",
+        description: "Could not save project question. Please try again.",
         variant: "destructive",
       });
     }
@@ -91,12 +96,12 @@ const ProjectBasedAssessmentsPage = () => {
     {
       icon: <Layers3 className="w-6 h-6 text-blue-500" />,
       title: "Unlimited Technology Support",
-      description: "Create assessments for any technology stack - from JavaScript to Python, React to Angular, and beyond."
+      description: "Create project-based questions for any technology stack - from JavaScript to Python, React to Angular, and beyond."
     },
     {
       icon: <FolderTree className="w-6 h-6 text-green-500" />,
       title: "Hierarchical Project Structure",
-      description: "Build complex, multi-file projects with unlimited nesting and realistic folder structures."
+      description: "Build complex, multi-file project questions with unlimited nesting and realistic folder structures."
     },
     {
       icon: <Sparkles className="w-6 h-6 text-purple-500" />,
@@ -111,7 +116,7 @@ const ProjectBasedAssessmentsPage = () => {
     {
       icon: <Zap className="w-6 h-6 text-yellow-500" />,
       title: "Real-world Simulation",
-      description: "Create assessments that mirror actual development workflows and project complexity."
+      description: "Create questions that mirror actual development workflows and project complexity."
     },
     {
       icon: <CheckCircle className="w-6 h-6 text-teal-500" />,
@@ -124,17 +129,32 @@ const ProjectBasedAssessmentsPage = () => {
     <div className="min-h-screen bg-background">
       <Navigation />
       <div className="container mx-auto py-6 space-y-8">
+        {/* Back Navigation */}
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/question-bank')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Question Bank
+          </Button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <BookOpen className="w-4 h-4" />
+            <span>Questions created here will be saved to your question bank</span>
+          </div>
+        </div>
         {/* Hero Section */}
         <div className="text-center space-y-4 py-8">
           <Badge variant="secondary" className="text-sm font-medium">
-            ✨ Enhanced Universal Technology Assessment Framework
+            ✨ Enhanced Universal Technology Question Framework
           </Badge>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-            Project-Based Assessments
+            Create Project-Based Question
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Create realistic, multi-file project assessments for any technology stack. 
-            No limitations, unlimited possibilities.
+            Create realistic, multi-file project questions for any technology stack. 
+            Add them to your question bank for use in any assessment.
           </p>
         </div>
 
@@ -165,7 +185,7 @@ const ProjectBasedAssessmentsPage = () => {
               Implementation Complete
             </CardTitle>
             <CardDescription className="text-green-600 dark:text-green-400">
-              All core features of the Enhanced Universal Technology Assessment Framework are now ready for production use.
+              All core features of the Enhanced Universal Technology Question Framework are now ready for production use.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -173,7 +193,7 @@ const ProjectBasedAssessmentsPage = () => {
               <div className="space-y-2">
                 <h4 className="font-semibold text-green-800 dark:text-green-200">✅ Completed Features:</h4>
                 <ul className="text-sm space-y-1 text-green-700 dark:text-green-300">
-                  <li>• Clean separation of assessment types</li>
+                  <li>• Clean separation of question types</li>
                   <li>• Unlimited technology support</li>
                   <li>• AI-powered project generation</li>
                   <li>• Enhanced file explorer with drag-and-drop</li>
@@ -184,7 +204,7 @@ const ProjectBasedAssessmentsPage = () => {
               <div className="space-y-2">
                 <h4 className="font-semibold text-green-800 dark:text-green-200">🚀 Ready to Use:</h4>
                 <ul className="text-sm space-y-1 text-green-700 dark:text-green-300">
-                  <li>• Technology-agnostic assessments</li>
+                  <li>• Technology-agnostic questions</li>
                   <li>• Real-world project simulation</li>
                   <li>• Professional development experience</li>
                   <li>• Automated test scenario generation</li>
@@ -201,12 +221,13 @@ const ProjectBasedAssessmentsPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Code2 className="w-6 h-6" />
-              Create Project-Based Assessment
+              Create Project-Based Question
               <ArrowRight className="w-4 h-4 text-muted-foreground" />
               <Badge variant="outline">Any Technology</Badge>
             </CardTitle>
             <CardDescription>
-              Build comprehensive project assessments with unlimited technology support and AI-powered assistance.
+              Build comprehensive project questions with unlimited technology support and AI-powered assistance.
+              This question will be saved to your question bank for use in any assessment.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -225,4 +246,4 @@ const ProjectBasedAssessmentsPage = () => {
   );
 };
 
-export default ProjectBasedAssessmentsPage;
+export default CreateProjectQuestionPage;

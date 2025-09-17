@@ -231,11 +231,11 @@ export default function QuestionBank() {
         <div className="flex gap-3">
           <Button 
             variant="outline" 
-            onClick={() => navigate('/project-assessments')}
+            onClick={() => navigate('/project-questions')}
             className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 hover:from-primary/20 hover:to-primary/10"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Create Project Assessment
+            Create Project-Based Question
           </Button>
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
