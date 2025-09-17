@@ -108,7 +108,7 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
       technology: config.technology.trim() !== '',
       structure: config.projectFiles.length > 0,
       evaluation: config.testScenarios.length > 0 || config.evaluationCriteria.length > 0,
-      settings: config.estimatedDuration > 0
+      settings: (config.estimatedDuration !== 60 && config.estimatedDuration > 0) || config.allowedResources.length > 0
     };
   };
 
