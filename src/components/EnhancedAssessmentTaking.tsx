@@ -30,6 +30,7 @@ import SubjectiveQuestion from './questions/SubjectiveQuestion';
 import FileUploadQuestion from './questions/FileUploadQuestion';
 import AudioQuestion from './questions/AudioQuestion';
 import InterviewQuestionWrapper from './enhanced/InterviewQuestionWrapper';
+import ProjectBasedQuestion from './ProjectBasedQuestion';
 import RealTimeEvaluationPanel from './RealTimeEvaluationPanel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileAssessmentInterface from './mobile/MobileAssessmentInterface';
@@ -457,6 +458,8 @@ const EnhancedAssessmentTaking: React.FC<EnhancedAssessmentTakingProps> = ({
     };
 
     switch (question.question_type) {
+      case 'project_based':
+        return <ProjectBasedQuestion {...questionProps} />;
       case 'coding':
         return <EnhancedCodingQuestion {...questionProps} />;
       case 'mcq':

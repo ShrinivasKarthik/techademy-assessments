@@ -27,6 +27,7 @@ import EnhancedCodingQuestion from './questions/EnhancedCodingQuestion';
 import FileUploadQuestion from './questions/FileUploadQuestion';
 import AudioQuestion from './questions/AudioQuestion';
 import InterviewQuestionWrapper from './enhanced/InterviewQuestionWrapper';
+import ProjectBasedQuestion from './ProjectBasedQuestion';
 
 interface Question {
   id: string;
@@ -583,6 +584,8 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
     };
 
     switch (question.question_type) {
+      case 'project_based':
+        return <ProjectBasedQuestion {...questionProps} />;
       case 'mcq':
         return <MCQQuestion {...questionProps} />;
       case 'subjective':

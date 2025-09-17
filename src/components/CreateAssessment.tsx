@@ -90,7 +90,7 @@ const CreateAssessment = () => {
   const [currentQuestion, setCurrentQuestion] = useState<Question>({
     title: '',
     question_text: '',
-    question_type: 'project_based',
+    question_type: 'mcq',
     difficulty: 'intermediate',
     points: 10,
     order_index: 0,
@@ -141,7 +141,7 @@ const CreateAssessment = () => {
     setCurrentQuestion({
       title: '',
       question_text: '',
-      question_type: 'project_based',
+      question_type: 'mcq',
       difficulty: 'intermediate',
       points: 10,
       order_index: 0,
