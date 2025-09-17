@@ -121,8 +121,10 @@ export default function CreateQuestionModal({
   const [newTag, setNewTag] = useState('');
   const [newSkill, setNewSkill] = useState('');
   const [loading, setLoading] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false);
   const [suggestingSkills, setSuggestingSkills] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [questionId, setQuestionId] = useState<string | undefined>(question?.id);
   
   const { skills: availableSkills, getOrCreateSkills, suggestSkillsForQuestion } = useSkills();
   const { toast } = useToast();
@@ -241,6 +243,51 @@ export default function CreateQuestionModal({
 
   const handleConfigUpdate = (config: any) => {
     updateFormData({ config });
+  };
+
+  const handleSaveAsDraft = async () => {
+    if (!formData.question_text.trim()) {
+      toast({
+        title: "Question Text Required",
+        description: "Please enter question text before saving as draft",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDraftSaving(true);
+    try {
+      // Generate title from question text (first 50 chars or full text if shorter)
+      const title = formData.question_text.length > 50 
+        ? formData.question_text.substring(0, 50).trim() + '...'
+        : formData.question_text.trim();
+      
+      // Ensure skills exist in database (if any)
+      const skillObjects = formData.skills.length > 0 ? await getOrCreateSkills(formData.skills) : [];
+      
+      const questionData = { 
+        ...formData, 
+        title, 
+        points: 1,
+        skills: skillObjects.map(s => ({ name: s.name }))
+      };
+
+      const result = await onSave(questionData);
+      
+      toast({
+        title: "Draft Saved",
+        description: "Question saved as draft. You can now use AI features.",
+      });
+      
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: "Could not save draft. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDraftSaving(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -451,6 +498,8 @@ export default function CreateQuestionModal({
                 onConfigChange={handleConfigUpdate}
                 questionDescription={formData.question_text}
                 difficulty={formData.difficulty}
+                questionId={questionId}
+                onAutoSave={handleSaveAsDraft}
               />
             </div>
           )}
@@ -576,6 +625,16 @@ export default function CreateQuestionModal({
             <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
+            {formData.question_type === 'project_based' && !questionId && (
+              <Button 
+                onClick={handleSaveAsDraft} 
+                disabled={draftSaving || !formData.question_text.trim()}
+                variant="secondary"
+                className="min-w-[140px]"
+              >
+                {draftSaving ? 'Saving Draft...' : 'Save as Draft'}
+              </Button>
+            )}
             <Button 
               onClick={handleSubmit} 
               disabled={loading || !formData.question_text.trim() || formData.skills.length === 0}

@@ -71,6 +71,7 @@ interface EnhancedQuestionBuildersProps {
   questionDescription?: string;
   difficulty?: string;
   questionId?: string;
+  onAutoSave?: () => Promise<void>;
 }
 
 const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
@@ -79,7 +80,8 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
   onConfigChange,
   questionDescription = '',
   difficulty = 'intermediate',
-  questionId
+  questionId,
+  onAutoSave
 }) => {
   const { toast } = useToast();
   const [isGeneratingRubric, setIsGeneratingRubric] = useState(false);
@@ -97,8 +99,11 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
     return (
       <ProjectBasedQuestionBuilder
         config={projectConfig}
-        onConfigChange={onConfigChange}
+        onConfigChange={(newConfig) => onConfigChange({ ...config, project_based: newConfig })}
         questionId={questionId}
+        questionDescription={questionDescription}
+        difficulty={difficulty}
+        onAutoSave={onAutoSave}
       />
     );
   };

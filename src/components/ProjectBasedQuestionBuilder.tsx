@@ -50,6 +50,7 @@ interface ProjectBasedQuestionBuilderProps {
   questionId?: string;
   questionDescription?: string;
   difficulty?: string;
+  onAutoSave?: () => Promise<void>;
 }
 
 const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = ({
@@ -57,7 +58,8 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
   onConfigChange,
   questionId,
   questionDescription = '',
-  difficulty = 'intermediate'
+  difficulty = 'intermediate',
+  onAutoSave
 }) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('technology');
@@ -86,6 +88,30 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
   const updateConfig = (updates: Partial<ProjectBasedQuestionConfig>) => {
     onConfigChange({ ...config, ...updates });
   };
+
+  // Auto-save when switching tabs
+  const handleTabChange = async (newTab: string) => {
+    if (onAutoSave && questionId && activeTab !== newTab) {
+      try {
+        await onAutoSave();
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    }
+    setActiveTab(newTab);
+  };
+
+  // Calculate completion status for progress indicators
+  const getTabCompletionStatus = () => {
+    return {
+      technology: config.technology.trim() !== '',
+      structure: config.projectFiles.length > 0,
+      evaluation: config.testScenarios.length > 0 || config.evaluationCriteria.length > 0,
+      settings: config.estimatedDuration > 0
+    };
+  };
+
+  const completionStatus = getTabCompletionStatus();
 
   const analyzeTechnology = async () => {
     if (!config.technology.trim()) {
@@ -323,12 +349,44 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          {/* Overall Progress */}
+          <div className="bg-muted/20 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">Setup Progress</h3>
+              <span className="text-sm text-muted-foreground">
+                {Object.values(completionStatus).filter(Boolean).length}/4 steps completed
+              </span>
+            </div>
+            <div className="flex gap-2">
+              {Object.entries(completionStatus).map(([step, completed], index) => (
+                <div 
+                  key={step}
+                  className={`h-2 flex-1 rounded-full ${
+                    completed ? 'bg-primary' : 'bg-muted'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="technology">Technology Setup</TabsTrigger>
-              <TabsTrigger value="structure">Project Structure</TabsTrigger>
-              <TabsTrigger value="evaluation">Evaluation</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="technology" className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${completionStatus.technology ? 'bg-green-500' : 'bg-gray-400'}`} />
+                Technology Setup
+              </TabsTrigger>
+              <TabsTrigger value="structure" className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${completionStatus.structure ? 'bg-green-500' : 'bg-gray-400'}`} />
+                Project Structure
+              </TabsTrigger>
+              <TabsTrigger value="evaluation" className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${completionStatus.evaluation ? 'bg-green-500' : 'bg-gray-400'}`} />
+                Evaluation
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${completionStatus.settings ? 'bg-green-500' : 'bg-gray-400'}`} />
+                Settings
+              </TabsTrigger>
             </TabsList>
 
             {/* Technology Setup Tab */}
@@ -355,15 +413,23 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                       placeholder="Enter any technology (e.g., React TypeScript, Django REST API, Unity C#)"
                       className="flex-1"
                     />
+                  <Button 
+                    onClick={analyzeTechnology}
+                    disabled={isAnalyzing || !config.technology.trim()}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Brain className="w-4 h-4" />
+                    {isAnalyzing ? 'Analyzing...' : 'AI Analyze'}
+                  </Button>
+                  {config.technology.trim() && completionStatus.technology && (
                     <Button 
-                      onClick={analyzeTechnology}
-                      disabled={isAnalyzing || !config.technology.trim()}
-                      variant="outline"
+                      onClick={() => handleTabChange('structure')}
                       className="flex items-center gap-2"
                     >
-                      <Brain className="w-4 h-4" />
-                      {isAnalyzing ? 'Analyzing...' : 'AI Analyze'}
+                      Continue to Structure
                     </Button>
+                  )}
                   </div>
                   {!config.technology.trim() && (
                     <p className="text-sm text-destructive mt-1">
@@ -454,6 +520,15 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                   <Sparkles className="w-4 h-4" />
                   {isGeneratingStructure ? 'Generating...' : 'AI Generate Structure'}
                 </Button>
+                {completionStatus.structure && (
+                  <Button 
+                    onClick={() => handleTabChange('evaluation')}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    Continue to Evaluation
+                  </Button>
+                )}
               </div>
 
               {(!questionId || !config.technology.trim()) && (
@@ -461,11 +536,27 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                   <div className="flex items-start gap-3">
                     <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-1">Prerequisites Required</h4>
+                      <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-1">
+                        {!questionId ? 'Save as Draft First' : 'Prerequisites Required'}
+                      </h4>
                       <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
                         {!config.technology.trim() && <li>• Enter a technology in the Technology Setup tab</li>}
-                        {!questionId && <li>• Save the question first to enable file generation</li>}
+                        {!questionId && (
+                          <li>• Click "Save as Draft" button below to enable AI file generation</li>
+                        )}
                       </ul>
+                      {!questionId && (
+                        <div className="mt-3">
+                          <Button
+                            onClick={onAutoSave}
+                            disabled={!onAutoSave}
+                            size="sm"
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                          >
+                            Save as Draft Now
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
