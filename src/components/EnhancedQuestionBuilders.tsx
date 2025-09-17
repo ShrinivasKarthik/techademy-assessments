@@ -92,7 +92,6 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
       supportedLanguages: ['javascript'],
       starterCode: '',
       testCases: [],
-      allowMultipleFiles: false,
       hints: [],
       commonMistakes: [],
       optimizationTips: [],

@@ -68,7 +68,7 @@ interface CodingQuestionConfig {
   supportedLanguages: string[];
   starterCode: string;
   testCases: TestCase[];
-  allowMultipleFiles: boolean;
+  
   timeLimit?: number;
   memoryLimit?: number;
   rubric?: {
@@ -562,13 +562,6 @@ const AdvancedCodingQuestionBuilder: React.FC<AdvancedCodingQuestionBuilderProps
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={config.allowMultipleFiles}
-                    onCheckedChange={(checked) => updateConfig({ allowMultipleFiles: checked })}
-                  />
-                  <Label>Allow Multiple Files</Label>
-                </div>
 
                 <div>
                   <Label>Time Limit (minutes)</Label>

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import ProjectFileExplorer from './ProjectFileExplorer';
+import EnhancedProjectFileExplorer from './EnhancedProjectFileExplorer';
 
 interface ProjectFile {
   id: string;

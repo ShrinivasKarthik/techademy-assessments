@@ -65,7 +65,7 @@ interface CodingQuestionProps {
         description?: string;
         isHidden?: boolean;
       }>;
-      allowMultipleFiles?: boolean;
+      
     };
   };
   answer?: {
@@ -541,7 +541,7 @@ const EnhancedCodingQuestion: React.FC<CodingQuestionProps> = ({
   };
 
   const activeFile = files.find(f => f.id === activeFileId);
-  const canAddFiles = question.config.allowMultipleFiles !== false;
+  const canAddFiles = true; // Project-based questions always allow multiple files
 
   return (
     <div className="space-y-4">
