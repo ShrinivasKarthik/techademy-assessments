@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { questionType, questionDescription, difficulty, skills } = await req.json();
+    const { questionType, questionDescription, technology, difficulty, skills } = await req.json();
 
     if (!questionType || !questionDescription) {
       return new Response(
@@ -90,6 +90,7 @@ Respond with a JSON object:
 
     const userPrompt = `
 Question Type: ${questionType}
+Technology: ${technology || 'General'}
 Difficulty Level: ${difficulty}
 Question Description: ${questionDescription}
 ${skills?.length ? `Target Skills: ${skills.join(', ')}` : ''}

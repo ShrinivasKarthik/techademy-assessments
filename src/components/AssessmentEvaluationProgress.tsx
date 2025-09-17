@@ -36,7 +36,7 @@ import { ProgressRing } from '@/components/ui/progress-ring';
 interface Question {
   id: string;
   title: string;
-  question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
+  question_type: 'project_based' | 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
   points: number;
   order_index: number;
 }

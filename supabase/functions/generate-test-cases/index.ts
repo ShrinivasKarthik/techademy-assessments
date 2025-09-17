@@ -17,7 +17,7 @@ serve(async (req) => {
     const requestBody = await req.json();
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
     
-    const { problemDescription, language, difficulty, existingTestCases } = requestBody;
+    const { problemDescription, language, technology, difficulty, existingTestCases } = requestBody;
 
     // Enhanced input validation
     if (!problemDescription || !language || !difficulty) {
@@ -108,7 +108,7 @@ Respond ONLY with this JSON structure (no markdown, no additional text):
 
     // Enhanced user prompt with specific instructions
     const userPrompt = `
-Programming Language: ${language}
+Technology/Programming Language: ${technology || language}
 Difficulty Level: ${difficulty}
 Problem Description: ${problemDescription}
 

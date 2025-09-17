@@ -7,7 +7,7 @@ export interface Question {
   id: string;
   title: string;
   question_text: string | null;
-  question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
+  question_type: 'project_based' | 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   points: number;
   config: any;

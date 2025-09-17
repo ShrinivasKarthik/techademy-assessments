@@ -32,7 +32,7 @@ interface Question {
   id: string;
   title: string;
   question_text?: string;
-  question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
+  question_type: 'project_based' | 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
   difficulty: string;
   points: number;
   order_index: number;

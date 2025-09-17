@@ -23,7 +23,7 @@ import InterviewAnalyticsDisplay from '@/components/interview/InterviewAnalytics
 interface Question {
   id: string;
   title: string;
-  question_type: 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
+  question_type: 'project_based' | 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
   points: number;
   order_index: number;
 }

@@ -1343,6 +1343,7 @@ export type Database = {
           question_text: string | null
           question_type: Database["public"]["Enums"]["question_type"]
           tags: string[] | null
+          technology: string | null
           title: string
           updated_at: string
           usage_count: number | null
@@ -1369,6 +1370,7 @@ export type Database = {
           question_text?: string | null
           question_type: Database["public"]["Enums"]["question_type"]
           tags?: string[] | null
+          technology?: string | null
           title: string
           updated_at?: string
           usage_count?: number | null
@@ -1395,6 +1397,7 @@ export type Database = {
           question_text?: string | null
           question_type?: Database["public"]["Enums"]["question_type"]
           tags?: string[] | null
+          technology?: string | null
           title?: string
           updated_at?: string
           usage_count?: number | null
@@ -1710,6 +1713,7 @@ export type Database = {
         | "file_upload"
         | "audio"
         | "interview"
+        | "project_based"
       submission_status: "in_progress" | "submitted" | "evaluated"
       user_role: "admin" | "instructor" | "student" | "user"
     }
@@ -1848,6 +1852,7 @@ export const Constants = {
         "file_upload",
         "audio",
         "interview",
+        "project_based",
       ],
       submission_status: ["in_progress", "submitted", "evaluated"],
       user_role: ["admin", "instructor", "student", "user"],
