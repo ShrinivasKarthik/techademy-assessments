@@ -13,7 +13,7 @@ import InterviewBuilder from './EnhancedQuestionBuilders/InterviewBuilder';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type QuestionType = 'project_based' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
+type QuestionType = 'project_based' | 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
 
 interface QuestionConfig {
   coding?: {
@@ -495,7 +495,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
 
   const getIcon = () => {
     switch (questionType) {
-      case 'coding':
+      case 'project_based':
         return <Code className="w-5 h-5" />;
       case 'mcq':
         return <HelpCircle className="w-5 h-5" />;
@@ -514,8 +514,8 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
 
   const getTitle = () => {
     switch (questionType) {
-      case 'coding':
-        return 'Coding Question Configuration';
+      case 'project_based':
+        return 'Project-Based Assessment Configuration';
       case 'mcq':
         return 'Multiple Choice Configuration';
       case 'subjective':

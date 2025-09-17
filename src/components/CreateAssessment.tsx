@@ -19,7 +19,7 @@ import AssessmentQualityGates from './AssessmentQualityGates';
 import QuestionBrowser from "./QuestionBrowser";
 import { Question as QuestionBankQuestion } from "@/hooks/useQuestionBank";
 
-type QuestionType = 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
+type QuestionType = 'project_based' | 'coding' | 'mcq' | 'subjective' | 'file_upload' | 'audio' | 'interview';
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 
 interface Question {
@@ -90,7 +90,7 @@ const CreateAssessment = () => {
   const [currentQuestion, setCurrentQuestion] = useState<Question>({
     title: '',
     question_text: '',
-    question_type: 'coding',
+    question_type: 'project_based',
     difficulty: 'intermediate',
     points: 10,
     order_index: 0,
@@ -142,7 +142,7 @@ const CreateAssessment = () => {
     setCurrentQuestion({
       title: '',
       question_text: '',
-      question_type: 'coding',
+      question_type: 'project_based',
       difficulty: 'intermediate',
       points: 10,
       order_index: 0,
@@ -241,7 +241,7 @@ const CreateAssessment = () => {
 
         const { error: questionsError } = await supabase
           .from('questions')
-          .insert(questionsData);
+          .insert(questionsData.map(q => ({ ...q, question_type: q.question_type as any })));
 
         if (questionsError) throw questionsError;
       }
