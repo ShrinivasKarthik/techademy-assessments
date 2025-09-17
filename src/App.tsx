@@ -54,6 +54,7 @@ import ConversationIntelligencePage from "./pages/ConversationIntelligencePage";
 import CreateProjectQuestionPage from "./pages/CreateProjectQuestionPage";
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
+import BackfillProjectFiles from "./components/BackfillProjectFiles";
 
 const queryClient = new QueryClient();
 
@@ -243,6 +244,11 @@ const App = () => (
             <Route path="/help" element={
               <ProtectedRoute>
                 <ContextualHelpPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/backfill" element={
+              <ProtectedRoute>
+                <BackfillProjectFiles />
               </ProtectedRoute>
             } />
             <Route path="/results" element={

@@ -103,3 +103,6 @@ verify_jwt = false
 
 [functions.clone-project-files]
 verify_jwt = false
+
+[functions.backfill-project-files]
+verify_jwt = false
