@@ -28,6 +28,7 @@ import FileUploadQuestion from './questions/FileUploadQuestion';
 import AudioQuestion from './questions/AudioQuestion';
 import InterviewQuestionWrapper from './enhanced/InterviewQuestionWrapper';
 import ProjectBasedQuestion from './ProjectBasedQuestion';
+import FloatingQuestionNavigator from './FloatingQuestionNavigator';
 
 interface Question {
   id: string;
@@ -695,6 +696,7 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
 
   const currentQuestion = assessment.questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / assessment.questions.length) * 100;
+  const isProjectQuestion = currentQuestion?.question_type === 'project_based';
 
   return (
     <div className="min-h-screen bg-background">
@@ -762,97 +764,114 @@ const PublicAssessmentTaking: React.FC<PublicAssessmentTakingProps> = ({
       )}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Question Navigation Sidebar */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Questions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-5 lg:grid-cols-1 gap-2">
-                  {assessment.questions.map((question, index) => {
-                    const isAnswered = answers[question.id] !== undefined;
-                    const isFlagged = flaggedQuestions.has(question.id);
-                    const isCurrent = index === currentQuestionIndex;
-                    
-                    return (
-                      <Button
-                        key={question.id}
-                        variant={isCurrent ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => navigateToQuestion(index)}
-                        className={`relative ${isFlagged ? 'ring-2 ring-yellow-400' : ''}`}
-                      >
-                        {index + 1}
-                        {isAnswered && (
-                          <CheckCircle className="absolute -top-1 -right-1 h-3 w-3 text-green-600 bg-white rounded-full" />
-                        )}
-                        {isFlagged && (
-                          <Flag className="absolute -top-1 -left-1 h-3 w-3 text-yellow-600 bg-white rounded-full" />
-                        )}
-                      </Button>
-                    );
-                  })}
-                </div>
+      <div className={`${isProjectQuestion ? 'p-0' : 'max-w-7xl mx-auto p-6'}`}>
+        {isProjectQuestion ? (
+          <>
+            <FloatingQuestionNavigator
+              questions={assessment.questions}
+              currentQuestionIndex={currentQuestionIndex}
+              answers={answers}
+              flaggedQuestions={flaggedQuestions}
+              onQuestionChange={navigateToQuestion}
+              disabled={submitting}
+              isProjectQuestion={true}
+            />
+            <div className="h-screen">
+              {renderQuestion()}
+            </div>
+          </>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Question Navigation Sidebar */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Questions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-5 lg:grid-cols-1 gap-2">
+                    {assessment.questions.map((question, index) => {
+                      const isAnswered = answers[question.id] !== undefined;
+                      const isFlagged = flaggedQuestions.has(question.id);
+                      const isCurrent = index === currentQuestionIndex;
+                      
+                      return (
+                        <Button
+                          key={question.id}
+                          variant={isCurrent ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => navigateToQuestion(index)}
+                          className={`relative ${isFlagged ? 'ring-2 ring-yellow-400' : ''}`}
+                        >
+                          {index + 1}
+                          {isAnswered && (
+                            <CheckCircle className="absolute -top-1 -right-1 h-3 w-3 text-green-600 bg-white rounded-full" />
+                          )}
+                          {isFlagged && (
+                            <Flag className="absolute -top-1 -left-1 h-3 w-3 text-yellow-600 bg-white rounded-full" />
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="mt-4 text-xs text-muted-foreground space-y-1">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                      Answered ({Object.keys(answers).length})
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Flag className="h-3 w-3 text-yellow-600" />
+                      Flagged ({flaggedQuestions.size})
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Question Content */}
+            <div className="lg:col-span-3">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>
+                      Question {currentQuestionIndex + 1}
+                      <Badge variant="secondary" className="ml-2">
+                        {currentQuestion.points} points
+                      </Badge>
+                    </CardTitle>
+                    <Badge variant="outline">{currentQuestion.difficulty}</Badge>
+                  </div>
+                </CardHeader>
                 
-                <div className="mt-4 text-xs text-muted-foreground space-y-1">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-3 w-3 text-green-600" />
-                    Answered ({Object.keys(answers).length})
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Flag className="h-3 w-3 text-yellow-600" />
-                    Flagged ({flaggedQuestions.size})
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                <CardContent className="space-y-4">
+                  {renderQuestion()}
+                </CardContent>
+              </Card>
 
-          {/* Question Content */}
-          <div className="lg:col-span-3">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>
-                    Question {currentQuestionIndex + 1}
-                    <Badge variant="secondary" className="ml-2">
-                      {currentQuestion.points} points
-                    </Badge>
-                  </CardTitle>
-                  <Badge variant="outline">{currentQuestion.difficulty}</Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                {renderQuestion()}
-              </CardContent>
-            </Card>
-
-            {/* Navigation */}
-            <div className="flex justify-between mt-6">
-              <Button
-                variant="outline"
-                onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
-                disabled={currentQuestionIndex === 0}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
-                disabled={currentQuestionIndex === assessment.questions.length - 1}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+              {/* Navigation */}
+              <div className="flex justify-between mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
+                  disabled={currentQuestionIndex === 0}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
+                  disabled={currentQuestionIndex === assessment.questions.length - 1}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
