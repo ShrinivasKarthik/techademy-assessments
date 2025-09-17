@@ -348,7 +348,7 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FolderTree className="w-5 h-5" />
-            Project-Based Assessment Builder
+            Project-Based Question Builder
           </CardTitle>
         </CardHeader>
         <CardContent>

@@ -96,38 +96,6 @@ const CreateProjectQuestionPage = () => {
       });
     }
   };
-  const features = [
-    {
-      icon: <Layers3 className="w-6 h-6 text-blue-500" />,
-      title: "Unlimited Technology Support",
-      description: "Create project-based questions for any technology stack - from JavaScript to Python, React to Angular, and beyond."
-    },
-    {
-      icon: <FolderTree className="w-6 h-6 text-green-500" />,
-      title: "Hierarchical Project Structure",
-      description: "Build complex, multi-file project questions with unlimited nesting and realistic folder structures."
-    },
-    {
-      icon: <Sparkles className="w-6 h-6 text-purple-500" />,
-      title: "AI-Powered Generation",
-      description: "Automatically generate project structures, test scenarios, and evaluation criteria for any technology."
-    },
-    {
-      icon: <Code2 className="w-6 h-6 text-orange-500" />,
-      title: "VS Code-like Interface",
-      description: "Professional file explorer with drag-and-drop, context menus, and Monaco Editor integration."
-    },
-    {
-      icon: <Zap className="w-6 h-6 text-yellow-500" />,
-      title: "Real-world Simulation",
-      description: "Create questions that mirror actual development workflows and project complexity."
-    },
-    {
-      icon: <CheckCircle className="w-6 h-6 text-teal-500" />,
-      title: "Universal Evaluation",
-      description: "AI evaluates any technology with intelligent context understanding and adaptive scoring."
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -162,24 +130,6 @@ const CreateProjectQuestionPage = () => {
           </p>
         </div>
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {features.map((feature, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3">
-                  {feature.icon}
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-sm leading-relaxed">
-                  {feature.description}
-                </CardDescription>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
 
 
         {/* Main Builder */}
