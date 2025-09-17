@@ -99,7 +99,7 @@ const EnhancedQuestionBuilders: React.FC<EnhancedQuestionBuildersProps> = ({
     return (
       <ProjectBasedQuestionBuilder
         config={projectConfig}
-        onConfigChange={(newConfig) => onConfigChange({ ...config, project_based: newConfig })}
+        onConfigChange={onConfigChange}
         questionId={questionId}
         questionDescription={questionDescription}
         difficulty={difficulty}

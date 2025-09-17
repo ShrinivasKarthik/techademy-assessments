@@ -413,23 +413,15 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                       placeholder="Enter any technology (e.g., React TypeScript, Django REST API, Unity C#)"
                       className="flex-1"
                     />
-                  <Button 
-                    onClick={analyzeTechnology}
-                    disabled={isAnalyzing || !config.technology.trim()}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    <Brain className="w-4 h-4" />
-                    {isAnalyzing ? 'Analyzing...' : 'AI Analyze'}
-                  </Button>
-                  {config.technology.trim() && completionStatus.technology && (
-                    <Button 
-                      onClick={() => handleTabChange('structure')}
+                     <Button 
+                      onClick={analyzeTechnology}
+                      disabled={isAnalyzing || !config.technology.trim()}
+                      variant="outline"
                       className="flex items-center gap-2"
                     >
-                      Continue to Structure
+                      <Brain className="w-4 h-4" />
+                      {isAnalyzing ? 'Analyzing...' : 'AI Analyze'}
                     </Button>
-                  )}
                   </div>
                   {!config.technology.trim() && (
                     <p className="text-sm text-destructive mt-1">
@@ -439,6 +431,40 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                   <p className="text-sm text-muted-foreground mt-1">
                     Enter any technology, framework, or skill. AI will analyze and determine appropriate project structure.
                   </p>
+                </div>
+
+                {/* Save Draft Section - Always Visible */}
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-primary">Ready to Continue?</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {!questionId ? "Save as draft to unlock AI features and continue building your question" : "Continue to the next step or use AI to enhance your question"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!questionId && onAutoSave && (
+                        <Button 
+                          onClick={onAutoSave}
+                          disabled={!config.technology.trim()}
+                          className="flex items-center gap-2"
+                        >
+                          <Zap className="w-4 h-4" />
+                          Save as Draft
+                        </Button>
+                      )}
+                      {config.technology.trim() && (
+                        <Button 
+                          onClick={() => handleTabChange('structure')}
+                          variant={questionId ? "default" : "outline"}
+                          className="flex items-center gap-2"
+                          disabled={!questionId && !config.technology.trim()}
+                        >
+                          Continue to Structure
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -492,17 +518,43 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                 <div className="ml-11 mt-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <div className={`w-2 h-2 rounded-full ${config.technology.trim() ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={config.technology.trim() ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
-                      Technology specified
+                    <span className={config.technology.trim() ? 'text-green-700' : 'text-red-700'}>
+                      Technology: {config.technology.trim() ? `${config.technology}` : 'Not specified'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <div className={`w-2 h-2 rounded-full ${questionId ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={questionId ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
-                      Question saved (required for file generation)
+                    <span className={questionId ? 'text-green-700' : 'text-red-700'}>
+                      Question: {questionId ? 'Saved (AI features available)' : 'Not saved (Save as draft to unlock AI features)'}
                     </span>
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Save Draft Action */}
+                {!questionId && (
+                  <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-destructive">Action Required</h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Save the question as draft first to unlock AI project structure generation
+                        </p>
+                      </div>
+                      {onAutoSave && (
+                        <Button 
+                          onClick={onAutoSave}
+                          disabled={!config.technology.trim()}
+                          className="flex items-center gap-2"
+                        >
+                          <Zap className="w-4 h-4" />
+                          Save as Draft
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between">
@@ -512,23 +564,25 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                     AI-generated project structure based on your technology choice
                   </p>
                 </div>
-                <Button 
-                  onClick={generateProjectStructure}
-                  disabled={isGeneratingStructure || !questionId || !config.technology.trim()}
-                  className="flex items-center gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  {isGeneratingStructure ? 'Generating...' : 'AI Generate Structure'}
-                </Button>
-                {completionStatus.structure && (
+                <div className="flex items-center gap-2">
                   <Button 
-                    onClick={() => handleTabChange('evaluation')}
+                    onClick={generateProjectStructure}
+                    disabled={isGeneratingStructure || !questionId || !config.technology.trim()}
                     variant="outline"
                     className="flex items-center gap-2"
                   >
-                    Continue to Evaluation
+                    <Sparkles className="w-4 h-4" />
+                    {isGeneratingStructure ? 'Generating...' : 'AI Generate Structure'}
                   </Button>
-                )}
+                  {completionStatus.structure && (
+                    <Button 
+                      onClick={() => handleTabChange('evaluation')}
+                      className="flex items-center gap-2"
+                    >
+                      Continue to Evaluation
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {(!questionId || !config.technology.trim()) && (
@@ -704,6 +758,24 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                   </div>
                 </div>
               </div>
+
+              {/* Continue Section */}
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-primary">Ready to Finalize?</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Continue to settings to configure time limits and allowed resources
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={() => handleTabChange('settings')}
+                    className="flex items-center gap-2"
+                  >
+                    Continue to Settings
+                  </Button>
+                </div>
+              </div>
             </TabsContent>
 
             {/* Settings Tab */}
@@ -733,6 +805,41 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                   <p className="text-sm text-muted-foreground mt-1">
                     One resource per line
                   </p>
+                </div>
+              </div>
+
+              {/* Completion Section */}
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-6 mt-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
+                    ✓
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-green-800 dark:text-green-200">Project-Based Question Configuration Complete</h3>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      Your question is ready! You can continue creating more questions or test this one.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Progress Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="text-center">
+                    <div className={`w-2 h-2 rounded-full mx-auto mb-1 ${completionStatus.technology ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                    <p className="text-xs text-muted-foreground">Technology</p>
+                  </div>
+                  <div className="text-center">
+                    <div className={`w-2 h-2 rounded-full mx-auto mb-1 ${completionStatus.structure ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                    <p className="text-xs text-muted-foreground">Structure</p>
+                  </div>
+                  <div className="text-center">
+                    <div className={`w-2 h-2 rounded-full mx-auto mb-1 ${completionStatus.evaluation ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                    <p className="text-xs text-muted-foreground">Evaluation</p>
+                  </div>
+                  <div className="text-center">
+                    <div className={`w-2 h-2 rounded-full mx-auto mb-1 ${completionStatus.settings ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                    <p className="text-xs text-muted-foreground">Settings</p>
+                  </div>
                 </div>
               </div>
             </TabsContent>
