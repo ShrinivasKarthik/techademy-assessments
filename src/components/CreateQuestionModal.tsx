@@ -150,7 +150,9 @@ export default function CreateQuestionModal({
   };
 
   const isComplexType = (type: string) => {
-    return ['project_based', 'coding', 'interview'].includes(type);
+    // Since complex types are no longer available in the modal,
+    // this function will always return false for the current options
+    return false;
   };
 
   const handleSubmit = async () => {

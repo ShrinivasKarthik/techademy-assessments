@@ -1,6 +1,9 @@
 import Navigation from "@/components/Navigation";
 import ProjectBasedQuestionBuilder from "@/components/ProjectBasedQuestionBuilder";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { useQuestionBank } from "@/hooks/useQuestionBank";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -14,6 +17,76 @@ import {
 } from "lucide-react";
 
 const ProjectBasedAssessmentsPage = () => {
+  const { createQuestion, updateQuestion } = useQuestionBank();
+  const { toast } = useToast();
+  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  const [config, setConfig] = useState({
+    technology: '',
+    problemDescription: '',
+    projectFiles: [],
+    testScenarios: [],
+    evaluationCriteria: [],
+    estimatedDuration: 60,
+    allowedResources: []
+  });
+
+  const handleConfigChange = async (newConfig: any) => {
+    setConfig(newConfig);
+    
+    // Auto-save when there's meaningful content
+    if (newConfig.technology && newConfig.problemDescription) {
+      await handleSave(newConfig);
+    }
+  };
+
+  const handleSave = async (configToSave = config) => {
+    try {
+      if (!configToSave.technology.trim() || !configToSave.problemDescription.trim()) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in both technology and problem description before saving.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const questionData = {
+        title: `${configToSave.technology} Project Assessment`,
+        question_text: configToSave.problemDescription,
+        question_type: 'project_based' as const,
+        difficulty: 'intermediate' as const,
+        points: 50,
+        config: configToSave,
+        tags: [configToSave.technology.toLowerCase().replace(/\s+/g, '-')],
+        skills: [{ name: configToSave.technology }],
+        is_template: false,
+      };
+
+      if (currentQuestionId) {
+        await updateQuestion(currentQuestionId, questionData);
+        toast({
+          title: "Project Assessment Updated",
+          description: "Your project assessment has been updated successfully.",
+        });
+      } else {
+        const newQuestion = await createQuestion(questionData);
+        if (newQuestion) {
+          setCurrentQuestionId(newQuestion.id);
+          toast({
+            title: "Project Assessment Created",
+            description: "Your project assessment has been created and saved to the question bank.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error saving project assessment:', error);
+      toast({
+        title: "Save Failed",
+        description: "Could not save project assessment. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   const features = [
     {
       icon: <Layers3 className="w-6 h-6 text-blue-500" />,
@@ -139,18 +212,10 @@ const ProjectBasedAssessmentsPage = () => {
           <CardContent>
             <ErrorBoundary>
               <ProjectBasedQuestionBuilder
-                config={{
-                  technology: '',
-                  problemDescription: '',
-                  projectFiles: [],
-                  testScenarios: [],
-                  evaluationCriteria: [],
-                  estimatedDuration: 60,
-                  allowedResources: []
-                }}
-                onConfigChange={(config) => {
-                  console.log('Project config updated:', config);
-                }}
+                config={config}
+                onConfigChange={handleConfigChange}
+                questionId={currentQuestionId || undefined}
+                onAutoSave={async () => await handleSave()}
               />
             </ErrorBoundary>
           </CardContent>
