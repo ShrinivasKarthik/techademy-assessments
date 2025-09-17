@@ -565,10 +565,22 @@ export default function QuestionBank() {
           onSave={async (questionData) => {
             if (selectedQuestion) {
               await updateQuestion(selectedQuestion.id, questionData);
-            } else {
-              await createQuestion(questionData);
+              await fetchQuestions();
+              setShowCreateModal(false);
+              setSelectedQuestion(null);
+              return;
             }
-            await fetchQuestions(); // Refresh the questions list
+            const created: any = await createQuestion(questionData);
+            if (created) {
+              const type = created.question_type || questionData.question_type;
+              if (type && ['project_based','coding','interview'].includes(type)) {
+                setShowCreateModal(false);
+                setSelectedQuestion(null);
+                window.location.href = `/question-builder/${created.id}`;
+                return;
+              }
+            }
+            await fetchQuestions();
             setShowCreateModal(false);
             setSelectedQuestion(null);
           }}

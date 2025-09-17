@@ -9,6 +9,7 @@ import { useQuestionBank, Question } from "@/hooks/useQuestionBank";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { supabase } from "@/integrations/supabase/client";
 
 const QuestionBuilderPage = () => {
   const { questionId } = useParams<{ questionId: string }>();
@@ -20,7 +21,7 @@ const QuestionBuilderPage = () => {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<any>({});
 
-  useEffect(() => {
+useEffect(() => {
     const loadQuestion = async () => {
       if (!questionId) {
         navigate('/question-bank');
@@ -28,10 +29,20 @@ const QuestionBuilderPage = () => {
       }
 
       try {
+        setLoading(true);
         await fetchQuestions();
-        const foundQuestion = questions.find(q => q.id === questionId);
-        
-        if (!foundQuestion) {
+        let found: any = questions.find(q => q.id === questionId);
+
+        if (!found) {
+          const { data } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('id', questionId)
+            .single();
+          if (data) found = data;
+        }
+
+        if (!found) {
           toast({
             title: "Question Not Found",
             description: "The question you're trying to edit doesn't exist.",
@@ -41,8 +52,8 @@ const QuestionBuilderPage = () => {
           return;
         }
 
-        setQuestion(foundQuestion);
-        setConfig(foundQuestion.config || {});
+        setQuestion(found);
+        setConfig(found.config || {});
       } catch (error) {
         toast({
           title: "Error Loading Question",
@@ -56,7 +67,7 @@ const QuestionBuilderPage = () => {
     };
 
     loadQuestion();
-  }, [questionId, questions.length]);
+  }, [questionId]);
 
   const handleConfigChange = (newConfig: any) => {
     setConfig(newConfig);
