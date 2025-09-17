@@ -126,7 +126,9 @@ serve(async (req) => {
 
     console.log('Starting evaluation trigger process...');
 
-    // Find all instances that are submitted but not evaluated
+    // Find all instances that need evaluation:
+    // 1. Submitted but not started evaluation
+    // 2. Marked as completed but have no actual evaluations (corrupted state)
     const { data: instances, error: fetchError } = await supabase
       .from('assessment_instances')
       .select(`
@@ -140,7 +142,7 @@ serve(async (req) => {
         total_score
       `)
       .eq('status', 'submitted')
-      .eq('evaluation_status', 'not_started');
+      .in('evaluation_status', ['not_started', 'completed']);
 
     if (fetchError) {
       throw new Error(`Failed to fetch instances: ${fetchError.message}`);
@@ -151,6 +153,7 @@ serve(async (req) => {
     let processedCount = 0;
     let evaluatedCount = 0;
     let scoredZeroCount = 0;
+    let reprocessedCount = 0;
 
     for (const instance of instances || []) {
       try {
@@ -165,7 +168,21 @@ serve(async (req) => {
           continue;
         }
 
-        if (!submissions || submissions.length === 0) {
+        // Check if this instance has actual evaluations
+        const { data: evaluations, error: evalCheckError } = await supabase
+          .from('evaluations')
+          .select('id')
+          .in('submission_id', (submissions || []).map(s => s.id));
+
+        if (evalCheckError) {
+          console.error(`Error checking evaluations for instance ${instance.id}:`, evalCheckError);
+          continue;
+        }
+
+        const hasSubmissions = submissions && submissions.length > 0;
+        const hasEvaluations = evaluations && evaluations.length > 0;
+
+        if (!hasSubmissions) {
           // No submissions - mark as evaluated with 0 score
           const { error: updateError } = await supabase
             .from('assessment_instances')
@@ -184,8 +201,35 @@ serve(async (req) => {
             scoredZeroCount++;
             console.log(`Scored instance ${instance.id} as 0 (no submissions)`);
           }
-        } else {
-          // Has submissions - trigger evaluation
+        } else if (!hasEvaluations) {
+          // Has submissions but no evaluations - need to evaluate
+          console.log(`Instance ${instance.id} has submissions but no evaluations, triggering evaluation...`);
+          
+          // Reset evaluation status to ensure proper processing
+          await supabase
+            .from('assessment_instances')
+            .update({
+              evaluation_status: 'not_started'
+            })
+            .eq('id', instance.id);
+
+          const { error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
+            body: { instanceId: instance.id }
+          });
+
+          if (evalError) {
+            console.error(`Error evaluating instance ${instance.id}:`, evalError);
+          } else {
+            evaluatedCount++;
+            if (instance.evaluation_status === 'completed') {
+              reprocessedCount++;
+              console.log(`Re-processed corrupted instance ${instance.id}`);
+            } else {
+              console.log(`Triggered evaluation for instance ${instance.id}`);
+            }
+          }
+        } else if (instance.evaluation_status === 'not_started') {
+          // Has both submissions and evaluations but marked as not started - trigger evaluation
           const { error: evalError } = await supabase.functions.invoke('auto-evaluate-assessment', {
             body: { instanceId: instance.id }
           });
@@ -196,6 +240,8 @@ serve(async (req) => {
             evaluatedCount++;
             console.log(`Triggered evaluation for instance ${instance.id}`);
           }
+        } else {
+          console.log(`Instance ${instance.id} already properly evaluated, skipping`);
         }
 
         processedCount++;
@@ -204,7 +250,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Evaluation trigger completed. Processed: ${processedCount}, Evaluated: ${evaluatedCount}, Scored Zero: ${scoredZeroCount}`);
+    console.log(`Evaluation trigger completed. Processed: ${processedCount}, Evaluated: ${evaluatedCount}, Scored Zero: ${scoredZeroCount}, Re-processed corrupted: ${reprocessedCount}`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -212,6 +258,7 @@ serve(async (req) => {
       processed: processedCount,
       evaluated: evaluatedCount,
       scored_zero: scoredZeroCount,
+      reprocessed_corrupted: reprocessedCount,
       total_found: instances?.length || 0
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

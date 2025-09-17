@@ -45,6 +45,7 @@ interface ParticipantResult {
   max_possible_score: number;
   integrity_score: number;
   status: string;
+  evaluation_status?: string;
   time_remaining_seconds: number;
   duration_taken: number;
   duration_taken_seconds?: number;
@@ -102,28 +103,65 @@ const AssessmentResultsView: React.FC = () => {
           participant_id,
           started_at,
           submitted_at,
-          total_score,
-          max_possible_score,
           integrity_score,
           status,
-          time_remaining_seconds
+          time_remaining_seconds,
+          evaluation_status
         `)
         .eq('assessment_id', selectedAssessment)
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;
 
-      const results: ParticipantResult[] = (data || []).map((instance: any) => {
+      // Calculate actual scores from evaluations table
+      const results: ParticipantResult[] = [];
+      
+      for (const instance of data || []) {
+        // Get all submissions for this instance
+        const { data: submissions } = await supabase
+          .from('submissions')
+          .select('id')
+          .eq('instance_id', instance.id);
+
+        let totalScore = 0;
+        let maxScore = 0;
+
+        if (submissions && submissions.length > 0) {
+          // Get all evaluations for these submissions
+          const { data: evaluations } = await supabase
+            .from('evaluations')
+            .select('score, max_score')
+            .in('submission_id', submissions.map(s => s.id));
+
+          if (evaluations && evaluations.length > 0) {
+            totalScore = evaluations.reduce((sum, evaluation) => sum + (evaluation.score || 0), 0);
+            maxScore = evaluations.reduce((sum, evaluation) => sum + (evaluation.max_score || 0), 0);
+          }
+        }
+
+        // If no evaluations found but has submissions, use cached scores as fallback
+        if (maxScore === 0 && submissions && submissions.length > 0) {
+          // Get assessment questions to calculate max possible score
+          const { data: questions } = await supabase
+            .from('questions')
+            .select('points')
+            .eq('assessment_id', selectedAssessment);
+          
+          maxScore = questions?.reduce((sum, q) => sum + (q.points || 0), 0) || 100;
+        }
+
         const assessment = assessments.find(a => a.id === selectedAssessment);
         const durationTaken = assessment 
           ? (assessment.duration_minutes * 60) - (instance.time_remaining_seconds || 0)
           : 0;
 
-        return {
+        results.push({
           ...instance,
+          total_score: totalScore,
+          max_possible_score: maxScore || 100,
           duration_taken: durationTaken
-        };
-      });
+        });
+      }
 
       setParticipants(results);
     } catch (error) {
@@ -226,6 +264,7 @@ const AssessmentResultsView: React.FC = () => {
 
   const triggerEvaluations = async () => {
     try {
+      setLoading(true);
       toast({
         title: "Starting evaluations",
         description: "Processing submitted assessments and calculating scores...",
@@ -238,14 +277,20 @@ const AssessmentResultsView: React.FC = () => {
       }
 
       const result = data as any;
+      let message = `Processed ${result.processed} assessments. Evaluated: ${result.evaluated}, Scored zero: ${result.scored_zero}`;
+      
+      if (result.reprocessed_corrupted > 0) {
+        message += `, Fixed corrupted: ${result.reprocessed_corrupted}`;
+      }
+      
       toast({
         title: "Evaluations completed",
-        description: `Processed ${result.processed} assessments. Evaluated: ${result.evaluated}, Scored zero: ${result.scored_zero}`,
+        description: message,
       });
 
-      // Reload results if an assessment is selected
+      // Reload results immediately to show updated data
       if (selectedAssessment) {
-        setTimeout(loadAssessmentResults, 2000);
+        await loadAssessmentResults();
       }
 
     } catch (error) {
@@ -255,6 +300,8 @@ const AssessmentResultsView: React.FC = () => {
         description: error.message || "Please try again later.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 
