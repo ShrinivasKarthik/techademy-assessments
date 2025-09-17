@@ -66,6 +66,7 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingStructure, setIsGeneratingStructure] = useState(false);
   const [isGeneratingTests, setIsGeneratingTests] = useState(false);
+  const [structureReloadKey, setStructureReloadKey] = useState(0);
   const [technologySuggestions] = useState([
     'React TypeScript',
     'Vue.js with TypeScript',
@@ -238,6 +239,8 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
       })) || [];
 
       updateConfig({ projectFiles });
+      // Force reload of file explorer to fetch newly created files
+      setStructureReloadKey(prev => prev + 1);
 
       toast({
         title: "Structure Generated!",
@@ -618,6 +621,7 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
 
               {questionId ? (
                 <EnhancedProjectFileExplorer
+                  key={`${questionId}-${structureReloadKey}`}
                   questionId={questionId}
                   technology={config.technology || 'General'}
                   onFilesChange={(files) => {

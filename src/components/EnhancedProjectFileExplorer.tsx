@@ -85,7 +85,7 @@ const EnhancedProjectFileExplorer: React.FC<EnhancedProjectFileExplorerProps> = 
         isFolder: file.is_folder,
         isMainFile: file.is_main_file,
         orderIndex: file.order_index,
-        parentFolderId: file.parent_folder_id
+        parentFolderId: file.parent_folder_id ?? undefined
       }));
 
       setFiles(projectFiles);
@@ -434,7 +434,7 @@ const EnhancedProjectFileExplorer: React.FC<EnhancedProjectFileExplorerProps> = 
 
   const renderFileTree = (parentId?: string, level = 0): React.ReactNode => {
     const items = files
-      .filter(f => f.parentFolderId === parentId)
+      .filter(f => (f.parentFolderId ?? null) === (parentId ?? null))
       .sort((a, b) => {
         // Folders first, then files, then by name
         if (a.isFolder && !b.isFolder) return -1;
