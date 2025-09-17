@@ -491,6 +491,10 @@ function generateFallbackExecution(code: string, testCases: any[]) {
       "Consider performance optimizations"
     ]
   };
+  
+  // Add detailed feedback summary for fallback too
+  fallbackResult.detailed_feedback = generateDetailedFeedbackSummary(fallbackResult);
+  return fallbackResult;
 }
       visualizations: []
     }

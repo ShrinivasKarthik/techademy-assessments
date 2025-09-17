@@ -216,7 +216,7 @@ serve(async (req) => {
                 console.log(`Evaluation created/updated for submission ${submission.id} with score ${aiScore}`);
               } catch (error) {
                 console.error(`AI evaluation failed for ${question.question_type} question:`, error);
-                // Insert fallback evaluation with 0 score
+                // Insert fallback evaluation with 0 score using UPSERT
                 await supabase
                   .from('evaluations')
                   .upsert({
@@ -226,7 +226,7 @@ serve(async (req) => {
                     integrity_score: integrityScore,
                     feedback: `AI evaluation failed: ${error.message}`,
                     evaluated_at: new Date().toISOString()
-                  });
+                  }, { onConflict: 'submission_id' });
               }
             })();
             
