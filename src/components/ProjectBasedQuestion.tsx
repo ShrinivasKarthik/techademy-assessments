@@ -129,7 +129,7 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
         isFolder: file.is_folder,
         isMainFile: file.is_main_file,
         orderIndex: file.order_index,
-        parentFolderId: file.parent_folder_id
+        parentFolderId: file.parent_folder_id ?? undefined
       }));
 
       setFiles(projectFiles);
@@ -231,9 +231,10 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
     return <FileText className="w-4 h-4 text-gray-500" />;
   };
 
-  const renderFileTree = (parentId?: string, level = 0) => {
+  const renderFileTree = (parentId: string | null = null, level = 0) => {
+    const isRoot = parentId == null;
     const items = files
-      .filter(f => f.parentFolderId === parentId)
+      .filter(f => isRoot ? f.parentFolderId == null : f.parentFolderId === parentId)
       .sort((a, b) => {
         if (a.isFolder && !b.isFolder) return -1;
         if (!a.isFolder && b.isFolder) return 1;
@@ -336,7 +337,7 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
                   </div>
                 </div>
               ) : (
-                renderFileTree()
+                renderFileTree(null)
               )}
             </div>
           </CardContent>

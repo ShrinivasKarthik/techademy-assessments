@@ -6,7 +6,7 @@ export const testBackfill = async (assessmentTitle?: string, dryRun = true) => {
     
     const { data, error } = await supabase.functions.invoke('backfill-project-files', {
       body: {
-        assessmentTitle: assessmentTitle || 'Health',
+        assessmentTitle: assessmentTitle || 'Health App Spring Boot',
         dryRun
       }
     });
