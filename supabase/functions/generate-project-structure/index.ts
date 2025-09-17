@@ -13,13 +13,25 @@ serve(async (req) => {
   }
 
   try {
-    const { technology, problemDescription, questionId } = await req.json();
+    const { technology, problemDescription, questionId, retryCount = 0 } = await req.json();
     
     if (!technology || !questionId) {
       return new Response(
         JSON.stringify({ error: 'Technology and questionId are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    console.log(`Generating project structure for: ${technology} (retry: ${retryCount})`);
+    
+    // Clear existing files for this question before generating new ones
+    const { error: deleteError } = await supabase
+      .from('project_files')
+      .delete()
+      .eq('question_id', questionId);
+    
+    if (deleteError) {
+      console.warn('Warning: Could not clear existing files:', deleteError);
     }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -189,12 +201,24 @@ Guidelines:
       }
     }
 
-    console.log('Project structure generated successfully');
+    // Validation: Verify files were actually inserted
+    const { data: verifyFiles, error: verifyError } = await supabase
+      .from('project_files')
+      .select('id')
+      .eq('question_id', questionId);
+
+    if (verifyError || !verifyFiles || verifyFiles.length === 0) {
+      console.error('Verification failed - no files found after insertion');
+      throw new Error('Files were not properly saved to database');
+    }
+
+    console.log(`Project structure generated successfully: ${verifyFiles.length} total items`);
 
     return new Response(JSON.stringify({ 
       success: true,
       filesCreated: fileInserts.length,
       foldersCreated: folderInserts.length,
+      totalItems: verifyFiles.length,
       structure 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

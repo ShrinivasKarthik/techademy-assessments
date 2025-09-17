@@ -175,7 +175,9 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
     }
   };
 
-  const generateProjectStructure = async () => {
+  const generateProjectStructure = async (retryCount = 0) => {
+    const maxRetries = 2;
+    
     if (!config.technology.trim()) {
       toast({
         title: "Technology Required",
@@ -199,14 +201,25 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
     try {
       toast({
         title: "Generation Starting",
-        description: `Creating project structure for ${config.technology}...`,
+        description: retryCount > 0 ? 
+          `Retrying project structure generation (${retryCount}/${maxRetries})...` :
+          `Creating project structure for ${config.technology}...`,
       });
+
+      // Clear existing files first if this is a retry
+      if (retryCount > 0) {
+        await supabase
+          .from('project_files')
+          .delete()
+          .eq('question_id', questionId);
+      }
 
       const { data, error } = await supabase.functions.invoke('generate-project-structure', {
         body: {
           technology: config.technology,
           problemDescription: config.problemDescription || questionDescription,
-          questionId
+          questionId,
+          retryCount
         }
       });
 
@@ -215,7 +228,9 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
         throw new Error(error.message || 'Failed to generate project structure');
       }
 
-      // Fetch the generated files from database
+      // Validation: Fetch and verify files were actually created
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay for DB consistency
+      
       const { data: files, error: fetchError } = await supabase
         .from('project_files')
         .select('*')
@@ -227,7 +242,18 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
         throw new Error('Failed to fetch generated files from database');
       }
 
-      const projectFiles = files?.map(file => ({
+      // Validation: Check if files were actually created
+      if (!files || files.length === 0) {
+        throw new Error('No files were created during generation');
+      }
+
+      // Validation: Ensure we have at least one non-folder file
+      const actualFiles = files.filter(f => !f.is_folder);
+      if (actualFiles.length === 0) {
+        throw new Error('No actual files were created, only folders');
+      }
+
+      const projectFiles = files.map(file => ({
         id: file.id,
         fileName: file.file_name,
         filePath: file.file_path,
@@ -236,26 +262,122 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
         isFolder: file.is_folder,
         isMainFile: file.is_main_file,
         orderIndex: file.order_index
-      })) || [];
+      }));
 
       updateConfig({ projectFiles });
       // Force reload of file explorer to fetch newly created files
       setStructureReloadKey(prev => prev + 1);
 
       toast({
-        title: "Structure Generated!",
-        description: `Created ${data?.filesCreated || 0} files and ${data?.foldersCreated || 0} folders for your ${config.technology} project`,
+        title: "Structure Generated Successfully!",
+        description: `✅ Created ${data?.filesCreated || actualFiles.length} files and ${data?.foldersCreated || files.filter(f => f.is_folder).length} folders for your ${config.technology} project`,
       });
 
     } catch (error) {
       console.error('Project structure generation error:', error);
+      
+      // Retry logic
+      if (retryCount < maxRetries) {
+        toast({
+          title: "Generation Failed - Retrying",
+          description: `Attempt ${retryCount + 1} failed. Retrying automatically...`,
+          variant: "destructive"
+        });
+        
+        setTimeout(() => {
+          generateProjectStructure(retryCount + 1);
+        }, 2000);
+        return;
+      }
+
+      // Final fallback: Create minimal structure
+      await createFallbackStructure();
+      
       toast({
-        title: "Generation Failed",
-        description: error instanceof Error ? error.message : "Could not generate project structure. Please check your connection and try again.",
+        title: "Generation Failed - Using Fallback",
+        description: "AI generation failed. Created a basic project structure for you to customize.",
         variant: "destructive"
       });
     } finally {
       setIsGeneratingStructure(false);
+    }
+  };
+
+  const createFallbackStructure = async () => {
+    if (!questionId) return;
+
+    try {
+      const lang = config.technology.toLowerCase().includes('python') ? 'py' : 
+                   config.technology.toLowerCase().includes('java') ? 'java' : 
+                   config.technology.toLowerCase().includes('html') ? 'html' : 'js';
+      
+      const fallbackFiles = [
+        {
+          question_id: questionId,
+          file_name: 'README.md',
+          file_path: 'README.md',
+          file_content: `# ${config.technology} Project\n\n## Description\n${config.problemDescription || 'Project description'}\n\n## Getting Started\n\nImplement your solution in the main file.\n`,
+          file_language: 'markdown',
+          is_folder: false,
+          is_main_file: false,
+          order_index: 0
+        },
+        {
+          question_id: questionId,
+          file_name: `main.${lang}`,
+          file_path: `src/main.${lang}`,
+          file_content: `// TODO: Implement your ${config.technology} solution here\n\n`,
+          file_language: lang,
+          is_folder: false,
+          is_main_file: true,
+          order_index: 1
+        }
+      ];
+
+      // Create src folder
+      await supabase.from('project_files').insert({
+        question_id: questionId,
+        file_name: 'src',
+        file_path: 'src',
+        file_content: '',
+        file_language: '',
+        is_folder: true,
+        is_main_file: false,
+        order_index: 0
+      });
+
+      // Create files
+      const { error } = await supabase
+        .from('project_files')
+        .insert(fallbackFiles);
+
+      if (error) throw error;
+
+      // Update local state
+      const { data: newFiles } = await supabase
+        .from('project_files')
+        .select('*')
+        .eq('question_id', questionId)
+        .order('order_index');
+
+      if (newFiles) {
+        const projectFiles = newFiles.map(file => ({
+          id: file.id,
+          fileName: file.file_name,
+          filePath: file.file_path,
+          fileContent: file.file_content,
+          fileLanguage: file.file_language,
+          isFolder: file.is_folder,
+          isMainFile: file.is_main_file,
+          orderIndex: file.order_index
+        }));
+        
+        updateConfig({ projectFiles });
+        setStructureReloadKey(prev => prev + 1);
+      }
+
+    } catch (error) {
+      console.error('Failed to create fallback structure:', error);
     }
   };
 
@@ -511,24 +633,40 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
               <div className="bg-muted/30 rounded-lg p-4 mb-6">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">2</div>
-                  <h3 className="font-semibold">Generate Project Structure</h3>
+                  <h3 className="font-semibold">Project Structure & Files</h3>
+                  {config.projectFiles.length > 0 && (
+                    <Badge variant="secondary" className="ml-auto">
+                      {config.projectFiles.filter(f => !f.isFolder).length} files, {config.projectFiles.filter(f => f.isFolder).length} folders
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground ml-11">
-                  AI will create a complete project structure with files, folders, and starter code based on your technology choice.
+                  Create a multi-file project structure with AI assistance or manual creation.
+                  {config.projectFiles.length === 0 && (
+                    <span className="block mt-2 text-amber-600 dark:text-amber-400 font-medium">
+                      ⚠️ No project files exist. Test takers will see an empty project until you generate files.
+                    </span>
+                  )}
                 </p>
                 
-                {/* Prerequisites Check */}
+                {/* Status Indicators */}
                 <div className="ml-11 mt-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <div className={`w-2 h-2 rounded-full ${config.technology.trim() ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={config.technology.trim() ? 'text-green-700' : 'text-red-700'}>
+                    <span className={config.technology.trim() ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
                       Technology: {config.technology.trim() ? `${config.technology}` : 'Not specified'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <div className={`w-2 h-2 rounded-full ${questionId ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={questionId ? 'text-green-700' : 'text-red-700'}>
-                      Question: {questionId ? 'Saved (AI features available)' : 'Not saved (Save as draft to unlock AI features)'}
+                    <span className={questionId ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
+                      Question: {questionId ? 'Saved (AI features available)' : 'Not saved (Save to unlock AI features)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${config.projectFiles.length > 0 ? 'bg-green-500' : 'bg-amber-500'}`}></div>
+                    <span className={config.projectFiles.length > 0 ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}>
+                      Project Files: {config.projectFiles.length > 0 ? `${config.projectFiles.length} items created` : 'No files generated yet'}
                     </span>
                   </div>
                 </div>
@@ -564,18 +702,21 @@ const ProjectBasedQuestionBuilder: React.FC<ProjectBasedQuestionBuilderProps> = 
                 <div>
                   <h3 className="text-lg font-semibold">Project Files & Folders</h3>
                   <p className="text-sm text-muted-foreground">
-                    AI-generated project structure based on your technology choice
+                    {config.projectFiles.length > 0 ? 
+                      `Generated project structure with ${config.projectFiles.filter(f => !f.isFolder).length} files` :
+                      'Generate AI-powered project structure based on your technology choice'
+                    }
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button 
-                    onClick={generateProjectStructure}
+                    onClick={() => generateProjectStructure()}
                     disabled={isGeneratingStructure || !questionId || !config.technology.trim()}
                     variant="outline"
                     className="flex items-center gap-2"
                   >
                     <Sparkles className="w-4 h-4" />
-                    {isGeneratingStructure ? 'Generating...' : 'AI Generate Structure'}
+                    {isGeneratingStructure ? 'Generating...' : config.projectFiles.length > 0 ? 'Regenerate' : 'Generate with AI'}
                   </Button>
                   {completionStatus.structure && (
                     <Button 

@@ -321,7 +321,11 @@ const ProjectBasedQuestion: React.FC<ProjectBasedQuestionProps> = ({
               {files.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Folder className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No project files available</p>
+                  <div className="space-y-2">
+                    <p className="font-medium">No project files available</p>
+                    <p className="text-xs">This question may not have been set up properly.</p>
+                    <p className="text-xs">Please contact your instructor.</p>
+                  </div>
                 </div>
               ) : (
                 renderFileTree()
