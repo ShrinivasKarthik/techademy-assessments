@@ -25,7 +25,7 @@ const TestEvaluationTrigger: React.FC = () => {
       setLoading(true);
       console.log('Triggering evaluation for instance:', instanceId);
 
-      const { data, error } = await supabase.functions.invoke('trigger-evaluation', {
+      const { data, error } = await supabase.functions.invoke('auto-evaluate-assessment', {
         body: { instanceId: instanceId.trim() }
       });
 
